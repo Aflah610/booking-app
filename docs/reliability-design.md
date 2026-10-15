@@ -5,6 +5,11 @@ the old open-source Cal.com code structured its booking logic gave us ideas, but
 imitates its code, and several choices go further (for example the exclusion constraint below). It is sized
 for a 30-person firm whose website can still get traffic spikes.
 
+We checked it against cal.com's code from 14 April 2026, the last version before the project closed its
+source. That version protects bookings the same way at its core, and it had three more ideas we've added
+in our own form: rate limits on booking keyed by a hashed client IP, a fair "any available" pick, and
+reminders stored ahead of time so they move or vanish with the booking.
+
 ## The rule that matters most: never trust the slot list
 
 The slot list a client sees is a hint. It can be seconds old. So:
@@ -35,7 +40,9 @@ Per staff member, for the requested date range:
    O(n log n), never pairwise.
 4. Cut the free ranges into start times using the service's slot interval, dropping anything inside the
    minimum notice or beyond the booking window.
-5. "Any available" staff: compute each person's slots and union them, then pick by workload when booking.
+5. "Any available" staff: compute each person's slots and union them. At booking time, pick the free staff
+   member with the fewest bookings over the last few weeks (ties go to whoever was booked least recently),
+   so work spreads evenly.
 
 This is pure code with no database calls, so it gets exhaustive unit tests (DST changes, buffers at range
 edges, overrides, holds).
@@ -54,6 +61,11 @@ edges, overrides, holds).
 Messages, calendar writes, reminders and cleanup never run inside the booking request. They go on a queue
 (pg-boss in the same Postgres) behind a small `tasker` interface, with retries, delays and cancellation. A failed WhatsApp send can't fail a booking.
 
+Reminders (24h and 1h before) are written to the `notification` table with a `scheduled_for` time when
+the booking is made. Rescheduling replaces them and cancelling removes them in the same transaction as the
+booking change, so a client never gets a reminder for an old time. A worker picks up due rows using the
+`notification_due_idx` index and counts `attempts` for retries.
+
 ## Database
 
 - Indexes match the hot queries: bookings by staff, status and start (`booking_staff_status_starts_idx`),
@@ -63,7 +75,8 @@ Messages, calendar writes, reminders and cleanup never run inside the booking re
 
 ## Protecting the public API
 
-- Rate limits per API key and per client IP on availability, holds and booking creation (phase 3).
+- Rate limits per API key and per client IP on availability, holds and booking creation (phase 3). The
+  website forwards the client's IP; we only store a hash of it in the limiter key, never the IP itself.
 - If the website ever calls us from the browser, a scoped public key plus CAPTCHA on booking.
 
 ## When each piece lands

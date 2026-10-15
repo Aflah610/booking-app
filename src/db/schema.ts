@@ -211,9 +211,15 @@ export const notification = pgTable("notification", {
   status: notificationStatus("status").notNull().default("queued"),
   providerMessageId: text("provider_message_id"),
   error: text("error"),
+  /** When to send. Reminders are stored ahead of time and re-planned when a booking moves or is cancelled. */
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull().defaultNow(),
+  attempts: integer("attempts").notNull().default(0),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [index("notification_booking_idx").on(t.bookingId)]);
+}, (t) => [
+  index("notification_booking_idx").on(t.bookingId),
+  index("notification_due_idx").on(t.status, t.scheduledFor),
+]);
 
 /** Credentials for the firm's website and other tools. Only a SHA-256 hash of the key is stored. */
 export const apiKey = pgTable("api_key", {

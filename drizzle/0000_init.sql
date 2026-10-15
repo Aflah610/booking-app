@@ -106,6 +106,8 @@ CREATE TABLE "notification" (
 	"status" "notification_status" DEFAULT 'queued' NOT NULL,
 	"provider_message_id" text,
 	"error" text,
+	"scheduled_for" timestamp with time zone DEFAULT now() NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
 	"sent_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -213,6 +215,7 @@ CREATE INDEX "booking_starts_idx" ON "booking" USING btree ("starts_at");--> sta
 CREATE INDEX "booking_status_starts_idx" ON "booking" USING btree ("status","starts_at");--> statement-breakpoint
 CREATE INDEX "client_package_client_idx" ON "client_package" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "notification_booking_idx" ON "notification" USING btree ("booking_id");--> statement-breakpoint
+CREATE INDEX "notification_due_idx" ON "notification" USING btree ("status","scheduled_for");--> statement-breakpoint
 CREATE INDEX "slot_hold_staff_release_idx" ON "slot_hold" USING btree ("staff_id","release_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "staff_email_lower_idx" ON "staff" USING btree (lower("email"));--> statement-breakpoint
 CREATE INDEX "staff_service_service_idx" ON "staff_service" USING btree ("service_id");--> statement-breakpoint

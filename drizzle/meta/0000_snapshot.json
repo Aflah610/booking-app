@@ -1,5 +1,5 @@
 {
-  "id": "6b74ef5d-7597-439b-abdc-898acd63218a",
+  "id": "d4a7bd90-03b3-458d-aa6d-69afc7cfc978",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -873,6 +873,20 @@
           "primaryKey": false,
           "notNull": false
         },
+        "scheduled_for": {
+          "name": "scheduled_for",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "sent_at": {
           "name": "sent_at",
           "type": "timestamp with time zone",
@@ -893,6 +907,27 @@
           "columns": [
             {
               "expression": "booking_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notification_due_idx": {
+          "name": "notification_due_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scheduled_for",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
