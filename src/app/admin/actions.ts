@@ -47,7 +47,7 @@ export async function createStaffAction(form: FormData) {
       name: str(form, "name"),
       email: str(form, "email"),
       role,
-      timezone: str(form, "timezone") || "UTC",
+      timezone: str(form, "timezone") || "Asia/Kolkata",
     });
   });
 }
