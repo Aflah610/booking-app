@@ -12,20 +12,10 @@ const schema = z.object({
   ALLOWED_EMAIL_DOMAIN: z.string().optional(),
 });
 
-export type Env = z.infer<typeof schema>;
-
-let cached: Env | undefined;
-
-export function env(): Env {
-  if (!cached) {
-    const parsed = schema.safeParse(process.env);
-    if (!parsed.success) {
-      const fields = parsed.error.issues.map((i) => i.path.join(".")).join(", ");
-      throw new Error(`Missing or invalid environment variables: ${fields}`);
-    }
-    cached = parsed.data;
-  }
-  return cached;
+/** Names of required settings that are missing or invalid (empty when all is well). */
+export function missingEnv(): string[] {
+  const parsed = schema.safeParse(process.env);
+  return parsed.success ? [] : [...new Set(parsed.error.issues.map((i) => i.path.join(".")))];
 }
 
 export function adminEmails(): string[] {

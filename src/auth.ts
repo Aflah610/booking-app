@@ -8,6 +8,8 @@ import { adminEmails } from "@/lib/env";
 // AUTH_GOOGLE_SECRET from the environment.
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google],
+  // The app always runs behind a host's proxy (AppSail, App Runner, a load balancer), which sets the Host header.
+  trustHost: true,
   session: { strategy: "jwt", maxAge: 60 * 60 * 12 },
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
