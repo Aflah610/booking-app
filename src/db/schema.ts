@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -35,8 +36,9 @@ export const notificationStatus = pgEnum("notification_status", ["queued", "sent
 export const business = pgTable("business", {
   id: smallint("id").primaryKey().default(1),
   name: text("name").notNull().default("My firm"),
-  timezone: text("timezone").notNull().default("UTC"),
-  currency: text("currency").notNull().default("USD"),
+  // The firm is in India; IANA zone and ISO 4217 currency.
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  currency: text("currency").notNull().default("INR"),
   bookingPrefix: text("booking_prefix").notNull().default("BK-"),
   slotIntervalMin: integer("slot_interval_min").notNull().default(15),
   minNoticeMin: integer("min_notice_min").notNull().default(60),
@@ -50,7 +52,7 @@ export const staff = pgTable("staff", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   role: staffRole("role").notNull().default("staff"),
-  timezone: text("timezone").notNull().default("UTC"),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
   active: boolean("active").notNull().default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -107,13 +109,57 @@ export const timeOff = pgTable("time_off", {
   check("time_off_start_before_end", sql`${t.startsAt} < ${t.endsAt}`),
 ]);
 
+/**
+ * Hours for one specific date that replace the weekly pattern for that date (in the staff member's zone).
+ * Several rows per date allowed. A row with no times means "not working that day".
+ */
+export const dateOverride = pgTable("date_override", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  startTime: time("start_time"),
+  endTime: time("end_time"),
+  createdAt: createdAt(),
+}, (t) => [
+  index("date_override_staff_date_idx").on(t.staffId, t.date),
+  check(
+    "date_override_times",
+    sql`(${t.startTime} is null and ${t.endTime} is null) or (${t.startTime} < ${t.endTime})`,
+  ),
+]);
+
 export const calendarConnection = pgTable("calendar_connection", {
   staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
   provider: text("provider").notNull(),
   encryptedTokens: text("encrypted_tokens").notNull(),
+  /** The calendar we read busy times from and write bookings to. */
+  calendarId: text("calendar_id").notNull().default("primary"),
+  /** Provider's incremental sync token, so each sync only fetches changes. */
   syncCursor: text("sync_cursor"),
+  /** Push-notification channel; renewed by a scheduled job before it expires. */
+  channelId: text("channel_id"),
+  channelResourceId: text("channel_resource_id"),
+  channelExpiresAt: timestamp("channel_expires_at", { withTimezone: true }),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  errorCount: integer("error_count").notNull().default(0),
+  lastError: text("last_error"),
   updatedAt: updatedAt(),
-}, (t) => [primaryKey({ columns: [t.staffId, t.provider] })]);
+}, (t) => [primaryKey({ columns: [t.staffId, t.provider] }), uniqueIndex("calendar_connection_channel_idx").on(t.channelId)]);
+
+/** Busy times copied from a staff member's external calendar, so slot requests never wait on Google. */
+export const calendarBusy = pgTable("calendar_busy", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  externalId: text("external_id").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex("calendar_busy_external_idx").on(t.staffId, t.provider, t.externalId),
+  index("calendar_busy_staff_range_idx").on(t.staffId, t.startsAt),
+  check("calendar_busy_start_before_end", sql`${t.startsAt} < ${t.endsAt}`),
+]);
 
 /** Personal data about clients lives only here. */
 export const client = pgTable("client", {
@@ -202,6 +248,14 @@ export const slotHold = pgTable("slot_hold", {
   index("slot_hold_staff_release_idx").on(t.staffId, t.releaseAt),
   check("slot_hold_start_before_end", sql`${t.startsAt} < ${t.endsAt}`),
 ]);
+
+/** The event we wrote to a staff member's calendar for a booking, so reschedule and cancel update the right one. */
+export const bookingCalendarEvent = pgTable("booking_calendar_event", {
+  bookingId: uuid("booking_id").notNull().references(() => booking.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  externalEventId: text("external_event_id").notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.bookingId, t.provider] })]);
 
 export const notification = pgTable("notification", {
   id: uuid("id").primaryKey().defaultRandom(),
