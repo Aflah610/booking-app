@@ -1,5 +1,5 @@
 {
-  "id": "d4a7bd90-03b3-458d-aa6d-69afc7cfc978",
+  "id": "cbfbc996-671f-421a-a2dc-6a8ec68c44cd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -887,6 +887,12 @@
           "notNull": true,
           "default": 0
         },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "sent_at": {
           "name": "sent_at",
           "type": "timestamp with time zone",
@@ -955,7 +961,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "notification_dedupe_key_unique": {
+          "name": "notification_dedupe_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "dedupe_key"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

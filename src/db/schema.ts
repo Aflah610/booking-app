@@ -214,6 +214,8 @@ export const notification = pgTable("notification", {
   /** When to send. Reminders are stored ahead of time and re-planned when a booking moves or is cancelled. */
   scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull().defaultNow(),
   attempts: integer("attempts").notNull().default(0),
+  /** e.g. "<bookingId>:reminder_24h:whatsapp". A second enqueue of the same message is a no-op. */
+  dedupeKey: text("dedupe_key").unique(),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   createdAt: createdAt(),
 }, (t) => [

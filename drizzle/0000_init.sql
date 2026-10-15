@@ -108,8 +108,10 @@ CREATE TABLE "notification" (
 	"error" text,
 	"scheduled_for" timestamp with time zone DEFAULT now() NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
+	"dedupe_key" text,
 	"sent_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "notification_dedupe_key_unique" UNIQUE("dedupe_key")
 );
 --> statement-breakpoint
 CREATE TABLE "service" (
