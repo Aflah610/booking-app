@@ -6,7 +6,9 @@ import { Pool } from "pg";
 import { poolConfig } from "../src/db/pool-config";
 
 async function main() {
-  const url = process.env.DATABASE_URL;
+  // Neon's pooled URL goes through PgBouncer in transaction mode, which can break migrations;
+  // use the direct URL when the host provides one.
+  const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
   const pool = new Pool(poolConfig(url, 1));
   try {
