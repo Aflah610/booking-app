@@ -5,7 +5,7 @@ import type { ServiceDTO } from "./catalog.dto";
 import type { CatalogRepository } from "./catalog.repository";
 import { serviceInput, type ServiceInput } from "./catalog.schemas";
 
-/** Services (cal.com calls them event types): what clients can book. */
+/** Services: what clients can book. */
 export function createCatalogService({ catalogRepo }: { catalogRepo: CatalogRepository }) {
   async function get(id: string): Promise<ServiceDTO> {
     const row = isUuid(id) ? await catalogRepo.findById(id) : null;

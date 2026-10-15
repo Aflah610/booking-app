@@ -1,14 +1,14 @@
 # Engineering rules
 
-Rules for anyone (person or AI agent) changing this codebase. They adapt the architecture rules Cal.com
-publishes for its open-source codebase (Cal.diy, MIT licence, `agents/rules/`), trimmed for a single app.
-No Cal.com code is copied; we follow the same patterns.
+Rules for anyone (person or AI agent) changing this codebase. They are our own. We looked at how the old
+open-source Cal.com code organised its logic for ideas only. Never copy or imitate its code; design our own
+solution for each problem.
 
 ## Architecture
 
 - **Vertical slices.** Code is organised by domain under `src/features/<domain>/`, not by technical layer.
   Each slice holds its own DTOs, input schemas, repository and service:
-  `staff`, `catalog` (services clients can book; Cal.com calls these event types), `schedules`
+  `staff`, `catalog` (services clients can book), `schedules`
   (working hours, time off, later date overrides and availability), `api-keys`, `audit`, `health`.
   Bookings, availability and notifications arrive as new slices.
 - **Repositories are the only code that knows about the database.** Only `*.repository.ts` files import

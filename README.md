@@ -80,7 +80,7 @@ Docker build.
 
 ## Project layout
 
-Organised by domain (vertical slices), following the architecture Cal.com publishes for its open-source code:
+Organised by domain (vertical slices):
 
 ```
 src/features/<domain>/   one folder per domain: staff, catalog, schedules, api-keys, audit, health
