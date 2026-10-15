@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { poolConfig } from "@/db/pool-config";
 import { formatDayRanges, parseDayRanges } from "@/lib/hours-form";
 import { formatInZone, zonedToUtc } from "@/lib/time";
 
@@ -25,5 +26,23 @@ describe("time zones", () => {
   it("round-trips through formatInZone", () => {
     const d = zonedToUtc("2026-03-29T14:15", "Europe/London");
     expect(formatInZone(d, "Europe/London")).toBe("2026-03-29 14:15");
+  });
+});
+
+describe("database pool config", () => {
+  const neon = "postgresql://u:p@ep-x-pooler.ap-southeast-1.aws.neon.tech/db";
+
+  it("turns on TLS for Neon when the URL has no sslmode", () => {
+    expect(poolConfig(neon, 5, {}).ssl).toEqual({ rejectUnauthorized: true });
+  });
+
+  it("leaves TLS to the URL when sslmode is given", () => {
+    expect(poolConfig(`${neon}?sslmode=require`, 5, {}).ssl).toBeUndefined();
+  });
+
+  it("uses plain connections for other hosts unless DATABASE_SSL=true", () => {
+    const local = "postgres://u:p@localhost:5432/db";
+    expect(poolConfig(local, 5, {}).ssl).toBeUndefined();
+    expect(poolConfig(local, 5, { DATABASE_SSL: "true" }).ssl).toEqual({ rejectUnauthorized: true });
   });
 });

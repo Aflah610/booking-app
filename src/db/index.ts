@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { poolConfig } from "./pool-config";
 import * as schema from "./schema";
 
 export type Db = ReturnType<typeof createDb>;
@@ -7,7 +8,7 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type DbOrTx = Db | Tx;
 
 export function createDb(connectionString: string) {
-  const pool = new Pool({ connectionString, max: 10 });
+  const pool = new Pool(poolConfig(connectionString, 10));
   return drizzle(pool, { schema, casing: "snake_case" });
 }
 
