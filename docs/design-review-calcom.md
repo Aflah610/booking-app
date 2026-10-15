@@ -2,7 +2,9 @@
 
 **Reference:** cal.com repository at commit `c0d105e7`, 14 April 2026, the last commit before the project
 closed its source. This is the full product, including its `ee/` folder (round robin, workflows, teams). It is
-not Cal.diy.
+not Cal.diy. Your private copy `wakycoo-design/cal.com-full` is a snapshot of commit `a17f28e9` from later the
+same day. The two differ only in dependency version bumps, and spot-checked logic files are identical, so
+this review applies to your copy unchanged.
 
 **Rule:** we read it only to understand how the logic is structured. No code is copied or imitated; every
 item below is our own design, sized for a 30-person firm whose website can see traffic spikes.
