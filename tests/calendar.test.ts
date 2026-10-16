@@ -18,7 +18,7 @@ const everyDay = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startTime: "
 /** Stands in for Google: remembers what was written and returns whatever busy times the test sets. */
 function fakeGoogle() {
   const events = new Map<string, CalendarBookingDTO>();
-  const state = { busy: [] as ExternalBusy[], down: false, revoked: false, next: 0, calls: [] as string[], refreshes: 0 };
+  const state = { invites: [] as boolean[], notified: [] as boolean[], busy: [] as ExternalBusy[], down: false, revoked: false, next: 0, calls: [] as string[], refreshes: 0 };
   const provider: CalendarProvider = {
     id: "google",
     configured: () => true,
@@ -36,7 +36,8 @@ function fakeGoogle() {
       if (state.down) throw new Error("Google is down");
       return state.busy;
     },
-    upsertEvent: async (_t, _c, id, b) => {
+    upsertEvent: async (_t, _c, id, b, invite) => {
+      state.invites.push(invite);
       if (state.down) throw new Error("Google is down");
       if (state.revoked) throw new ProviderAuthError("revoked");
       const eventId = id ?? `evt_${++state.next}`;
@@ -44,7 +45,8 @@ function fakeGoogle() {
       events.set(eventId, b);
       return eventId;
     },
-    deleteEvent: async (_t, _c, id) => {
+    deleteEvent: async (_t, _c, id, notify) => {
+      state.notified.push(notify);
       if (state.down) throw new Error("Google is down");
       state.calls.push(`delete:${id}`);
       events.delete(id);
@@ -175,10 +177,10 @@ describe("writing bookings to the calendar", () => {
     await c.calendar.processDue(t0);
     expect(google.events.size).toBe(0);
     await connect(staff.id);
-    await c.calendar.setOptions(staff.id, { pushBookings: false, blockBusy: true });
+    await c.calendar.setOptions(staff.id, { pushBookings: false, blockBusy: true, inviteClients: false });
     await c.calendar.processDue(t0);
     expect(google.events.size).toBe(0);
-    await c.calendar.setOptions(staff.id, { pushBookings: true, blockBusy: true }, t0);
+    await c.calendar.setOptions(staff.id, { pushBookings: true, blockBusy: true, inviteClients: false }, t0);
     await c.calendar.processDue(t0);
     expect(google.events.size).toBe(1); // turning it back on catches up
   });
@@ -219,6 +221,38 @@ describe("writing bookings to the calendar", () => {
   });
 });
 
+describe("inviting the client", () => {
+  it("does not invite clients unless switched on", async () => {
+    const { svc, staff } = await setup();
+    await connect(staff.id);
+    await book(svc.id, "2026-10-19T10:00");
+    await c.calendar.processDue(t0);
+    expect(google.state.invites).toEqual([false]);
+  });
+
+  it("invites the client on new bookings and tells them when it is cancelled", async () => {
+    const { svc, staff } = await setup();
+    await connect(staff.id);
+    await c.calendar.setOptions(staff.id, { pushBookings: true, blockBusy: true, inviteClients: true });
+    const b = await book(svc.id, "2026-10-19T10:00");
+    await c.calendar.processDue(t0);
+    expect(google.state.invites).toEqual([true]);
+    await c.bookings.cancel(desk, b.id, {}, { now: t0 });
+    await c.calendar.processDue(t0);
+    expect(google.state.notified).toEqual([true]);
+  });
+
+  it("does not re-send invites for bookings already in the calendar when the switch is turned on or Sync now is pressed", async () => {
+    const { svc, staff } = await setup();
+    await connect(staff.id);
+    await book(svc.id, "2026-10-19T10:00");
+    await c.calendar.processDue(t0);
+    await c.calendar.setOptions(staff.id, { pushBookings: true, blockBusy: true, inviteClients: true });
+    await c.calendar.syncNow(staff.id, t0);
+    expect(google.state.invites).toEqual([false]);
+  });
+});
+
 describe("blocking busy times", () => {
   it("hides slots that clash with events in the calendar and shows them again when the event goes", async () => {
     const { svc, staff } = await setup();
@@ -247,7 +281,7 @@ describe("blocking busy times", () => {
     await connect(staff.id);
     google.state.busy = [{ externalId: "e1", start: at("2026-10-19T10:00"), end: at("2026-10-19T11:00") }];
     await c.calendar.syncBusy(plus(t0, 10));
-    await c.calendar.setOptions(staff.id, { pushBookings: true, blockBusy: false });
+    await c.calendar.setOptions(staff.id, { pushBookings: true, blockBusy: false, inviteClients: false });
     expect(await slots(svc.id, "2026-10-19")).toContain(at("2026-10-19T10:00").toISOString());
   });
 

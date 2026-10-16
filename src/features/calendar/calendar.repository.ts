@@ -11,6 +11,7 @@ const connectionColumns = {
   calendarId: calendarConnection.calendarId,
   pushBookings: calendarConnection.pushBookings,
   blockBusy: calendarConnection.blockBusy,
+  inviteClients: calendarConnection.inviteClients,
   lastSyncedAt: calendarConnection.lastSyncedAt,
   errorCount: calendarConnection.errorCount,
   lastError: calendarConnection.lastError,
@@ -46,7 +47,7 @@ export function createCalendarRepository(db: Db) {
       await db.update(calendarConnection).set({ encryptedTokens, updatedAt: new Date() }).where(eq(calendarConnection.staffId, staffId));
     },
 
-    async setOptions(staffId: string, v: { pushBookings: boolean; blockBusy: boolean }) {
+    async setOptions(staffId: string, v: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean }) {
       await db.update(calendarConnection).set({ ...v, updatedAt: new Date() }).where(eq(calendarConnection.staffId, staffId));
       if (!v.blockBusy) await db.delete(calendarBusy).where(eq(calendarBusy.staffId, staffId));
     },
@@ -142,7 +143,15 @@ export function createCalendarRepository(db: Db) {
       const rows = await db
         .select({ id: booking.id })
         .from(booking)
-        .where(and(eq(booking.staffId, staffId), ne(booking.status, "cancelled"), eq(booking.slotReleased, false), gt(booking.endsAt, now)));
+        .where(and(
+            eq(booking.staffId, staffId),
+            ne(booking.status, "cancelled"),
+            eq(booking.slotReleased, false),
+            gt(booking.endsAt, now),
+            // Only bookings with no event yet: re-sending the rest would email their clients again.
+            sql`not exists (select 1 from booking_calendar_event e where e.booking_id = ${booking.id} and e.provider = ${PROVIDER})`,
+          ),
+        );
       return rows.map((r) => r.id);
     },
 

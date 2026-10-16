@@ -30,7 +30,7 @@ async function failure(res: Response, what: string): Promise<never> {
   throw new Error(message);
 }
 
-function eventBody(b: CalendarBookingDTO) {
+function eventBody(b: CalendarBookingDTO, inviteClient: boolean) {
   const lines = [
     `Client: ${b.clientName}`,
     `Phone: ${b.clientPhone}`,
@@ -45,7 +45,9 @@ function eventBody(b: CalendarBookingDTO) {
     location: b.location ?? undefined,
     start: { dateTime: b.startsAt.toISOString(), timeZone: b.timezone },
     end: { dateTime: b.endsAt.toISOString(), timeZone: b.timezone },
-    // Staff see it as busy, and nobody is emailed an invite: this is their own diary, not a meeting request.
+    // With invites on, the client is a guest: Google emails them and (for Gmail) puts it in their calendar.
+    attendees: inviteClient && b.clientEmail ? [{ email: b.clientEmail, displayName: b.clientName }] : undefined,
+    guestsCanModify: false,
     transparency: "opaque",
     reminders: { useDefault: true },
     extendedProperties: { private: { [BOOKING_PROPERTY]: b.id } },
@@ -141,21 +143,22 @@ export function createGoogleProvider(env: Env = process.env): CalendarProvider {
       return out;
     },
 
-    async upsertEvent(accessToken, calendarId, eventId, booking) {
-      const body = JSON.stringify(eventBody(booking));
+    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient) {
+      const body = JSON.stringify(eventBody(booking, inviteClient));
+      const notify = inviteClient && booking.clientEmail ? "all" : "none";
       if (eventId) {
-        const res = await fetch(`${eventUrl(calendarId, eventId)}?sendUpdates=none`, { method: "PATCH", headers: authed(accessToken), body });
+        const res = await fetch(`${eventUrl(calendarId, eventId)}?sendUpdates=${notify}`, { method: "PATCH", headers: authed(accessToken), body });
         if (res.ok) return ((await res.json()) as GoogleEvent).id;
         // The person deleted the event by hand (or connected a different calendar): write a fresh one.
         if (res.status !== 404 && res.status !== 410) return failure(res, "Google event update");
       }
-      const res = await fetch(`${eventUrl(calendarId)}?sendUpdates=none`, { method: "POST", headers: authed(accessToken), body });
+      const res = await fetch(`${eventUrl(calendarId)}?sendUpdates=${notify}`, { method: "POST", headers: authed(accessToken), body });
       if (!res.ok) return failure(res, "Google event create");
       return ((await res.json()) as GoogleEvent).id;
     },
 
-    async deleteEvent(accessToken, calendarId, eventId) {
-      const res = await fetch(`${eventUrl(calendarId, eventId)}?sendUpdates=none`, { method: "DELETE", headers: authed(accessToken) });
+    async deleteEvent(accessToken, calendarId, eventId, notifyGuests) {
+      const res = await fetch(`${eventUrl(calendarId, eventId)}?sendUpdates=${notifyGuests ? "all" : "none"}`, { method: "DELETE", headers: authed(accessToken) });
       if (!res.ok && res.status !== 404 && res.status !== 410) await failure(res, "Google event delete");
     },
   };

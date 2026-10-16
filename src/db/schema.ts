@@ -168,6 +168,8 @@ export const calendarConnection = pgTable("calendar_connection", {
   accountEmail: text("account_email"),
   /** Write this person's bookings into their calendar. */
   pushBookings: boolean("push_bookings").notNull().default(true),
+  /** Add the client as a guest on the event, so Google emails them an invitation and adds it to their calendar. */
+  inviteClients: boolean("invite_clients").notNull().default(false),
   /** Treat events in their calendar as busy time, so clients can't book over them. */
   blockBusy: boolean("block_busy").notNull().default(true),
   /** The calendar we read busy times from and write bookings to. */

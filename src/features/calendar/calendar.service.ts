@@ -116,7 +116,7 @@ export function createCalendarService(deps: {
     await calendarRepo.remove(staffId);
   }
 
-  async function setOptions(staffId: string, options: { pushBookings: boolean; blockBusy: boolean }, now = new Date()) {
+  async function setOptions(staffId: string, options: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean }, now = new Date()) {
     const conn = await connectionOf(staffId);
     await calendarRepo.setOptions(staffId, options);
     if (options.pushBookings && !conn.pushBookings) await backfill(staffId, now);
@@ -150,12 +150,12 @@ export function createCalendarService(deps: {
     const gone = job.action === "delete" || b.status === "cancelled" || b.slotReleased;
     if (gone) {
       if (!eventId) return;
-      await provider.deleteEvent(await accessToken(conn, now), conn.calendarId, eventId);
+      await provider.deleteEvent(await accessToken(conn, now), conn.calendarId, eventId, conn.inviteClients);
       await calendarRepo.removeEventId(b.id);
       return;
     }
     if (!conn.pushBookings) return;
-    const id = await provider.upsertEvent(await accessToken(conn, now), conn.calendarId, eventId, b);
+    const id = await provider.upsertEvent(await accessToken(conn, now), conn.calendarId, eventId, b, conn.inviteClients);
     await calendarRepo.saveEventId(b.id, id);
   }
 

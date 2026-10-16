@@ -1,0 +1,1 @@
+ALTER TABLE "calendar_connection" ADD COLUMN "invite_clients" boolean DEFAULT false NOT NULL;

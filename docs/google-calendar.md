@@ -9,8 +9,21 @@ Each staff member can connect their own Google Calendar from their **Availabilit
   itself are ignored.
 - Each direction has its own switch on the same page, and **Sync now** refreshes immediately.
 
-No client is emailed an invite by Google. The event is a diary entry for the staff member; clients still get the
-firm's own confirmations (see workflows).
+## Inviting the client
+
+Turn on **Email clients a calendar invite** and the client becomes a guest on the event. Google emails them the
+invitation from the staff member's Google account. Gmail users usually see it in their calendar straight away; Outlook
+and Apple Calendar users get an "Add to calendar" button in the email. Cancelling a booking sends them a cancellation.
+Moving a booking sends a cancellation for the old time and a new invitation (Google treats it as a new event).
+
+- Needs the client's email on the booking. Bookings without one are written to the staff diary only.
+- It is off by default, because it sends real email to clients. It applies to new bookings only: turning it on or
+  pressing Sync now does not re-send anything for bookings already in the calendar.
+- It is in addition to the firm's own confirmation workflow, so a client with both gets two emails. Switch off the
+  "Booked" email workflow for clients if you only want the invite.
+- Google limits how many invitations an account can send per day (a few hundred for ordinary accounts).
+- Without this switch no client is emailed by Google; the event is just a diary entry. Clients can still use
+  "Add to calendar" on their manage page.
 
 ## One-time setup (the firm, not each person)
 

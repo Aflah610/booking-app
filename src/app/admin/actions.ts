@@ -203,7 +203,7 @@ export async function disconnectCalendarAction(staffId: string) {
 export async function calendarOptionsAction(staffId: string, form: FormData) {
   await requireSelfOrManager(staffId);
   await act(`/admin/staff/${staffId}`, "Calendar settings saved", () =>
-    app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on" }),
+    app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on", inviteClients: form.get("inviteClients") === "on" }),
   );
 }
 

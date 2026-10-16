@@ -6,6 +6,7 @@ export interface CalendarConnectionDTO {
   calendarId: string;
   pushBookings: boolean;
   blockBusy: boolean;
+  inviteClients: boolean;
   lastSyncedAt: Date | null;
   /** Failures since the last success; the worker stops retrying a connection that Google has rejected. */
   errorCount: number;

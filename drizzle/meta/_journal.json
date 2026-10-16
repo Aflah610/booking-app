@@ -71,6 +71,13 @@
       "when": 1792172791695,
       "tag": "0009_calendar_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792173507930,
+      "tag": "0010_calendar_invite_clients",
+      "breakpoints": true
     }
   ]
 }
