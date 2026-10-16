@@ -1,0 +1,42 @@
+name: Publish Docker image
+
+# Builds the app image and pushes it to Docker Hub, so Zoho Catalyst AppSail (or AWS) can deploy it from the
+# console without Docker on your computer. Needs two repository secrets:
+#   DOCKERHUB_USERNAME  your Docker Hub username
+#   DOCKERHUB_TOKEN     a Docker Hub access token (Account settings > Personal access tokens)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Docker Hub secrets
+        id: secrets
+        env:
+          USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          if [ -z "$USERNAME" ]; then
+            echo "DOCKERHUB_USERNAME is not set; skipping publish."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready == 'true'
+      - uses: docker/login-action@v3
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/booking-app:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/booking-app:${{ github.sha }}
