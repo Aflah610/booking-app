@@ -8,9 +8,9 @@ solution for each problem.
 
 - **Vertical slices.** Code is organised by domain under `src/features/<domain>/`, not by technical layer.
   Each slice holds its own DTOs, input schemas, repository and service:
-  `staff`, `catalog` (services clients can book), `schedules`
-  (working hours, time off, later date overrides and availability), `api-keys`, `audit`, `health`.
-  Bookings, availability and notifications arrive as new slices.
+  `staff`, `catalog` (services clients can book), `schedules` (weekly hours, date overrides, time off),
+  `availability` (the pure slot engine in `slots.ts` plus loading), `bookings` (create, holds, reschedule,
+  cancel), `clients`, `settings`, `api-keys`, `audit`, `health`. Notifications arrive as a new slice.
 - **Repositories are the only code that knows about the database.** Only `*.repository.ts` files import
   Drizzle or `@/db/schema`. They select explicit columns, return DTOs, and contain no business rules.
 - **Services hold the business rules.** `*.service.ts` files validate input, enforce rules and call
