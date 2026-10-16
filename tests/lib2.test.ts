@@ -15,7 +15,7 @@ describe("calendar file", () => {
     });
     expect(ics).toContain("DTSTART:20261019T043000Z\r\n");
     expect(ics).toContain("DTEND:20261019T050000Z\r\n");
-    expect(ics).toContain("SUMMARY:Consult\\, with Asha\; room 2\r\n");
+    expect(ics).toContain("SUMMARY:Consult\\, with Asha\\; room 2\r\n");
     expect(ics).toContain("LOCATION:12 MG Road\\nBengaluru\r\n");
     expect(ics.startsWith("BEGIN:VCALENDAR\r\n")).toBe(true);
     expect(ics.endsWith("END:VCALENDAR\r\n")).toBe(true);

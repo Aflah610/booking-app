@@ -5,6 +5,7 @@ import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
 import { bookingReference, type BookingEvent } from "@/features/bookings/bookings.dto";
 import { longDayLabel, timeLabel } from "@/lib/format";
+import { addToCalendarLinks } from "@/lib/ics";
 import { render, type TemplateVars } from "./templates";
 import {
   NotConfigured,
@@ -40,6 +41,9 @@ type Firm = { name: string; timezone: string; bookingPrefix: string; resumeUrl: 
  * survives restarts and can be cancelled when the booking moves); a worker calls `processDue` to send them.
  * Nothing here can fail a booking: callers treat `onBookingEvent` as best effort.
  */
+/** Events whose email carries a calendar entry: the appointment appears, moves or disappears with these. */
+const INVITE_TRIGGERS: WorkflowTrigger[] = ["booked", "rescheduled", "cancelled", "payment_success"];
+
 export function createWorkflowsService(deps: {
   workflowsRepo: WorkflowsRepository;
   catalogRepo: CatalogRepository;
@@ -49,8 +53,10 @@ export function createWorkflowsService(deps: {
   manageLink: (bookingId: string) => string | null;
   /** The bare token inside that link, for building a link to the firm's own website page. */
   manageToken: (bookingId: string) => string | null;
+  /** Address of the booking's downloadable calendar file (without the token), for the {{add_to_calendar}} link. */
+  calendarFileUrl?: (bookingId: string) => string;
 }) {
-  const { workflowsRepo, catalogRepo, settingsRepo, senders, manageLink, manageToken } = deps;
+  const { workflowsRepo, catalogRepo, settingsRepo, senders, manageLink, manageToken, calendarFileUrl } = deps;
 
   async function get(id: string): Promise<WorkflowDTO> {
     const row = isUuid(id) ? await workflowsRepo.findById(id) : null;
@@ -102,8 +108,18 @@ export function createWorkflowsService(deps: {
     return url.toString();
   }
 
+  /** Where the calendar entry gets its title and notes; shared by the invite and the add-to-calendar links. */
+  function eventText(ctx: BookingContextDTO, firm: Firm) {
+    return { title: `${ctx.serviceName} with ${ctx.staffName}`, description: `Booking ${bookingReference(firm.bookingPrefix, ctx.number)} at ${firm.name}` };
+  }
+
   function vars(ctx: BookingContextDTO, firm: Firm): TemplateVars {
+    const links = addToCalendarLinks({ start: ctx.startsAt, end: ctx.endsAt, location: ctx.location, ...eventText(ctx, firm) });
+    const token = manageToken(ctx.bookingId);
     return {
+      add_to_google: links.google,
+      add_to_outlook: links.outlook,
+      add_to_calendar: token && calendarFileUrl ? `${calendarFileUrl(ctx.bookingId)}?t=${token}` : "",
       client_name: ctx.clientName,
       client_phone: ctx.clientPhone,
       service: ctx.serviceName,
@@ -133,7 +149,22 @@ export function createWorkflowsService(deps: {
       if (!to) return { skip: "The client has no email address" };
       const subject = render(c.subject, v);
       const body = render(c.body, v);
-      return { msg: { channel: "email", to, subject, body }, to, summary: `${subject}\n\n${body}` };
+      // Invites only go to the client, and only where the calendar entry itself changes.
+      const invite =
+        c.attachInvite && c.recipient !== "staff" && INVITE_TRIGGERS.includes(w.trigger)
+          ? {
+              method: ctx.status === "cancelled" ? ("CANCEL" as const) : ("REQUEST" as const),
+              uid: ctx.calendarUid,
+              // A cancellation must outrank every earlier version of the entry.
+              sequence: ctx.calendarSequence + (ctx.status === "cancelled" ? 1 : 0),
+              start: ctx.startsAt,
+              end: ctx.endsAt,
+              ...eventText(ctx, firm),
+              location: ctx.location,
+              attendee: { name: ctx.clientName, email: to },
+            }
+          : undefined;
+      return { msg: { channel: "email", to, subject, body, invite }, to, summary: `${subject}\n\n${body}${invite ? `\n\n[Calendar invite attached: ${invite.method}]` : ""}` };
     }
     if (w.channel === "whatsapp") {
       const c = w.config as WhatsappConfig;

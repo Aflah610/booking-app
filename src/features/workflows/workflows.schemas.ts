@@ -13,6 +13,7 @@ const email = z.object({
   recipient: z.enum(["client", "staff"]).default("client"),
   subject: text(200),
   body: text(5000),
+  attachInvite: z.boolean().default(false),
 });
 const whatsapp = z.object({
   channel: z.literal("whatsapp"),

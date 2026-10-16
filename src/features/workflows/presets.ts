@@ -12,6 +12,7 @@ export const PRESETS: { key: string; title: string; blurb: string; input: Workfl
       action: {
         channel: "email",
         recipient: "client",
+        attachInvite: true,
         subject: "Your {{service}} is confirmed",
         body: "Hi {{client_name}},\n\nYour {{service}} with {{staff}} is confirmed for {{date}} at {{time}}.\nBooking ID: {{booking_id}}\nWhere: {{location}}\n\nNeed to change it? {{manage_link}}\n\nThank you,\n{{firm_name}}",
       },
@@ -61,6 +62,7 @@ export const PRESETS: { key: string; title: string; blurb: string; input: Workfl
       action: {
         channel: "email",
         recipient: "client",
+        attachInvite: true,
         subject: "Your {{service}} has been cancelled",
         body: "Hi {{client_name}},\n\nYour {{service}} on {{date}} at {{time}} (booking {{booking_id}}) has been cancelled.\n\n{{firm_name}}",
       },
@@ -108,6 +110,7 @@ export const PRESETS: { key: string; title: string; blurb: string; input: Workfl
       action: {
         channel: "email",
         recipient: "client",
+        attachInvite: true,
         subject: "Payment received for your {{service}}",
         body: "Hi {{client_name}},\n\nThank you. We received {{amount}} for your {{service}} on {{date}} at {{time}}.\nBooking ID: {{booking_id}}\n\n{{firm_name}}",
       },

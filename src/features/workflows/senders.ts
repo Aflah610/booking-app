@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import nodemailer from "nodemailer";
+import { bookingIcs } from "@/lib/ics";
 import { NotConfigured, type OutgoingMessage, type Sender } from "./workflows.dto";
 import type { Senders } from "./workflows.service";
 
@@ -20,7 +21,18 @@ function emailSender(env: Env): Sender {
       secure: Number(env.SMTP_PORT ?? 465) === 465,
       auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
     });
+    // The invite says it comes from the same address the email does; Gmail ignores invites whose organiser differs.
+    const from = /<([^>]+)>/.exec(env.EMAIL_FROM)?.[1] ?? env.EMAIL_FROM;
+    const invite = msg.invite;
     const info = await transport.sendMail({
+      ...(invite
+        ? {
+            icalEvent: {
+              method: invite.method,
+              content: bookingIcs({ ...invite, method: invite.method, organizer: { email: from.trim() } }),
+            },
+          }
+        : {}),
       from: env.EMAIL_FROM,
       to: msg.to,
       subject: msg.subject,

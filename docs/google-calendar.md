@@ -9,7 +9,24 @@ Each staff member can connect their own Google Calendar from their **Availabilit
   itself are ignored.
 - Each direction has its own switch on the same page, and **Sync now** refreshes immediately.
 
-## Inviting the client
+## Adding the appointment to the client's calendar (any email address)
+
+This works without Google being connected at all. In **Workflows**, open an email workflow that goes to the client
+(the starter templates for booking, reschedule, cancellation and payment received have it on) and tick
+**Attach a calendar invite**. The email then carries a standard calendar invitation:
+
+- **Gmail / Google Workspace clients:** the appointment is added to their Google Calendar automatically and shows
+  in the email (their Google setting "Automatically add invitations" decides; the default adds them).
+- **Outlook, Apple Mail and others:** the email shows an **Add to calendar** (or Accept) button.
+- Moving a booking updates the same calendar entry; cancelling removes it. This holds for repeated moves.
+- The invitation is sent from your firm's email address (`EMAIL_FROM`), so email must be set up (`SMTP_*`).
+
+Message templates also have three link variables for people who prefer a link: `{{add_to_google}}`,
+`{{add_to_outlook}}` and `{{add_to_calendar}}` (a file for Apple Calendar and the Outlook app).
+
+Use either this **or** the Google invite below, not both: a client would get two entries for one appointment.
+
+## Inviting the client from the staff member's Google Calendar
 
 Turn on **Email clients a calendar invite** and the client becomes a guest on the event. Google emails them the
 invitation from the staff member's Google account. Gmail users usually see it in their calendar straight away; Outlook

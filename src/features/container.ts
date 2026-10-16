@@ -52,6 +52,7 @@ export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?
   const workflows = createWorkflowsService({
     // The client's page for moving or cancelling a booking, for use in messages.
     manageToken: (id) => (manageSecret ? manageToken(id, manageSecret) : null),
+    calendarFileUrl: (id) => `${appUrl}/manage/${id}/calendar.ics`,
     manageLink: (id) => (manageSecret ? `${appUrl}/manage/${id}?t=${manageToken(id, manageSecret)}` : null),
     workflowsRepo: createWorkflowsRepository(db),
     catalogRepo,

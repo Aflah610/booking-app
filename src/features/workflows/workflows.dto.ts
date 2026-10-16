@@ -32,7 +32,13 @@ export function whenLabel(w: Pick<WorkflowDTO, "trigger" | "timing" | "offsetMin
 }
 
 /** Per-channel settings. The tag is `WorkflowDTO.channel`, kept on the row so it can be filtered. */
-export type EmailConfig = { recipient: "client" | "staff"; subject: string; body: string };
+export type EmailConfig = {
+  recipient: "client" | "staff";
+  subject: string;
+  body: string;
+  /** Attach a calendar invite so Gmail, Outlook and Apple Mail offer to add (or remove) the appointment. */
+  attachInvite?: boolean;
+};
 export type WhatsappConfig = { templateName: string; language: string; params: string[] };
 export type WebhookConfig = { url: string };
 export type WorkflowConfig = EmailConfig | WhatsappConfig | WebhookConfig;
@@ -83,11 +89,28 @@ export type BookingContextDTO = {
   cancellationReason: string | null;
   amountPaise: number | null;
   resumeUntil: Date | null;
+  /** Same for a booking and every reschedule of it, so the client's calendar updates one entry instead of piling up. */
+  calendarUid: string;
+  /** How many times it has been moved; rises with each change so calendars take the newest. */
+  calendarSequence: number;
+};
+
+/** A calendar invitation to send with an email. The sender adds who it is from. */
+export type InviteDTO = {
+  method: "REQUEST" | "CANCEL";
+  uid: string;
+  sequence: number;
+  start: Date;
+  end: Date;
+  title: string;
+  description: string;
+  location: string | null;
+  attendee: { name: string; email: string };
 };
 
 /** A message ready to hand to a channel. */
 export type OutgoingMessage =
-  | { channel: "email"; to: string; subject: string; body: string }
+  | { channel: "email"; to: string; subject: string; body: string; invite?: InviteDTO }
   | { channel: "whatsapp"; to: string; templateName: string; language: string; params: string[] }
   | { channel: "webhook"; url: string; payload: Record<string, unknown> };
 

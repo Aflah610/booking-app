@@ -161,7 +161,16 @@ export function createWorkflowsRepository(db: Db) {
         .innerJoin(staff, eq(staff.id, booking.staffId))
         .innerJoin(client, eq(client.id, booking.clientId))
         .where(eq(booking.id, bookingId));
-      return row ?? null;
+      if (!row) return null;
+      // Follow "rescheduled from" back to the first booking: its id is the calendar entry's identity.
+      const chain = await db.execute<{ id: string; depth: number }>(sql`
+        with recursive chain as (
+          select id, rescheduled_from_id, 0 as depth from booking where id = ${bookingId}
+          union all
+          select b.id, b.rescheduled_from_id, c.depth + 1 from booking b join chain c on b.id = c.rescheduled_from_id
+        )
+        select id, depth from chain order by depth desc limit 1`);
+      return { ...row, calendarUid: chain.rows[0]?.id ?? row.bookingId, calendarSequence: Number(chain.rows[0]?.depth ?? 0) };
     },
 
     listRuns(workflowId: string, limit: number): Promise<WorkflowRunDTO[]> {

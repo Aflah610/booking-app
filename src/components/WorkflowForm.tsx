@@ -43,6 +43,7 @@ export function WorkflowForm({
   const [recipient, setRecipient] = useState<"client" | "staff">(a.channel === "email" ? a.recipient ?? "client" : "client");
   const [subject, setSubject] = useState(a.channel === "email" ? a.subject : "");
   const [body, setBody] = useState(a.channel === "email" ? a.body : "");
+  const [attachInvite, setAttachInvite] = useState(a.channel === "email" ? Boolean(a.attachInvite) : false);
   const [templateName, setTemplateName] = useState(a.channel === "whatsapp" ? a.templateName : "");
   const [language, setLanguage] = useState(a.channel === "whatsapp" ? a.language ?? "en" : "en");
   const [params, setParams] = useState(a.channel === "whatsapp" ? (a.params ?? []).join("\n") : "");
@@ -84,7 +85,7 @@ export function WorkflowForm({
     serviceIds,
     action:
       channel === "email"
-        ? { channel, recipient, subject, body }
+        ? { channel, recipient, subject, body, attachInvite }
         : channel === "whatsapp"
           ? { channel, templateName, language, params: params.split("\n").map((p) => p.trim()).filter(Boolean) }
           : { channel, url },
@@ -193,6 +194,18 @@ export function WorkflowForm({
             </div>
             <div><label className="label" htmlFor="subject">Subject</label><input className="input" id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} {...track} /></div>
             <div><label className="label" htmlFor="body">Message</label><textarea className="input" id="body" rows={8} value={body} onChange={(e) => setBody(e.target.value)} {...track} /></div>
+            {recipient === "client" && (
+              <label className="flex items-start gap-3 text-sm sm:col-span-2">
+                <input type="checkbox" className="toggle mt-0.5" checked={attachInvite} onChange={(e) => setAttachInvite(e.target.checked)} />
+                <span>
+                  Attach a calendar invite
+                  <span className="block text-zinc-600">
+                    Gmail adds it to the client&apos;s Google Calendar automatically, and Outlook and Apple Mail show an &ldquo;Add to calendar&rdquo; button.
+                    Used for booking, reschedule, cancel and payment-received emails; moving or cancelling updates the same entry.
+                  </span>
+                </span>
+              </label>
+            )}
           </>
         )}
 
