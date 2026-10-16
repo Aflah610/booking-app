@@ -1,35 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
-import { ZodError } from "zod";
 import { app } from "@/features/container";
 import { DomainError } from "@/features/shared/errors";
+import { act, optional, optionalNumber, str } from "@/lib/form-actions";
 import { parseDayRanges } from "@/lib/hours-form";
 import { zonedToUtc } from "@/lib/time";
 import { requireStaff, hasRole } from "@/lib/session";
-
-function message(err: unknown): string {
-  if (err instanceof DomainError || err instanceof RangeError) return err.message;
-  if (err instanceof ZodError) return err.issues.map((i) => `${i.path.join(".") || "value"}: ${i.message}`).join("; ");
-  throw err;
-}
-
-/** Runs `fn`, then redirects back to `path` with either ?ok= or ?error=. */
-async function act(path: string, ok: string, fn: () => Promise<unknown>): Promise<never> {
-  let error: string | undefined;
-  try {
-    await fn();
-  } catch (err) {
-    error = message(err);
-  }
-  revalidatePath(path);
-  redirect(`${path}?${new URLSearchParams(error ? { error } : { ok })}`);
-}
-
-const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-const optional = (f: FormData, k: string) => str(f, k) || null;
-const optionalNumber = (f: FormData, k: string) => (str(f, k) ? Number(str(f, k)) : null);
 
 /** Staff may edit their own hours and time off; managers and admins may edit anyone's. */
 async function requireSelfOrManager(staffId: string) {
@@ -47,7 +24,7 @@ export async function createStaffAction(form: FormData) {
       name: str(form, "name"),
       email: str(form, "email"),
       role,
-      timezone: str(form, "timezone") || "UTC",
+      timezone: str(form, "timezone") || "Asia/Kolkata",
     });
   });
 }
@@ -125,5 +102,54 @@ export async function updateServiceAction(serviceId: string, form: FormData) {
   const me = await requireStaff("manager");
   await act(`/admin/services/${serviceId}`, "Saved", () =>
     app().catalog.update({ staffId: me.id }, serviceId, { ...serviceFields(form), active: form.get("active") === "on" }),
+  );
+}
+
+export async function setDateOverrideAction(staffId: string, form: FormData) {
+  const me = await requireSelfOrManager(staffId);
+  await act(`/admin/staff/${staffId}`, "Date-specific hours saved", async () => {
+    const off = form.get("off") === "on";
+    const ranges = off
+      ? []
+      : [1, 2]
+          .map((n) => ({ startTime: str(form, `start${n}`), endTime: str(form, `end${n}`) }))
+          .filter((r) => r.startTime || r.endTime);
+    if (!off && !ranges.length) throw new DomainError("invalid", "Add hours for that date, or switch on \"Unavailable all day\"");
+    await app().schedules.setDateOverride({ staffId: me.id }, staffId, { date: str(form, "date"), ranges });
+  });
+}
+
+export async function removeDateOverrideAction(staffId: string, date: string) {
+  const me = await requireSelfOrManager(staffId);
+  await act(`/admin/staff/${staffId}`, "Date-specific hours removed", () =>
+    app().schedules.removeDateOverride({ staffId: me.id }, staffId, date),
+  );
+}
+
+export async function updateSettingsAction(form: FormData) {
+  const me = await requireStaff("admin");
+  await act("/admin/settings", "Settings saved", () =>
+    app().settings.update({ staffId: me.id }, {
+      name: str(form, "name"),
+      timezone: str(form, "timezone"),
+      currency: str(form, "currency"),
+      bookingPrefix: str(form, "bookingPrefix"),
+      slotIntervalMin: str(form, "slotIntervalMin"),
+      minNoticeMin: str(form, "minNoticeMin"),
+      maxNoticeDays: str(form, "maxNoticeDays"),
+      clientCutoffMin: Number(str(form, "clientCutoffHours")) * 60,
+    }),
+  );
+}
+
+export async function updateClientAction(clientId: string, form: FormData) {
+  const me = await requireStaff("manager");
+  await act(`/admin/clients/${clientId}`, "Client saved", () =>
+    app().clients.update({ staffId: me.id }, clientId, {
+      name: str(form, "name"),
+      email: optional(form, "email"),
+      whatsappOptIn: form.get("whatsappOptIn") === "on",
+      notes: optional(form, "notes"),
+    }),
   );
 }

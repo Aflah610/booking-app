@@ -2,7 +2,7 @@ import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import type { WorkingRangeDTO } from "./schedules.dto";
 import type { SchedulesRepository } from "./schedules.repository";
-import { timeOffInput, workingRange } from "./schedules.schemas";
+import { dateOverrideInput, isoDate, timeOffInput, workingRange } from "./schedules.schemas";
 
 /** Sort once, then compare neighbours: O(n log n), never pairwise. */
 export function assertNoOverlap(ranges: WorkingRangeDTO[]) {
@@ -16,7 +16,7 @@ export function assertNoOverlap(ranges: WorkingRangeDTO[]) {
   }
 }
 
-/** Weekly working hours and time off. Phase 2 adds date overrides and the availability engine here. */
+/** Weekly working hours, date overrides and time off. Slots are computed in the availability slice. */
 export function createSchedulesService({ schedulesRepo }: { schedulesRepo: SchedulesRepository }) {
   return {
     weeklyHours: (staffId: string) => schedulesRepo.weeklyHours(staffId),
@@ -38,6 +38,31 @@ export function createSchedulesService({ schedulesRepo }: { schedulesRepo: Sched
     async addTimeOff(actor: Actor, staffId: string, input: unknown) {
       const data = timeOffInput.parse(input);
       return schedulesRepo.addTimeOff(staffId, data, { actor, action: "add_time_off", entity: "staff", entityId: staffId });
+    },
+
+    dateOverrides: (staffId: string, fromDate: string, toDate: string) =>
+      schedulesRepo.dateOverrides(staffId, isoDate.parse(fromDate), isoDate.parse(toDate)),
+
+    async setDateOverride(actor: Actor, staffId: string, input: unknown) {
+      const day = dateOverrideInput.parse(input);
+      assertNoOverlap(day.ranges.map((r) => ({ ...r, weekday: 0 })));
+      await schedulesRepo.setDateOverride(staffId, day, {
+        actor,
+        action: "set_date_override",
+        entity: "staff",
+        entityId: staffId,
+        details: day,
+      });
+    },
+
+    removeDateOverride(actor: Actor, staffId: string, date: string) {
+      return schedulesRepo.removeDateOverride(staffId, isoDate.parse(date), {
+        actor,
+        action: "remove_date_override",
+        entity: "staff",
+        entityId: staffId,
+        details: { date },
+      });
     },
 
     removeTimeOff(actor: Actor, staffId: string, timeOffId: string) {

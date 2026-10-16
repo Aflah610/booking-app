@@ -4,7 +4,32 @@ import { app } from "@/features/container";
 import type { ApiKeyDTO, ApiScope } from "@/features/api-keys/api-keys.dto";
 import { DomainError } from "@/features/shared/errors";
 
-type Handler = (req: NextRequest, ctx: { key: ApiKeyDTO }) => Promise<unknown>;
+type RouteContext = { params: Promise<Record<string, string>> };
+type Handler = (req: NextRequest, ctx: { key: ApiKeyDTO; params: Record<string, string> }) => Promise<unknown>;
+
+/** Return this from a handler to choose the status code or add headers. */
+export class ApiResult {
+  constructor(
+    public readonly data: unknown,
+    public readonly status = 200,
+    public readonly headers: Record<string, string> = {},
+  ) {}
+}
+
+/** Who a key acts for: a "website" key acts for the client (website rules); a "staff" key acts as staff. */
+export const keyActor = (key: ApiKeyDTO) => ({
+  apiKeyId: key.id,
+  mode: key.scopes.includes("staff") ? ("staff" as const) : ("client" as const),
+});
+
+/** Reads a JSON body; an empty or broken body is a 400, not a 500. */
+export async function jsonBody(req: NextRequest): Promise<unknown> {
+  try {
+    return await req.json();
+  } catch {
+    throw new DomainError("invalid", "Request body must be JSON");
+  }
+}
 
 const STATUS: Record<DomainError["code"], number> = { invalid: 400, forbidden: 403, not_found: 404, conflict: 409 };
 
@@ -23,15 +48,18 @@ function readKey(req: NextRequest) {
  * and `{ error }` with the right status otherwise. A "staff" key may call website endpoints too.
  */
 export function apiRoute(scope: ApiScope, handler: Handler) {
-  return async (req: NextRequest) => {
+  return async (req: NextRequest, route?: RouteContext) => {
     try {
       const key = await app().apiKeys.verify(readKey(req));
       if (!key) return apiError(401, "unauthorized", "Missing or invalid API key");
       if (!key.scopes.includes(scope) && !key.scopes.includes("staff")) {
         return apiError(403, "forbidden", "This API key cannot call this endpoint");
       }
-      const data = await handler(req, { key });
-      return NextResponse.json({ data });
+      const result = await handler(req, { key, params: (await route?.params) ?? {} });
+      if (result instanceof ApiResult) {
+        return NextResponse.json({ data: result.data }, { status: result.status, headers: result.headers });
+      }
+      return NextResponse.json({ data: result });
     } catch (err) {
       if (err instanceof ZodError) return apiError(400, "invalid", "Invalid request", err.issues);
       if (err instanceof DomainError) return apiError(STATUS[err.code], err.code, err.message, err.details);

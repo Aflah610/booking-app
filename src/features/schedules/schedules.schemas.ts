@@ -16,3 +16,16 @@ export const timeOffInput = z
     reason: z.string().trim().max(200).nullish(),
   })
   .refine((r) => r.startsAt < r.endsAt, { message: "Start must be before end", path: ["endsAt"] });
+
+export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").refine((d) => !Number.isNaN(Date.parse(`${d}T00:00:00Z`)), "Not a real date");
+
+export const dateOverrideInput = z.object({
+  date: isoDate,
+  ranges: z
+    .array(
+      z
+        .object({ startTime: timeOfDay, endTime: timeOfDay })
+        .refine((r) => r.startTime < r.endTime, { message: "Start must be before end", path: ["endTime"] }),
+    )
+    .max(10),
+});

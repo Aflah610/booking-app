@@ -1,9 +1,23 @@
-import { and, asc, eq, gt, lt } from "drizzle-orm";
+import { and, asc, between, eq, gt, lt } from "drizzle-orm";
 import type { Db } from "@/db";
-import { timeOff, workingHours } from "@/db/schema";
+import { dateOverride, timeOff, workingHours } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
-import type { TimeOffDTO, WorkingRangeDTO } from "./schedules.dto";
+import type { DateOverrideDTO, TimeOffDTO, WorkingRangeDTO } from "./schedules.dto";
+
+/** Groups override rows (sorted by date, then start) into one entry per date. */
+export function groupOverrides(rows: { date: string; startTime: string | null; endTime: string | null }[]): DateOverrideDTO[] {
+  const out: DateOverrideDTO[] = [];
+  for (const r of rows) {
+    let day = out.at(-1);
+    if (day?.date !== r.date) {
+      day = { date: r.date, ranges: [] };
+      out.push(day);
+    }
+    if (r.startTime && r.endTime) day.ranges.push({ startTime: r.startTime.slice(0, 5), endTime: r.endTime.slice(0, 5) });
+  }
+  return out;
+}
 
 const timeOffColumns = { id: timeOff.id, startsAt: timeOff.startsAt, endsAt: timeOff.endsAt, reason: timeOff.reason };
 
@@ -44,6 +58,34 @@ export function createSchedulesRepository(db: Db) {
         const [row] = await tx.insert(timeOff).values({ ...data, staffId }).returning(timeOffColumns);
         await writeAudit(tx, { ...audit, details: { ...audit.details, timeOffId: row.id } });
         return row;
+      });
+    },
+
+    async dateOverrides(staffId: string, fromDate: string, toDate: string): Promise<DateOverrideDTO[]> {
+      const rows = await db
+        .select({ date: dateOverride.date, startTime: dateOverride.startTime, endTime: dateOverride.endTime })
+        .from(dateOverride)
+        .where(and(eq(dateOverride.staffId, staffId), between(dateOverride.date, fromDate, toDate)))
+        .orderBy(asc(dateOverride.date), asc(dateOverride.startTime));
+      return groupOverrides(rows);
+    },
+
+    /** Replaces everything for that date in one transaction; no ranges stores a single "off" row. */
+    async setDateOverride(staffId: string, day: DateOverrideDTO, audit: AuditEntry) {
+      await db.transaction(async (tx) => {
+        await tx.delete(dateOverride).where(and(eq(dateOverride.staffId, staffId), eq(dateOverride.date, day.date)));
+        const rows = day.ranges.length
+          ? day.ranges.map((r) => ({ staffId, date: day.date, startTime: r.startTime, endTime: r.endTime }))
+          : [{ staffId, date: day.date, startTime: null, endTime: null }];
+        await tx.insert(dateOverride).values(rows);
+        await writeAudit(tx, audit);
+      });
+    },
+
+    async removeDateOverride(staffId: string, date: string, audit: AuditEntry) {
+      await db.transaction(async (tx) => {
+        await tx.delete(dateOverride).where(and(eq(dateOverride.staffId, staffId), eq(dateOverride.date, date)));
+        await writeAudit(tx, audit);
       });
     },
 
