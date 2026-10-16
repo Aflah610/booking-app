@@ -194,3 +194,20 @@ export async function removeHolidayAction(id: string) {
   const me = await requireStaff("admin");
   await act("/admin/settings/holidays", "Holiday removed", () => app().holidays.remove({ staffId: me.id }, id));
 }
+
+export async function disconnectCalendarAction(staffId: string) {
+  await requireSelfOrManager(staffId);
+  await act(`/admin/staff/${staffId}`, "Google Calendar disconnected", () => app().calendar.disconnect(staffId));
+}
+
+export async function calendarOptionsAction(staffId: string, form: FormData) {
+  await requireSelfOrManager(staffId);
+  await act(`/admin/staff/${staffId}`, "Calendar settings saved", () =>
+    app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on" }),
+  );
+}
+
+export async function syncCalendarAction(staffId: string) {
+  await requireSelfOrManager(staffId);
+  await act(`/admin/staff/${staffId}`, "Calendar synced", () => app().calendar.syncNow(staffId));
+}

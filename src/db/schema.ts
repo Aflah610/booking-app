@@ -164,6 +164,12 @@ export const calendarConnection = pgTable("calendar_connection", {
   staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
   provider: text("provider").notNull(),
   encryptedTokens: text("encrypted_tokens").notNull(),
+  /** The Google account that was connected, shown so staff know which calendar this is. */
+  accountEmail: text("account_email"),
+  /** Write this person's bookings into their calendar. */
+  pushBookings: boolean("push_bookings").notNull().default(true),
+  /** Treat events in their calendar as busy time, so clients can't book over them. */
+  blockBusy: boolean("block_busy").notNull().default(true),
   /** The calendar we read busy times from and write bookings to. */
   calendarId: text("calendar_id").notNull().default("primary"),
   /** Provider's incremental sync token, so each sync only fetches changes. */
@@ -299,6 +305,19 @@ export const bookingCalendarEvent = pgTable("booking_calendar_event", {
   externalEventId: text("external_event_id").notNull(),
   createdAt: createdAt(),
 }, (t) => [primaryKey({ columns: [t.bookingId, t.provider] })]);
+
+/**
+ * Calendar writes waiting to happen. One row per booking, so a quick reschedule-then-cancel collapses to the last
+ * thing that matters, and a Google outage delays the write without ever touching the booking itself.
+ */
+export const calendarJob = pgTable("calendar_job", {
+  bookingId: uuid("booking_id").primaryKey().references(() => booking.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  runAt: timestamp("run_at", { withTimezone: true }).notNull().defaultNow(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: createdAt(),
+}, (t) => [index("calendar_job_due_idx").on(t.runAt), check("calendar_job_action", sql`${t.action} in ('upsert', 'delete')`)]);
 
 export const notification = pgTable("notification", {
   id: uuid("id").primaryKey().defaultRandom(),

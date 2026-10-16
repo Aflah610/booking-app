@@ -12,6 +12,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   // The app always runs behind a host's proxy (AppSail, App Runner, a load balancer), which sets the Host header.
   trustHost: true,
+  logger: {
+    // A cookie signed with an old AUTH_SECRET (or left over from another run) is just "signed out", not an error worth a stack trace.
+    error(error) {
+      if (error.name === "JWTSessionError") return;
+      console.error("[auth][error]", error);
+    },
+  },
   session: { strategy: "jwt", maxAge: 60 * 60 * 12 },
   pages: { signIn: "/login", error: "/login" },
   callbacks: {

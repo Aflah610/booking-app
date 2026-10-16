@@ -11,10 +11,13 @@ import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
 import {
   addTimeOffAction,
+  calendarOptionsAction,
+  disconnectCalendarAction,
   removeDateOverrideAction,
   removeTimeOffAction,
   setDateOverrideAction,
   setHoursAction,
+  syncCalendarAction,
   updateStaffAction,
 } from "../../actions";
 
@@ -38,13 +41,15 @@ export default async function StaffDetail({
   });
   const now = new Date();
   const today = localDate(now.getTime(), member.timezone);
-  const [services, offered, hours, timeOff, overrides] = await Promise.all([
+  const [services, offered, hours, timeOff, overrides, calendar] = await Promise.all([
     catalog.list(),
     staff.serviceIds(id),
     schedules.weeklyHours(id),
     schedules.timeOffBetween(id, now, new Date(now.getTime() + 365 * 86400_000)),
     schedules.dateOverrides(id, today, addDays(today, 366)),
+    app().calendar.status(id),
   ]);
+  const google = calendar.connection;
 
   return (
     <>
@@ -116,6 +121,42 @@ export default async function StaffDetail({
           <div><label className="label" htmlFor="reason">Reason</label><input className="input" id="reason" name="reason" placeholder="Optional" /></div>
           <div className="sm:col-span-3"><button className="btn-ghost" type="submit">Add time off</button></div>
         </form>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="mb-1 font-semibold">Google Calendar</h2>
+        <p className="mb-3 max-w-2xl text-sm text-zinc-600">
+          Bookings appear in the calendar, and anything already in it blocks those hours from being booked.
+        </p>
+        {!calendar.providerConfigured ? (
+          <p className="card max-w-3xl p-4 text-sm text-zinc-600">
+            Google Calendar is not set up on this server yet. Add GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET (see docs/google-calendar.md), then restart.
+          </p>
+        ) : !google ? (
+          <a className="btn inline-block" href={`/api/calendar/google/connect?staff=${id}`}>Connect Google Calendar</a>
+        ) : (
+          <div className="card grid max-w-3xl gap-4 p-4">
+            <p className="text-sm">
+              Connected{google.accountEmail ? <> as <strong>{google.accountEmail}</strong></> : null}
+              {google.lastSyncedAt && <span className="text-zinc-600"> · busy times read {formatInZone(google.lastSyncedAt, member.timezone)}</span>}
+            </p>
+            {google.lastError && (
+              <p className="text-sm font-medium text-red-700">
+                {google.errorCount >= 5 ? "Sync stopped: " : "Last problem: "}{google.lastError}
+                {google.errorCount >= 5 && " Disconnect and connect again to fix it."}
+              </p>
+            )}
+            <form action={calendarOptionsAction.bind(null, id)} className="grid gap-3">
+              <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="pushBookings" defaultChecked={google.pushBookings} /> Add my bookings to this calendar</label>
+              <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="blockBusy" defaultChecked={google.blockBusy} /> Block times when I am busy in this calendar</label>
+              <div><button className="btn-ghost" type="submit">Save</button></div>
+            </form>
+            <div className="flex gap-3">
+              <form action={syncCalendarAction.bind(null, id)}><button className="btn-ghost" type="submit">Sync now</button></form>
+              <form action={disconnectCalendarAction.bind(null, id)}><button className="btn-ghost" type="submit">Disconnect</button></form>
+            </div>
+          </div>
+        )}
       </section>
 
       {isManager && (
