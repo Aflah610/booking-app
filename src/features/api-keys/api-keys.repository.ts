@@ -1,7 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { apiKey } from "@/db/schema";
-import type { ApiKeyDTO } from "./api-keys.dto";
+import type { ApiKeyDTO, ApiKeyListItemDTO } from "./api-keys.dto";
 
 const columns = { id: apiKey.id, name: apiKey.name, keyPrefix: apiKey.keyPrefix, scopes: apiKey.scopes };
 
@@ -19,6 +19,14 @@ export function createApiKeysRepository(db: Db) {
         .where(and(eq(apiKey.keyHash, keyHash), isNull(apiKey.revokedAt)))
         .limit(1);
       return row ?? null;
+    },
+
+    async listLive(): Promise<ApiKeyListItemDTO[]> {
+      return db
+        .select({ ...columns, createdAt: apiKey.createdAt, lastUsedAt: apiKey.lastUsedAt })
+        .from(apiKey)
+        .where(isNull(apiKey.revokedAt))
+        .orderBy(desc(apiKey.createdAt));
     },
 
     async touch(id: string) {

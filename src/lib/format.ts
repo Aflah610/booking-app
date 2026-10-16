@@ -19,4 +19,7 @@ export const longDayLabel = (d: Date, tz: string) => fmt(tz, { weekday: "long", 
 /** "YYYY-MM-DD" of the instant in the zone. */
 export const isoDay = (d: Date, tz: string) => fmt(tz, { year: "numeric", month: "2-digit", day: "2-digit" }).format(d).split("/").reverse().join("-");
 
-export const STATUS_LABEL = { upcoming: "Upcoming", completed: "Completed", cancelled: "Cancelled", no_show: "No-show" } as const;
+// "upcoming" is stored; staff see it as "Scheduled" because that is the word for a booked meeting.
+export const STATUS_LABEL = { upcoming: "Scheduled", completed: "Completed", cancelled: "Cancelled", no_show: "No-show" } as const;
+export const PAYMENT_LABEL = { pending: "Payment pending", paid: "Paid", failed: "Payment failed", not_required: "No payment due" } as const;
+export const NO_SHOW_BY_LABEL = { client: "Client", staff: "Staff" } as const;

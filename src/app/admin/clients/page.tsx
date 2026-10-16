@@ -20,12 +20,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         <table className="table">
           <thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>WhatsApp</th><th className="text-right">Bookings</th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-zinc-500">No clients{q ? " match that search" : " yet"}.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-zinc-600">No clients{q ? " match that search" : " yet"}.</td></tr>}
             {rows.map((c) => (
               <tr key={c.id}>
                 <td><Link className="font-medium hover:underline" href={`/admin/clients/${c.id}`}>{c.name}</Link></td>
-                <td className="text-zinc-400">{c.phoneE164}</td>
-                <td className="text-zinc-400">{c.email ?? "–"}</td>
+                <td className="text-zinc-600">{c.phoneE164}</td>
+                <td className="text-zinc-600">{c.email ?? "–"}</td>
                 <td>{c.whatsappOptIn ? "Yes" : "No"}</td>
                 <td className="text-right">{c.bookings}</td>
               </tr>

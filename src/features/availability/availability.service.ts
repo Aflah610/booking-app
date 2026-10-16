@@ -88,11 +88,21 @@ export function createAvailabilityService(deps: {
         }),
       };
     });
-    return unionSlots(perStaff).map(({ start, staffIds }) => ({
+    const all = unionSlots(perStaff).map(({ start, staffIds }) => ({
       start: new Date(start),
       end: new Date(start + svc.durationMin * MIN),
       staffIds,
     }));
+    if (svc.maxPerDay == null) return all;
+    // A full day (by the firm's clock) offers no more times. Counted at booking time too, so a stale list can't overbook.
+    const counts = await availabilityRepo.bookingsPerDay(svc.id, {
+      from: new Date(from.getTime() - DAY),
+      to: new Date(to.getTime() + DAY),
+      timeZone: settings.timezone,
+      excludeBookingId: opts.exclude?.bookingId,
+    });
+    const max = svc.maxPerDay;
+    return all.filter((s) => (counts.get(localDate(s.start.getTime(), settings.timezone)) ?? 0) < max);
   }
 
   return {

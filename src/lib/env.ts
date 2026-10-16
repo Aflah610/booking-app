@@ -16,8 +16,9 @@ export function missingEnv(env: Record<string, string | undefined> = process.env
   const missing = parsed.success ? [] : [...new Set(parsed.error.issues.map((i) => i.path.join(".")))];
   const google = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET);
   const zoho = Boolean(env.AUTH_ZOHO_ID && env.AUTH_ZOHO_SECRET);
+  const local = env.NODE_ENV !== "production" && Boolean(env.LOCAL_LOGIN_PASSWORD);
   // Staff need at least one way to sign in.
-  if (!google && !zoho) missing.push("AUTH_GOOGLE_ID+AUTH_GOOGLE_SECRET or AUTH_ZOHO_ID+AUTH_ZOHO_SECRET");
+  if (!google && !zoho && !local) missing.push("AUTH_GOOGLE_ID+AUTH_GOOGLE_SECRET or AUTH_ZOHO_ID+AUTH_ZOHO_SECRET");
   return missing;
 }
 

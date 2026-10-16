@@ -1,0 +1,28 @@
+/**
+ * Fails unpaid bookings after 15 minutes, cancels them after 24 hours, and sends due workflow messages, all from
+ * inside the app so reminders and follow-ups need no extra service.
+ * With several containers they all run it; `claimDue` hands each message to only one of them.
+ * Kept out of instrumentation.ts so the Edge build never tries to load Node-only code.
+ */
+export function startWorkflowWorker() {
+  if (process.env.WORKFLOW_RUNNER === "off") return;
+  const g = globalThis as unknown as { workflowTimer?: NodeJS.Timeout };
+  if (g.workflowTimer) return; // dev reloads call register() again
+  let running = false;
+  g.workflowTimer = setInterval(async () => {
+    if (running) return;
+    running = true;
+    try {
+      const { app } = await import("@/features/container");
+      const { workflows, payments } = app();
+      // Payments first, so a booking that just failed gets its "complete your payment" message this round.
+      await payments.expire();
+      await workflows.processDue();
+    } catch (err) {
+      console.error("Workflow worker failed", err);
+    } finally {
+      running = false;
+    }
+  }, 30_000);
+  g.workflowTimer.unref();
+}

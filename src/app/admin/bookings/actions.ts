@@ -1,8 +1,9 @@
 "use server";
 
 import { app } from "@/features/container";
+import type { PaymentStatus } from "@/features/bookings/bookings.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
-import { act, optional, str } from "@/lib/form-actions";
+import { act, answersFromForm, optional, str } from "@/lib/form-actions";
 import { requireStaff } from "@/lib/session";
 
 const deskActor = (staffId: string): BookingActor => ({ staffId, mode: "staff" });
@@ -27,6 +28,7 @@ export async function createBookingAction(form: FormData) {
         whatsappOptIn: form.get("whatsappOptIn") === "on",
       },
       notes: optional(form, "notes"),
+      formAnswers: answersFromForm(form),
     });
     return `/admin/bookings/${booking.id}`;
   });
@@ -47,12 +49,35 @@ export async function cancelBookingAction(id: string, form: FormData) {
   );
 }
 
-export async function markBookingAction(id: string, status: "completed" | "no_show" | "upcoming") {
+export async function markBookingAction(id: string, status: "completed" | "no_show" | "upcoming", form: FormData) {
   const me = await requireStaff();
-  await act(`/admin/bookings/${id}`, "Status updated", () => app().bookings.markStatus(deskActor(me.id), id, status));
+  const by = str(form, "by");
+  await act(`/admin/bookings/${id}`, "Status updated", () =>
+    app().bookings.markStatus(deskActor(me.id), id, status, { noShowBy: by === "client" || by === "staff" ? by : undefined }),
+  );
+}
+
+export async function setPaymentAction(id: string, status: PaymentStatus) {
+  const me = await requireStaff();
+  await act(`/admin/bookings/${id}`, "Payment updated", () => app().bookings.setPayment({ staffId: me.id }, id, status));
 }
 
 export async function updateBookingNotesAction(id: string, form: FormData) {
   const me = await requireStaff();
   await act(`/admin/bookings/${id}`, "Notes saved", () => app().bookings.updateNotes({ staffId: me.id }, id, optional(form, "notes")));
+}
+
+/** Staff type in a payment (cash, a transfer, or one the website couldn't report). Amount is entered in rupees. */
+export async function recordPaymentAction(id: string, form: FormData) {
+  const me = await requireStaff();
+  await act(`/admin/bookings/${id}`, "Payment recorded", () =>
+    app().payments.recordManual({ staffId: me.id }, id, {
+      amountPaise: Math.round(Number(str(form, "amount").replace(/,/g, "")) * 100),
+      method: optional(form, "method"),
+      razorpayPaymentId: optional(form, "razorpayPaymentId"),
+      razorpayOrderId: optional(form, "razorpayOrderId"),
+      notes: optional(form, "notes"),
+      status: "paid",
+    }),
+  );
 }

@@ -21,7 +21,7 @@ export function HoursEditor({ initial }: { initial: { weekday: number; startTime
   const copyToAll = (d: number) => setDays((all) => all.map((ranges, i) => (i === 0 || i === 6 ? ranges : all[d].map((r) => ({ ...r })))));
 
   return (
-    <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+    <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200">
       {DAYS.map((name, d) => {
         const ranges = days[d];
         const on = ranges.length > 0;
@@ -38,7 +38,7 @@ export function HoursEditor({ initial }: { initial: { weekday: number; startTime
               {name}
             </label>
             <div className="flex flex-1 flex-col gap-2">
-              {!on && <span className="pt-1.5 text-sm text-zinc-500">Unavailable</span>}
+              {!on && <span className="pt-1.5 text-sm text-zinc-600">Unavailable</span>}
               {ranges.map((r, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-2">
                   <input
@@ -50,7 +50,7 @@ export function HoursEditor({ initial }: { initial: { weekday: number; startTime
                     onChange={(e) => update(d, (rs) => rs.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))}
                     required
                   />
-                  <span className="text-zinc-400">–</span>
+                  <span className="text-zinc-600">–</span>
                   <input
                     type="time"
                     step={300}
@@ -79,7 +79,7 @@ export function HoursEditor({ initial }: { initial: { weekday: number; startTime
                       >
                         +
                       </button>
-                      <button type="button" className="text-xs text-zinc-500 hover:underline" onClick={() => copyToAll(d)}>
+                      <button type="button" className="text-xs text-zinc-600 hover:underline" onClick={() => copyToAll(d)}>
                         Copy to weekdays
                       </button>
                     </>

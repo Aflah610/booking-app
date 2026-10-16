@@ -11,5 +11,5 @@ export const c = createContainer(db);
 export async function reset() {
   await db.execute(sql`
     truncate audit_log, slot_hold, booking_calendar_event, calendar_busy, date_override, notification, booking, client_package, package, client, calendar_connection,
-      time_off, working_hours, staff_service, service, staff, api_key restart identity cascade`);
+      time_off, working_hours, staff_service, service, staff, api_key, workflow, holiday restart identity cascade`);
 }

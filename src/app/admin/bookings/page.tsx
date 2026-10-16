@@ -59,9 +59,9 @@ export default async function BookingsPage({
           <button className="btn-ghost" type="submit">Filter</button>
         </form>
       </div>
-      <div className="card divide-y divide-white/5 overflow-hidden">
-        {rows.length === 0 && <p className="p-10 text-center text-sm text-zinc-500">No {view} bookings.</p>}
-        {rows.map((b) => <BookingRow key={b.id} b={b} tz={s.timezone} showStaff={!staffFilter} />)}
+      <div className="card divide-y divide-zinc-100 overflow-hidden">
+        {rows.length === 0 && <p className="p-10 text-center text-sm text-zinc-600">No {view} bookings.</p>}
+        {rows.map((b) => <BookingRow key={b.id} b={b} tz={s.timezone} prefix={s.bookingPrefix} showStaff={!staffFilter} />)}
       </div>
     </>
   );

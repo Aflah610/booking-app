@@ -214,8 +214,29 @@ describe("rescheduling and cancelling", () => {
     const { booking: b } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-10-19T10:00"), client: asha }, { now });
     await expect(c.bookings.markStatus(desk, b.id, "completed", { now })).rejects.toMatchObject({ code: "invalid" });
     const later = { now: at("2026-10-19T10:40") };
-    expect((await c.bookings.markStatus(desk, b.id, "no_show", later)).status).toBe("no_show");
-    expect((await c.bookings.markStatus(desk, b.id, "upcoming", later)).status).toBe("upcoming");
+    await expect(c.bookings.markStatus(desk, b.id, "no_show", later)).rejects.toMatchObject({ code: "invalid" });
+    const missed = await c.bookings.markStatus(desk, b.id, "no_show", { ...later, noShowBy: "staff" });
+    expect(missed).toMatchObject({ status: "no_show", noShowBy: "staff" });
+    expect(await c.bookings.markStatus(desk, b.id, "upcoming", later)).toMatchObject({ status: "upcoming", noShowBy: null });
+  });
+
+  it("records who missed a no-show, and forgets it when the booking is marked completed", async () => {
+    const { svc } = await setup();
+    const { booking: b } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-10-19T10:00"), client: asha }, { now });
+    const later = { now: at("2026-10-19T10:40") };
+    expect((await c.bookings.markStatus(desk, b.id, "no_show", { ...later, noShowBy: "client" })).noShowBy).toBe("client");
+    expect(await c.bookings.markStatus(desk, b.id, "completed", { ...later, noShowBy: "client" })).toMatchObject({ status: "completed", noShowBy: null });
+  });
+
+  it("tracks payment status separately from the meeting status", async () => {
+    const { svc } = await setup();
+    const { booking: b } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-10-19T10:00"), client: asha }, { now });
+    expect(b.paymentStatus).toBe("not_required"); // the service has no price
+    expect((await c.bookings.setPayment({}, b.id, "paid")).paymentStatus).toBe("paid");
+    expect((await c.bookings.setPayment({}, b.id, "failed")).paymentStatus).toBe("failed");
+    await expect(c.bookings.setPayment({}, b.id, "refunded" as never)).rejects.toMatchObject({ code: "invalid" });
+    await c.bookings.cancel(desk, b.id, {}, { now });
+    expect((await c.bookings.setPayment({}, b.id, "paid")).status).toBe("cancelled");
   });
 
   it("lists upcoming, past and cancelled views", async () => {

@@ -32,9 +32,9 @@ export default async function ClientPage({
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <section>
           <h2 className="mb-3 font-semibold">Bookings</h2>
-          <div className="card divide-y divide-white/5 overflow-hidden">
-            {history.length === 0 && <p className="p-8 text-center text-sm text-zinc-500">No bookings.</p>}
-            {[...history].reverse().map((b) => <BookingRow key={b.id} b={b} tz={s.timezone} />)}
+          <div className="card divide-y divide-zinc-100 overflow-hidden">
+            {history.length === 0 && <p className="p-8 text-center text-sm text-zinc-600">No bookings.</p>}
+            {[...history].reverse().map((b) => <BookingRow key={b.id} b={b} tz={s.timezone} prefix={s.bookingPrefix} />)}
           </div>
         </section>
         <form action={updateClientAction.bind(null, id)} className="card grid content-start gap-4 p-5">

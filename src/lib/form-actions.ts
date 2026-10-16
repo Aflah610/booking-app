@@ -32,3 +32,10 @@ export async function act(path: string, ok: string, fn: () => Promise<unknown>):
 export const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 export const optional = (f: FormData, k: string) => str(f, k) || null;
 export const optionalNumber = (f: FormData, k: string) => (str(f, k) ? Number(str(f, k)) : null);
+
+/** Answers to a service's extra questions: fields named q_<question id>. */
+export function answersFromForm(f: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of f.entries()) if (k.startsWith("q_") && typeof v === "string") out[k.slice(2)] = v;
+  return out;
+}

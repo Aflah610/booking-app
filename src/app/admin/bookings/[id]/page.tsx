@@ -6,11 +6,11 @@ import { addDays } from "@/features/availability/slots";
 import { DomainError } from "@/features/shared/errors";
 import { requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
-import { isoDay, longDayLabel, timeLabel } from "@/lib/format";
+import { isoDay, longDayLabel, NO_SHOW_BY_LABEL, PAYMENT_LABEL, timeLabel } from "@/lib/format";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
-import { StatusBadge } from "@/components/StatusBadge";
-import { cancelBookingAction, markBookingAction, rescheduleBookingAction, updateBookingNotesAction } from "../actions";
+import { PaymentBadge, StatusBadge } from "@/components/StatusBadge";
+import { cancelBookingAction, markBookingAction, recordPaymentAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,8 @@ export default async function BookingPage({
     throw err;
   });
   const s = await settings.get();
+  const paymentRows = await app().payments.forBooking(b.id);
+  const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const tz = s.timezone;
   const now = new Date();
   const started = b.startsAt <= now;
@@ -56,24 +58,82 @@ export default async function BookingPage({
       <PageHeader
         title={`${b.serviceName} with ${b.clientName}`}
         subtitle={`${bookingReference(s.bookingPrefix, b.number)} · booked ${b.source === "web" ? "online" : "by staff"}`}
-        action={<StatusBadge status={b.status} />}
+        action={<span className="flex flex-wrap gap-1.5"><PaymentBadge status={b.paymentStatus} /><StatusBadge status={b.status} /></span>}
       />
       <Notice error={sp.error} ok={sp.ok} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <section className="card divide-y divide-white/5">
+        <section className="card divide-y divide-zinc-100">
           <dl className="grid gap-5 p-6 sm:grid-cols-2">
-            <div><dt className="text-xs uppercase tracking-wider text-zinc-500">When</dt><dd className="mt-1">{longDayLabel(b.startsAt, tz)}<br />{timeLabel(b.startsAt, tz)} – {timeLabel(b.endsAt, tz)}</dd></div>
-            <div><dt className="text-xs uppercase tracking-wider text-zinc-500">With</dt><dd className="mt-1"><Link className="hover:underline" href={`/admin/staff/${b.staffId}`}>{b.staffName}</Link></dd></div>
-            <div><dt className="text-xs uppercase tracking-wider text-zinc-500">Client</dt><dd className="mt-1"><Link className="hover:underline" href={`/admin/clients/${b.clientId}`}>{b.clientName}</Link><br /><span className="text-zinc-400">{b.clientPhone}</span></dd></div>
-            <div><dt className="text-xs uppercase tracking-wider text-zinc-500">Service</dt><dd className="mt-1">{b.serviceName}</dd></div>
-            {b.status === "cancelled" && (
-              <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wider text-zinc-500">Cancelled</dt><dd className="mt-1 text-zinc-400">{b.cancellationReason ?? "No reason given"}{b.cancelledBy === "client" && " (by the client)"}</dd></div>
+            <div><dt className="text-xs uppercase tracking-wider text-zinc-600">When</dt><dd className="mt-1">{longDayLabel(b.startsAt, tz)}<br />{timeLabel(b.startsAt, tz)} – {timeLabel(b.endsAt, tz)}</dd></div>
+            <div><dt className="text-xs uppercase tracking-wider text-zinc-600">With</dt><dd className="mt-1"><Link className="hover:underline" href={`/admin/staff/${b.staffId}`}>{b.staffName}</Link></dd></div>
+            <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client</dt><dd className="mt-1"><Link className="hover:underline" href={`/admin/clients/${b.clientId}`}>{b.clientName}</Link><br /><span className="text-zinc-600">{b.clientPhone}</span></dd></div>
+            <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Service</dt><dd className="mt-1">{b.serviceName}</dd></div>
+            {b.status === "no_show" && (
+              <div className="sm:col-span-2"><dt className="text-xs font-medium uppercase tracking-wider text-red-700">No-show by</dt><dd className="mt-1 text-red-700">{b.noShowBy ? NO_SHOW_BY_LABEL[b.noShowBy] : "Not recorded"}</dd></div>
             )}
+            {b.status === "cancelled" && (
+              <div className="sm:col-span-2"><dt className="text-xs font-medium uppercase tracking-wider text-red-700">Cancelled</dt><dd className="mt-1 text-red-700">{b.cancellationReason ?? "No reason given"}{b.cancelledBy === "client" && " (by the client)"}</dd></div>
+            )}
+            {Object.entries(b.formAnswers).map(([question, answer]) => (
+              <div key={question} className="sm:col-span-2"><dt className="text-xs uppercase tracking-wider text-zinc-600">{question}</dt><dd className="mt-1 whitespace-pre-wrap">{answer}</dd></div>
+            ))}
             {b.rescheduledFromId && (
-              <div className="sm:col-span-2 text-sm text-zinc-500">Moved from <Link className="underline" href={`/admin/bookings/${b.rescheduledFromId}`}>an earlier booking</Link>.</div>
+              <div className="sm:col-span-2 text-sm text-zinc-600">Moved from <Link className="underline" href={`/admin/bookings/${b.rescheduledFromId}`}>an earlier booking</Link>.</div>
             )}
           </dl>
+          <div className="grid gap-3 p-6">
+            <h2 className="font-medium">Payment</h2>
+            <dl className="grid gap-3 text-sm sm:grid-cols-3">
+              <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Amount due</dt><dd className="mt-1">{b.amountPaise !== null ? rupees(b.amountPaise) : "Not set"}</dd></div>
+              {b.paymentStatus === "pending" && b.paymentDueAt && (
+                <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Pay by</dt><dd className="mt-1">{timeLabel(b.paymentDueAt, tz)}, {longDayLabel(b.paymentDueAt, tz)}</dd></div>
+              )}
+              {b.resumeUntil && b.paymentStatus !== "paid" && (
+                <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client can resume until</dt><dd className="mt-1">{timeLabel(b.resumeUntil, tz)}, {longDayLabel(b.resumeUntil, tz)}</dd></div>
+              )}
+            </dl>
+            {b.slotReleased && (
+              <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {b.paymentStatus === "paid" ? "Paid, but this time was given to someone else. The client needs to choose a new time." : "Payment didn’t arrive in time, so this time is free for others. The client can still resume within 24 hours."}
+              </p>
+            )}
+            {paymentRows.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="table">
+                  <thead><tr><th>When</th><th>Result</th><th>Amount</th><th>Razorpay IDs</th><th>Method</th></tr></thead>
+                  <tbody>
+                    {paymentRows.map((p) => (
+                      <tr key={p.id} className="align-top">
+                        <td className="whitespace-nowrap text-zinc-600">{longDayLabel(p.paidAt, tz)}<br />{timeLabel(p.paidAt, tz)}</td>
+                        <td>
+                          <span className={`badge ${p.status === "paid" ? "border-green-600/40 text-green-700" : "border-red-600/40 text-red-700"}`}>{p.status === "paid" ? "Paid" : p.status === "failed" ? "Failed" : "Refunded"}</span>
+                          {p.needsRefund && <p className="mt-1 text-xs font-medium text-red-700">Refund this in Razorpay</p>}
+                          {p.errorDescription && <p className="mt-1 max-w-48 text-xs text-red-700">{p.errorDescription}</p>}
+                        </td>
+                        <td>{rupees(p.amountPaise)}</td>
+                        <td className="font-mono text-xs text-zinc-600">{p.razorpayPaymentId ?? "–"}<br />{p.razorpayOrderId ?? ""}</td>
+                        <td className="text-zinc-600">{p.method ?? "–"}{p.source === "staff" && " · entered by staff"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-600">No payment recorded yet.</p>
+            )}
+            {b.paymentStatus !== "paid" && b.status !== "cancelled" && (
+              <form action={recordPaymentAction.bind(null, b.id)} className="grid gap-3 rounded-lg border border-zinc-200 p-4 sm:grid-cols-2">
+                <p className="text-sm font-medium sm:col-span-2">Record a payment</p>
+                <div><label className="label" htmlFor="amount">Amount (₹)</label><input className="input" id="amount" name="amount" inputMode="decimal" defaultValue={b.amountPaise !== null ? String(b.amountPaise / 100) : ""} required /></div>
+                <div><label className="label" htmlFor="method">Method</label><input className="input" id="method" name="method" placeholder="UPI, cash, card…" /></div>
+                <div><label className="label" htmlFor="razorpayPaymentId">Razorpay payment ID</label><input className="input font-mono" id="razorpayPaymentId" name="razorpayPaymentId" placeholder="pay_…" /></div>
+                <div><label className="label" htmlFor="razorpayOrderId">Razorpay order ID</label><input className="input font-mono" id="razorpayOrderId" name="razorpayOrderId" placeholder="order_…" /></div>
+                <div className="sm:col-span-2"><label className="label" htmlFor="payNotes">Note</label><input className="input" id="payNotes" name="notes" /></div>
+                <div className="sm:col-span-2"><button className="btn" type="submit">Mark as paid</button></div>
+              </form>
+            )}
+          </div>
           <form action={updateBookingNotesAction.bind(null, b.id)} className="grid gap-3 p-6">
             <label className="label" htmlFor="notes">Staff notes</label>
             <textarea className="input" id="notes" name="notes" rows={3} defaultValue={b.notes ?? ""} />
@@ -85,10 +145,27 @@ export default async function BookingPage({
           {canMove && !moving && <Link className="btn justify-center" href={moveHref(date)}>Reschedule</Link>}
           {started && b.status !== "cancelled" && (
             <div className="card grid gap-2 p-4">
-              <p className="mb-1 text-sm text-zinc-400">What happened?</p>
+              <p className="mb-1 text-sm text-zinc-600">What happened?</p>
               <form action={markBookingAction.bind(null, b.id, "completed")}><button className="btn-ghost w-full justify-center" type="submit" disabled={b.status === "completed"}>Completed</button></form>
-              <form action={markBookingAction.bind(null, b.id, "no_show")}><button className="btn-ghost w-full justify-center" type="submit" disabled={b.status === "no_show"}>No-show</button></form>
-              {b.status !== "upcoming" && <form action={markBookingAction.bind(null, b.id, "upcoming")}><button className="w-full text-xs text-zinc-500 hover:underline" type="submit">Undo</button></form>}
+              <form action={markBookingAction.bind(null, b.id, "no_show")} className="grid gap-2">
+                <p className="mt-1 text-xs text-zinc-600">No-show: who missed it?</p>
+                {(["client", "staff"] as const).map((who) => (
+                  <button key={who} className="btn-ghost w-full justify-center" type="submit" name="by" value={who} disabled={b.status === "no_show" && b.noShowBy === who}>
+                    {NO_SHOW_BY_LABEL[who]} didn&apos;t show
+                  </button>
+                ))}
+              </form>
+              {b.status !== "upcoming" && <form action={markBookingAction.bind(null, b.id, "upcoming")}><button className="w-full text-xs text-zinc-600 hover:underline" type="submit">Undo</button></form>}
+            </div>
+          )}
+          {b.paymentStatus !== "paid" && b.paymentStatus !== "not_required" && (
+            <div className="card grid gap-2 p-4">
+              <p className="mb-1 text-sm text-zinc-600">Payment label</p>
+              {(["pending", "failed"] as const).map((p) => (
+                <form key={p} action={setPaymentAction.bind(null, b.id, p)}>
+                  <button className="btn-ghost w-full justify-center" type="submit" disabled={b.paymentStatus === p}>{PAYMENT_LABEL[p]}</button>
+                </form>
+              ))}
             </div>
           )}
           {b.status === "upcoming" && b.endsAt > now && (
@@ -108,23 +185,23 @@ export default async function BookingPage({
             <h2 className="text-center font-medium">Move to {longDayLabel(new Date(`${date}T12:00:00Z`), "UTC")}</h2>
             <Link className="icon-btn" href={moveHref(addDays(date, 1))} aria-label="Next day">›</Link>
           </div>
-          <p className="mb-4 text-sm text-zinc-500">Free times for {b.staffName}. The old time is released when you pick a new one.</p>
-          {slots.length === 0 && <p className="text-sm text-zinc-500">No free times this day.</p>}
+          <p className="mb-4 text-sm text-zinc-600">Free times for {b.staffName}. The old time is released when you pick a new one.</p>
+          {slots.length === 0 && <p className="text-sm text-zinc-600">No free times this day.</p>}
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-8">
             {slots.map((x) =>
               x.start.getTime() === b.startsAt.getTime() ? (
-                <span key="current" className="rounded-md border border-dashed border-white/20 px-2 py-2 text-center text-sm text-zinc-500">
+                <span key="current" className="rounded-md border border-dashed border-zinc-300 px-2 py-2 text-center text-sm text-zinc-600">
                   {timeLabel(x.start, tz)} (now)
                 </span>
               ) : (
                 <form key={x.start.toISOString()} action={rescheduleBookingAction.bind(null, b.id, x.start.toISOString(), b.staffId)}>
-                  <button className="w-full rounded-md border border-white/10 px-2 py-2 text-sm hover:border-white/40" type="submit">{timeLabel(x.start, tz)}</button>
+                  <button className="w-full rounded-md border border-zinc-200 px-2 py-2 text-sm hover:border-zinc-500" type="submit">{timeLabel(x.start, tz)}</button>
                 </form>
               ),
             )}
           </div>
-          {people.length > 1 && <p className="mt-4 text-xs text-zinc-500">To move it to someone else, cancel and book again.</p>}
-          <Link className="mt-4 inline-block text-sm text-zinc-500 hover:underline" href={`/admin/bookings/${b.id}`}>Close</Link>
+          {people.length > 1 && <p className="mt-4 text-xs text-zinc-600">To move it to someone else, cancel and book again.</p>}
+          <Link className="mt-4 inline-block text-sm text-zinc-600 hover:underline" href={`/admin/bookings/${b.id}`}>Close</Link>
         </section>
       )}
     </>

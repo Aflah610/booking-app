@@ -1,7 +1,7 @@
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import type { ServiceDTO } from "./catalog.dto";
+import { paiseFromPrice, type ServiceDTO } from "./catalog.dto";
 import type { CatalogRepository } from "./catalog.repository";
 import { serviceInput, type ServiceInput } from "./catalog.schemas";
 
@@ -19,13 +19,15 @@ export function createCatalogService({ catalogRepo }: { catalogRepo: CatalogRepo
 
     async create(actor: Actor, input: ServiceInput): Promise<ServiceDTO> {
       const data = serviceInput.parse(input);
-      return catalogRepo.create(data, { actor, action: "create", entity: "service", details: { name: data.name } });
+      return catalogRepo.create({ ...data, pricePaise: paiseFromPrice(data.priceDisplay) }, { actor, action: "create", entity: "service", details: { name: data.name } });
     },
 
     async update(actor: Actor, id: string, input: Partial<ServiceInput>): Promise<ServiceDTO> {
       const data = serviceInput.partial().parse(input);
       await get(id);
-      const row = await catalogRepo.update(id, data, { actor, action: "update", entity: "service", entityId: id, details: data });
+      // The online amount follows the price text whenever the price is edited.
+      const withPaise = "priceDisplay" in data ? { ...data, pricePaise: paiseFromPrice(data.priceDisplay) } : data;
+      const row = await catalogRepo.update(id, withPaise, { actor, action: "update", entity: "service", entityId: id, details: data });
       if (!row) throw new DomainError("not_found", `Service ${id} not found`);
       return row;
     },

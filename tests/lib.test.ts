@@ -40,6 +40,7 @@ describe("database pool config", () => {
 
   it("leaves TLS to the URL when sslmode is given", () => {
     expect(poolConfig(`${neon}?sslmode=require`, 5, {}).ssl).toBeUndefined();
+    expect(poolConfig(`${neon}?sslmode=require`, 5, {}).connectionString).toContain("sslmode=verify-full");
   });
 
   it("uses plain connections for other hosts unless DATABASE_SSL=true", () => {

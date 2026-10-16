@@ -3,9 +3,13 @@ import type { Actor } from "@/features/audit/audit.types";
 import type { BookingMode } from "@/features/availability/availability.dto";
 import type { AvailabilityService } from "@/features/availability/availability.service";
 import type { SettingsRepository } from "@/features/settings/settings.repository";
+import { hasPrice } from "@/features/catalog/catalog.dto";
+import { checkAnswers } from "@/features/catalog/questions";
+import { PAYMENT_WINDOW_MIN, RESUME_WINDOW_HOURS } from "@/features/payments/payments.dto";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import type { BookingDTO, BookingStatus, HoldDTO } from "./bookings.dto";
+import { PAYMENT_STATUSES, type BookingDTO, type BookingEvent, type BookingStatus, type HoldDTO, type NoShowBy, type PaymentStatus } from "./bookings.dto";
+import { isValidManageToken, manageToken } from "./manage-link";
 import type { BookingsRepository, WriteResult } from "./bookings.repository";
 import {
   bookingListQuery,
@@ -53,8 +57,21 @@ export function createBookingsService(deps: {
   bookingsRepo: BookingsRepository;
   availability: AvailabilityService;
   settingsRepo: SettingsRepository;
+  /** Told after a booking changes (to queue workflow messages). Optional; never allowed to fail the booking. */
+  onEvent?: (event: BookingEvent) => Promise<void>;
+  /** Secret for signed "manage my booking" links. Without it only the random token from booking time works. */
+  manageSecret?: string;
 }) {
   const { bookingsRepo, availability, settingsRepo } = deps;
+
+  async function announce(event: BookingEvent) {
+    try {
+      await deps.onEvent?.(event);
+    } catch (err) {
+      // The booking is already saved; a lost notification is logged, not surfaced to the client.
+      console.error(`Workflow event ${event.type} for booking ${event.bookingId} failed`, err);
+    }
+  }
 
   async function get(id: string): Promise<BookingDTO> {
     const row = isUuid(id) ? await bookingsRepo.findById(id) : null;
@@ -157,6 +174,19 @@ export function createBookingsService(deps: {
         exclude: holdTokenHash ? { holdTokenHash } : undefined,
       });
 
+      // Checked after the time is confirmed free, so a missing answer never hides "that time was taken".
+      const answers = checkAnswers(picked.service.questions, data.formAnswers);
+      // A website booking of a priced service is held until the website reports a payment (or 15 minutes pass).
+      const owes = hasPrice(picked.service);
+      const online = actor.mode === "client" && owes && picked.service.pricePaise !== null && (await settingsRepo.get()).onlinePayment;
+      const payment = online
+        ? {
+            status: "pending" as const,
+            dueAt: new Date(now.getTime() + PAYMENT_WINDOW_MIN * MIN),
+            resumeUntil: new Date(now.getTime() + RESUME_WINDOW_HOURS * 60 * MIN),
+            amountPaise: picked.service.pricePaise,
+          }
+        : { status: owes ? ("pending" as const) : ("not_required" as const), dueAt: null, resumeUntil: null, amountPaise: picked.service.pricePaise };
       const manageToken = actor.mode === "client" ? newToken() : null;
       const result = await bookingsRepo.create(
         {
@@ -169,7 +199,8 @@ export function createBookingsService(deps: {
           idempotencyKey: key,
           manageTokenHash: manageToken ? sha256(manageToken) : null,
           notes: data.notes,
-          formAnswers: data.formAnswers,
+          formAnswers: answers,
+          payment,
         },
         {
           holdTokenHash,
@@ -190,6 +221,8 @@ export function createBookingsService(deps: {
         }
         fail(result);
       }
+      // An online booking is confirmed to the client once payment arrives, not before.
+      if (!online) await announce({ type: "booked", bookingId: result.value, at: now });
       return { booking: await get(result.value), manageToken, replayed: false as const };
     },
 
@@ -216,8 +249,12 @@ export function createBookingsService(deps: {
 
     releaseHold: (token: string) => bookingsRepo.releaseHold(sha256(token)),
 
-    /** For the website: the client must present the manage token they got when booking. */
+    /** The signed token for a client's manage link, or null when the app has no secret to sign with. */
+    manageToken: (bookingId: string) => (deps.manageSecret ? manageToken(bookingId, deps.manageSecret) : null),
+
+    /** The client must present a manage token: the signed one from their link, or the random one the website got when booking. */
     async verifyManageToken(bookingId: string, token: string | null | undefined) {
+      if (token && deps.manageSecret && isValidManageToken(bookingId, token, deps.manageSecret)) return;
       const stored = isUuid(bookingId) ? await bookingsRepo.manageTokenHash(bookingId) : null;
       const given = token ? Buffer.from(sha256(token), "hex") : null;
       if (!stored || !given || !timingSafeEqual(Buffer.from(stored, "hex"), given)) {
@@ -232,6 +269,9 @@ export function createBookingsService(deps: {
       const old = await get(id);
       if (old.status !== "upcoming") throw new DomainError("conflict", `Booking ${id} is ${old.status} and can't be moved`, { reason: "not_upcoming" });
       if (old.startsAt <= now) throw new DomainError("invalid", "A booking that has already started can't be moved");
+      if (actor.mode === "client" && old.resumeUntil && old.paymentStatus !== "paid") {
+        throw new DomainError("conflict", "Finish payment first, or resume the booking to choose a new time", { reason: "payment_pending" });
+      }
       if (actor.mode === "client") checkClientCutoff(old, now, (await settingsRepo.get()).clientCutoffMin, "moved");
       if (old.startsAt.getTime() === data.start.getTime() && (!data.staffId || data.staffId === old.staffId)) {
         throw new DomainError("invalid", "The new time is the same as the current one");
@@ -271,6 +311,7 @@ export function createBookingsService(deps: {
         },
       );
       if (!result.ok) fail(result);
+      await announce({ type: "rescheduled", bookingId: result.value, previousBookingId: old.id, at: now });
       return get(result.value);
     },
 
@@ -290,24 +331,51 @@ export function createBookingsService(deps: {
         details: { reason: reason ?? null },
       });
       if (!result.ok) fail(result);
+      await announce({ type: "cancelled", bookingId: id, at: now });
       return get(id);
     },
 
     /** After the start time, staff mark what happened. Undo puts it back to upcoming. */
-    async markStatus(actor: BookingActor, id: string, status: "completed" | "no_show" | "upcoming", opts: { now?: Date } = {}) {
+    async markStatus(
+      actor: BookingActor,
+      id: string,
+      status: "completed" | "no_show" | "upcoming",
+      opts: { now?: Date; noShowBy?: NoShowBy } = {},
+    ) {
       const now = opts.now ?? new Date();
+      if (status === "no_show" && opts.noShowBy !== "client" && opts.noShowBy !== "staff") {
+        throw new DomainError("invalid", "Say who missed the appointment: the client or the staff member");
+      }
       const b = await get(id);
       if (status !== "upcoming" && b.startsAt > now) {
         throw new DomainError("invalid", "A booking can only be marked once it has started");
       }
       const from: BookingStatus[] = status === "upcoming" ? ["completed", "no_show"] : ["upcoming", "completed", "no_show"];
-      const result = await bookingsRepo.setStatus(id, status, from, {
+      const result = await bookingsRepo.setStatus(id, status, from, status === "no_show" ? opts.noShowBy ?? null : null, {
         actor,
         action: `mark_${status}`,
         entity: "booking",
         entityId: id,
+        details: status === "no_show" ? { noShowBy: opts.noShowBy } : undefined,
       });
       if (!result.ok) fail(result);
+      if (status !== "upcoming") await announce({ type: status, bookingId: id, at: now });
+      return get(id);
+    },
+
+    /** What the next booking's number will roughly be; gaps from failed attempts can make it a little higher. */
+    async nextNumber() {
+      return (await bookingsRepo.latestNumber()) + 1;
+    },
+
+    /** Staff record whether the client has paid. Cancelled bookings can still be marked, for refunds. */
+    async setPayment(actor: Actor, id: string, status: PaymentStatus) {
+      if (!PAYMENT_STATUSES.includes(status)) throw new DomainError("invalid", `Unknown payment status "${status}"`);
+      await get(id);
+      const audit = { actor, action: "set_payment", entity: "booking", entityId: id, details: { status } };
+      // "Paid" also stops the 15-minute clock and takes the time back if it had been given up.
+      if (status === "paid") await bookingsRepo.markPaid(id, audit);
+      else await bookingsRepo.setPayment(id, status, audit);
       return get(id);
     },
 

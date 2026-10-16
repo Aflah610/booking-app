@@ -25,7 +25,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
     bookings.list({ view: "all", from, to, limit: 500 }),
     bookings.list({ view: "upcoming", staffId: me.id, limit: 5 }),
   ]);
-  const live = (list: typeof mine) => list.filter((b) => b.status !== "cancelled");
+  const live = (list: typeof mine) => list.filter((b) => b.status !== "cancelled" && !b.slotReleased);
   const stats = [
     { label: "My bookings today", value: live(mine).length },
     { label: "Firm bookings today", value: live(everyone).length },
@@ -43,20 +43,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <div className="mb-10 grid gap-3 sm:grid-cols-3">
         {stats.map((x) => (
           <div key={x.label} className="card p-5">
-            <p className="text-sm text-zinc-500">{x.label}</p>
+            <p className="text-sm text-zinc-600">{x.label}</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight">{x.value}</p>
           </div>
         ))}
       </div>
       <h2 className="mb-3 font-semibold">My day</h2>
-      <div className="card mb-10 divide-y divide-white/5 overflow-hidden">
-        {live(mine).length === 0 && <p className="p-8 text-center text-sm text-zinc-500">Nothing booked for you today.</p>}
-        {live(mine).map((b) => <BookingRow key={b.id} b={b} tz={tz} showStaff={false} />)}
+      <div className="card mb-10 divide-y divide-zinc-100 overflow-hidden">
+        {live(mine).length === 0 && <p className="p-8 text-center text-sm text-zinc-600">Nothing booked for you today.</p>}
+        {live(mine).map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showStaff={false} />)}
       </div>
       <h2 className="mb-3 font-semibold">Coming up</h2>
-      <div className="card divide-y divide-white/5 overflow-hidden">
-        {next.length === 0 && <p className="p-8 text-center text-sm text-zinc-500">No upcoming bookings.</p>}
-        {next.map((b) => <BookingRow key={b.id} b={b} tz={tz} showStaff={false} />)}
+      <div className="card divide-y divide-zinc-100 overflow-hidden">
+        {next.length === 0 && <p className="p-8 text-center text-sm text-zinc-600">No upcoming bookings.</p>}
+        {next.map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showStaff={false} />)}
       </div>
     </Shell>
   );

@@ -1,13 +1,24 @@
-import type { BookingStatus } from "@/features/bookings/bookings.dto";
-import { STATUS_LABEL } from "@/lib/format";
+import type { BookingStatus, PaymentStatus } from "@/features/bookings/bookings.dto";
+import { PAYMENT_LABEL, STATUS_LABEL } from "@/lib/format";
 
 const tone: Record<BookingStatus, string> = {
-  upcoming: "border-sky-400/30 text-sky-300",
-  completed: "border-emerald-400/30 text-emerald-300",
-  cancelled: "border-white/10 text-zinc-500 line-through",
-  no_show: "border-amber-400/30 text-amber-300",
+  upcoming: "border-black/40 text-black",
+  completed: "border-green-600/40 text-green-700",
+  cancelled: "border-red-600/40 text-red-700 line-through",
+  no_show: "border-red-600/40 text-red-700",
 };
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
   return <span className={`badge ${tone[status]}`}>{STATUS_LABEL[status]}</span>;
+}
+
+const paymentTone: Record<PaymentStatus, string> = {
+  paid: "border-green-600/40 text-green-700",
+  failed: "border-red-600/40 text-red-700",
+  pending: "border-zinc-300 text-zinc-600",
+  not_required: "border-zinc-200 text-zinc-500",
+};
+
+export function PaymentBadge({ status }: { status: PaymentStatus }) {
+  return <span className={`badge ${paymentTone[status]}`}>{PAYMENT_LABEL[status]}</span>;
 }

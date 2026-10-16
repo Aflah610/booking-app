@@ -28,9 +28,25 @@ const updatedAt = () =>
 
 export const staffRole = pgEnum("staff_role", ["admin", "manager", "staff"]);
 export const bookingStatus = pgEnum("booking_status", ["upcoming", "completed", "cancelled", "no_show"]);
+export const paymentStatus = pgEnum("payment_status", ["pending", "paid", "failed", "not_required"]);
+export const noShowBy = pgEnum("no_show_by", ["client", "staff"]);
 export const bookingSource = pgEnum("booking_source", ["web", "staff"]);
 export const notificationChannel = pgEnum("notification_channel", ["whatsapp", "email"]);
 export const notificationStatus = pgEnum("notification_status", ["queued", "sent", "delivered", "failed"]);
+export const workflowTrigger = pgEnum("workflow_trigger", [
+  "booked", "rescheduled", "cancelled", "completed", "no_show", "appointment_start", "appointment_end", "payment_success", "payment_failed",
+]);
+export const workflowTiming = pgEnum("workflow_timing", ["immediately", "before", "after"]);
+export const workflowChannel = pgEnum("workflow_channel", ["email", "whatsapp", "webhook"]);
+export const workflowRunStatus = pgEnum("workflow_run_status", ["queued", "sent", "failed", "skipped", "cancelled"]);
+
+/** Days the whole firm is closed (public holidays, a team day). Every staff member is unavailable that date. */
+export const holiday = pgTable("holiday", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  date: date("date", { mode: "string" }).notNull().unique(),
+  name: text("name").notNull(),
+  createdAt: createdAt(),
+});
 
 /** Single-row business settings. */
 export const business = pgTable("business", {
@@ -44,6 +60,14 @@ export const business = pgTable("business", {
   minNoticeMin: integer("min_notice_min").notNull().default(60),
   maxNoticeDays: integer("max_notice_days").notNull().default(60),
   clientCutoffMin: integer("client_cutoff_min").notNull().default(24 * 60),
+  /** Look of the public booking page. */
+  logoUrl: text("logo_url"),
+  brandColor: text("brand_color").notNull().default("#000000"),
+  welcomeText: text("welcome_text"),
+  /** Page on the firm's website where a client finishes an unpaid booking; used in "complete your payment" messages. */
+  resumeUrl: text("resume_url"),
+  /** When on, website bookings of priced services are held for 15 minutes until the website reports a payment. */
+  onlinePayment: boolean("online_payment").notNull().default(false),
   updatedAt: updatedAt(),
 }, (t) => [check("business_single_row", sql`${t.id} = 1`)]);
 
@@ -66,10 +90,18 @@ export const service = pgTable("service", {
   bufferBeforeMin: integer("buffer_before_min").notNull().default(0),
   bufferAfterMin: integer("buffer_after_min").notNull().default(0),
   priceDisplay: text("price_display"),
+  /** Amount charged online, in paise (derived from the price). Null = nothing to pay online. */
+  pricePaise: integer("price_paise"),
   // Per-service overrides of the business defaults (null = use the business setting).
   slotIntervalMin: integer("slot_interval_min"),
   minNoticeMin: integer("min_notice_min"),
   maxNoticeDays: integer("max_notice_days"),
+  /** Most bookings of this service the firm takes on one day; null = no limit. */
+  maxPerDay: integer("max_per_day"),
+  /** Where it happens: an address or a meeting link. Shown to the client and in calendar invites. */
+  location: text("location"),
+  /** Extra questions on the booking form: [{ id, label, type, required, options? }]. */
+  questions: jsonb("questions").$type<{ id: string; label: string; type: "text" | "longtext" | "choice"; required: boolean; options?: string[] }[]>().notNull().default(sql`'[]'::jsonb`),
   active: boolean("active").notNull().default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -211,6 +243,16 @@ export const booking = pgTable("booking", {
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   status: bookingStatus("status").notNull().default("upcoming"),
+  /** Set by staff for now; a payment provider can update it later. */
+  paymentStatus: paymentStatus("payment_status").notNull().default("pending"),
+  /** Online payment: when the current attempt runs out (15 minutes), and the last moment the client may still resume (24 hours). */
+  paymentDueAt: timestamp("payment_due_at", { withTimezone: true }),
+  resumeUntil: timestamp("resume_until", { withTimezone: true }),
+  /** The time was given back because payment wasn't completed; the booking no longer blocks the calendar. */
+  slotReleased: boolean("slot_released").notNull().default(false),
+  amountPaise: integer("amount_paise"),
+  /** Who missed a no-show appointment. Empty for older no-shows and for every other status. */
+  noShowBy: noShowBy("no_show_by"),
   source: bookingSource("source").notNull(),
   manageTokenHash: text("manage_token_hash"),
   /** From the Idempotency-Key header, so a retried create never books twice. */
@@ -218,7 +260,7 @@ export const booking = pgTable("booking", {
   cancellationReason: text("cancellation_reason"),
   cancelledBy: text("cancelled_by"),
   rescheduledFromId: uuid("rescheduled_from_id"),
-  formAnswers: jsonb("form_answers").$type<Record<string, unknown>>().notNull().default({}),
+  formAnswers: jsonb("form_answers").$type<Record<string, string>>().notNull().default({}),
   notes: text("notes"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -228,6 +270,7 @@ export const booking = pgTable("booking", {
   index("booking_starts_idx").on(t.startsAt),
   index("booking_status_starts_idx").on(t.status, t.startsAt),
   check("booking_start_before_end", sql`${t.startsAt} < ${t.endsAt}`),
+  check("booking_no_show_by_needs_no_show", sql`${t.noShowBy} is null or ${t.status} = 'no_show'`),
 ]);
 
 /**
@@ -275,6 +318,78 @@ export const notification = pgTable("notification", {
 }, (t) => [
   index("notification_booking_idx").on(t.bookingId),
   index("notification_due_idx").on(t.status, t.scheduledFor),
+]);
+
+/** "When X happens to a booking, send Y". Empty `serviceIds` means every service. */
+export const workflow = pgTable("workflow", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  active: boolean("active").notNull().default(true),
+  trigger: workflowTrigger("trigger").notNull(),
+  timing: workflowTiming("timing").notNull().default("immediately"),
+  offsetMin: integer("offset_min").notNull().default(0),
+  channel: workflowChannel("channel").notNull(),
+  /** Channel settings (subject and body, WhatsApp template, or webhook URL), validated by Zod in the service. */
+  config: jsonb("config").notNull().$type<Record<string, unknown>>(),
+  serviceIds: uuid("service_ids").array().notNull().default(sql`'{}'::uuid[]`),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex("workflow_name_idx").on(sql`lower(${t.name})`),
+  check("workflow_offset_non_negative", sql`${t.offsetMin} >= 0`),
+  check("workflow_immediate_has_no_offset", sql`${t.timing} <> 'immediately' or ${t.offsetMin} = 0`),
+]);
+
+/** One message a workflow owes a booking. Doubles as the log: the rendered message is kept here. */
+export const workflowRun = pgTable("workflow_run", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workflowId: uuid("workflow_id").notNull().references(() => workflow.id, { onDelete: "cascade" }),
+  bookingId: uuid("booking_id").notNull().references(() => booking.id, { onDelete: "cascade" }),
+  status: workflowRunStatus("status").notNull().default("queued"),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull().defaultNow(),
+  attempts: integer("attempts").notNull().default(0),
+  recipient: text("recipient"),
+  message: text("message"),
+  error: text("error"),
+  providerMessageId: text("provider_message_id"),
+  /** "<workflowId>:<bookingId>": a second enqueue for the same booking is a no-op. */
+  dedupeKey: text("dedupe_key").notNull().unique(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  index("workflow_run_due_idx").on(t.status, t.scheduledFor),
+  index("workflow_run_booking_idx").on(t.bookingId),
+  index("workflow_run_workflow_idx").on(t.workflowId, t.createdAt),
+]);
+
+/**
+ * A payment reported against a booking: by the firm's website (which runs Razorpay Checkout) or typed in by
+ * staff. This app never talks to Razorpay; it keeps the details so staff can find the payment there.
+ */
+export const payment = pgTable("payment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id").notNull().references(() => booking.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  amountPaise: integer("amount_paise").notNull(),
+  currency: text("currency").notNull().default("INR"),
+  razorpayOrderId: text("razorpay_order_id"),
+  /** Unique, so the website reporting the same payment twice (a retry) is recognised and not counted twice. */
+  razorpayPaymentId: text("razorpay_payment_id").unique(),
+  method: text("method"),
+  /** When the provider says it happened; falls back to when we were told. */
+  paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+  errorCode: text("error_code"),
+  errorDescription: text("error_description"),
+  source: text("source").notNull().default("website"),
+  recordedByStaffId: uuid("recorded_by_staff_id").references(() => staff.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  /** Money was taken for a booking that had already been cancelled; refund it in Razorpay. */
+  needsRefund: boolean("needs_refund").notNull().default(false),
+  createdAt: createdAt(),
+}, (t) => [
+  index("payment_booking_idx").on(t.bookingId),
+  check("payment_status", sql`${t.status} in ('paid', 'failed', 'refunded')`),
+  check("payment_amount_non_negative", sql`${t.amountPaise} >= 0`),
 ]);
 
 /** Credentials for the firm's website and other tools. Only a SHA-256 hash of the key is stored. */

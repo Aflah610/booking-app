@@ -15,19 +15,19 @@ export default async function ServicesPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Services" subtitle="What clients can book." />
       <Notice error={error} ok={ok} />
       <div className="mb-10 grid gap-3">
-        {rows.length === 0 && <p className="card p-6 text-sm text-zinc-500">No services yet. Add your first one below.</p>}
+        {rows.length === 0 && <p className="card p-6 text-sm text-zinc-600">No services yet. Add your first one below.</p>}
         {rows.map((s) => (
-          <Link key={s.id} href={`/admin/services/${s.id}`} className="card flex flex-wrap items-center gap-x-6 gap-y-1 p-4 transition-colors hover:border-white/25">
+          <Link key={s.id} href={`/admin/services/${s.id}`} className="card flex flex-wrap items-center gap-x-6 gap-y-1 p-4 transition-colors hover:border-zinc-400">
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{s.name}</span>
-              {s.description && <span className="block truncate text-sm text-zinc-500">{s.description}</span>}
+              {s.description && <span className="block truncate text-sm text-zinc-600">{s.description}</span>}
             </span>
             <span className="badge">{s.durationMin} min</span>
             {(s.bufferBeforeMin > 0 || s.bufferAfterMin > 0) && (
-              <span className="text-xs text-zinc-500">Buffers {s.bufferBeforeMin}/{s.bufferAfterMin} min</span>
+              <span className="text-xs text-zinc-600">Buffers {s.bufferBeforeMin}/{s.bufferAfterMin} min</span>
             )}
             <span className="w-24 text-right text-sm">{s.priceDisplay ?? "–"}</span>
-            {!s.active && <span className="badge text-zinc-500">Hidden</span>}
+            {!s.active && <span className="badge text-zinc-600">Hidden</span>}
           </Link>
         ))}
       </div>

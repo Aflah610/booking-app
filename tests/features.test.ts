@@ -19,6 +19,19 @@ describe("api keys", () => {
     await c.apiKeys.revoke(record.id);
     expect(await c.apiKeys.verify(key)).toBeNull();
   });
+
+  it("needs a name", async () => {
+    await expect(c.apiKeys.create({ name: "  ", scopes: ["website"] })).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("lists only live keys, without the secret", async () => {
+    const live = await c.apiKeys.create({ name: "Live", scopes: ["website"] });
+    const old = await c.apiKeys.create({ name: "Old", scopes: ["website"] });
+    await c.apiKeys.revoke(old.record.id);
+    const list = await c.apiKeys.list();
+    expect(list.map((k) => k.name)).toEqual(["Live"]);
+    expect(JSON.stringify(list)).not.toContain(live.key);
+  });
 });
 
 describe("staff", () => {
@@ -93,5 +106,19 @@ describe("catalog and schedules", () => {
 
   it("validates service input", async () => {
     await expect(c.catalog.create({}, { name: "", durationMin: 0 })).rejects.toThrow();
+  });
+});
+
+describe("settings", () => {
+  it("accepts a booking ID prefix of letters, numbers, dash and underscore only", async () => {
+    const base = { name: "Firm", timezone: "Asia/Kolkata", currency: "INR", slotIntervalMin: 15, minNoticeMin: 60, maxNoticeDays: 60, clientCutoffMin: 1440 };
+    try {
+      expect((await c.settings.update({}, { ...base, bookingPrefix: "CLINIC-" })).bookingPrefix).toBe("CLINIC-");
+      expect(() => c.settings.update({}, { ...base, bookingPrefix: "BK #" })).toThrow(/prefix/);
+      expect(() => c.settings.update({}, { ...base, bookingPrefix: "TOOLONGPREFIX" })).toThrow();
+    } finally {
+      // Settings aren't cleared between tests, and other tests expect the default.
+      await c.settings.update({}, { ...base, bookingPrefix: "BK-" });
+    }
   });
 });

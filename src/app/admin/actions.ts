@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { app } from "@/features/container";
 import { DomainError } from "@/features/shared/errors";
 import { act, optional, optionalNumber, str } from "@/lib/form-actions";
+import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
 import { zonedToUtc } from "@/lib/time";
 import { requireStaff, hasRole } from "@/lib/session";
@@ -90,6 +92,9 @@ function serviceFields(form: FormData) {
     slotIntervalMin: optionalNumber(form, "slotIntervalMin"),
     minNoticeMin: optionalNumber(form, "minNoticeMin"),
     maxNoticeDays: optionalNumber(form, "maxNoticeDays"),
+    maxPerDay: optionalNumber(form, "maxPerDay"),
+    location: optional(form, "location"),
+    questions: parseQuestions(str(form, "questions")),
   };
 }
 
@@ -138,6 +143,11 @@ export async function updateSettingsAction(form: FormData) {
       minNoticeMin: str(form, "minNoticeMin"),
       maxNoticeDays: str(form, "maxNoticeDays"),
       clientCutoffMin: Number(str(form, "clientCutoffHours")) * 60,
+      logoUrl: str(form, "logoUrl"),
+      brandColor: str(form, "brandColor") || "#000000",
+      welcomeText: str(form, "welcomeText"),
+      resumeUrl: str(form, "resumeUrl"),
+      onlinePayment: form.get("onlinePayment") === "on",
     }),
   );
 }
@@ -152,4 +162,35 @@ export async function updateClientAction(clientId: string, form: FormData) {
       notes: optional(form, "notes"),
     }),
   );
+}
+
+export type NewApiKeyState = { key?: string; name?: string; error?: string } | null;
+
+/** Returns the raw key to the form instead of redirecting, so it never lands in a URL or the server logs. */
+export async function createApiKeyAction(_prev: NewApiKeyState, form: FormData): Promise<NewApiKeyState> {
+  await requireStaff("admin");
+  try {
+    const { key, record } = await app().apiKeys.create({ name: str(form, "name"), scopes: ["website"] });
+    revalidatePath("/admin/settings/api");
+    return { key, name: record.name };
+  } catch (err) {
+    if (err instanceof DomainError) return { error: err.message };
+    throw err;
+  }
+}
+
+export async function revokeApiKeyAction(id: string) {
+  await requireStaff("admin");
+  await app().apiKeys.revoke(id);
+  redirect("/admin/settings/api?ok=" + encodeURIComponent("API key revoked. Sites using it stop working now"));
+}
+
+export async function addHolidayAction(form: FormData) {
+  const me = await requireStaff("admin");
+  await act("/admin/settings/holidays", "Holiday added", () => app().holidays.add({ staffId: me.id }, { date: str(form, "date"), name: str(form, "name") }));
+}
+
+export async function removeHolidayAction(id: string) {
+  const me = await requireStaff("admin");
+  await act("/admin/settings/holidays", "Holiday removed", () => app().holidays.remove({ staffId: me.id }, id));
 }

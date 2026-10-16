@@ -62,14 +62,14 @@ export default async function StaffDetail({
 
         <section>
           <h2 className="mb-1 font-semibold">Date overrides</h2>
-          <p className="mb-3 text-sm text-zinc-500">Different hours on one date, or a day off. Replaces the weekly hours for that date.</p>
-          <div className="card mb-4 divide-y divide-white/5">
-            {overrides.length === 0 && <p className="p-4 text-sm text-zinc-500">No overrides.</p>}
+          <p className="mb-3 text-sm text-zinc-600">Different hours on one date, or a day off. Replaces the weekly hours for that date.</p>
+          <div className="card mb-4 divide-y divide-zinc-100">
+            {overrides.length === 0 && <p className="p-4 text-sm text-zinc-600">No overrides.</p>}
             {overrides.map((o) => (
               <div key={o.date} className="flex items-center gap-3 p-4 text-sm">
                 <span className="flex-1">
                   <span className="block">{longDayLabel(new Date(`${o.date}T12:00:00Z`), "UTC")}</span>
-                  <span className="text-zinc-500">
+                  <span className="text-zinc-600">
                     {o.ranges.length ? o.ranges.map((r) => `${r.startTime}–${r.endTime}`).join(", ") : "Unavailable"}
                   </span>
                 </span>
@@ -96,14 +96,14 @@ export default async function StaffDetail({
       <section className="mt-12">
         <h2 className="mb-3 font-semibold">Time off and blocked time</h2>
         {timeOff.length === 0 ? (
-          <p className="mb-4 text-sm text-zinc-500">Nothing upcoming.</p>
+          <p className="mb-4 text-sm text-zinc-600">Nothing upcoming.</p>
         ) : (
-          <div className="card mb-4 divide-y divide-white/5">
+          <div className="card mb-4 divide-y divide-zinc-100">
             {timeOff.map((t) => (
               <div key={t.id} className="flex items-center gap-3 p-4 text-sm">
                 <span className="flex-1">
                   {formatInZone(t.startsAt, member.timezone)} to {formatInZone(t.endsAt, member.timezone)}
-                  {t.reason && <span className="ml-3 text-zinc-500">{t.reason}</span>}
+                  {t.reason && <span className="ml-3 text-zinc-600">{t.reason}</span>}
                 </span>
                 <form action={removeTimeOffAction.bind(null, id, t.id)}><button className="btn-ghost" type="submit">Remove</button></form>
               </div>
@@ -138,7 +138,7 @@ export default async function StaffDetail({
             </label>
             <fieldset className="sm:col-span-2">
               <legend className="label">Services they offer</legend>
-              {services.length === 0 && <p className="text-sm text-zinc-500">No services yet.</p>}
+              {services.length === 0 && <p className="text-sm text-zinc-600">No services yet.</p>}
               <div className="grid gap-2 sm:grid-cols-2">
                 {services.map((s) => (
                   <label key={s.id} className="flex items-center gap-2 text-sm">

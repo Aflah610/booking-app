@@ -4,6 +4,7 @@ import { addDays } from "@/features/availability/slots";
 import { requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, timeLabel } from "@/lib/format";
+import { QuestionFields } from "@/components/QuestionFields";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { createBookingAction } from "../actions";
@@ -42,7 +43,7 @@ export default async function NewBookingPage({
     return (
       <>
         <PageHeader title="New booking" />
-        <p className="card p-6 text-sm text-zinc-400">Add a service first, then give it to at least one staff member.</p>
+        <p className="card p-6 text-sm text-zinc-600">Add a service first, then give it to at least one staff member.</p>
       </>
     );
   }
@@ -76,8 +77,8 @@ export default async function NewBookingPage({
             <h2 className="text-center font-medium">{longDayLabel(new Date(`${date}T12:00:00Z`), "UTC")}</h2>
             <Link className="icon-btn" href={href({ date: addDays(date, 1) })} aria-label="Next day">›</Link>
           </div>
-          {!people.length && <p className="text-sm text-zinc-500">Nobody offers {svc?.name} yet. Give it to a staff member on the Staff page.</p>}
-          {people.length > 0 && slots.length === 0 && <p className="text-sm text-zinc-500">No free times this day. Try another date.</p>}
+          {!people.length && <p className="text-sm text-zinc-600">Nobody offers {svc?.name} yet. Give it to a staff member on the Staff page.</p>}
+          {people.length > 0 && slots.length === 0 && <p className="text-sm text-zinc-600">No free times this day. Try another date.</p>}
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
             {slots.map((x) => {
               const iso = x.start.toISOString();
@@ -86,7 +87,7 @@ export default async function NewBookingPage({
                 <Link
                   key={iso}
                   href={href({ start: iso })}
-                  className={`rounded-md border px-2 py-2 text-center text-sm transition-colors ${active ? "border-white bg-white text-black" : "border-white/10 hover:border-white/40"}`}
+                  className={`rounded-md border px-2 py-2 text-center text-sm transition-colors ${active ? "border-black bg-black text-white" : "border-zinc-200 hover:border-zinc-500"}`}
                 >
                   {timeLabel(x.start, tz)}
                 </Link>
@@ -95,8 +96,8 @@ export default async function NewBookingPage({
           </div>
 
           {chosen && svc && (
-            <form action={createBookingAction} className="mt-8 grid gap-4 border-t border-white/10 pt-6 sm:grid-cols-2">
-              <p className="text-sm text-zinc-400 sm:col-span-2">
+            <form action={createBookingAction} className="mt-8 grid gap-4 border-t border-zinc-200 pt-6 sm:grid-cols-2">
+              <p className="text-sm text-zinc-600 sm:col-span-2">
                 {svc.name} on {longDayLabel(chosen.start, tz)} at {timeLabel(chosen.start, tz)}
                 {staffId ? ` with ${people.find((p) => p.id === staffId)?.name}` : chosen.staffIds.length > 1 ? " (we'll pick whoever is least busy)" : ` with ${people.find((p) => p.id === chosen.staffIds[0])?.name}`}
               </p>
@@ -108,8 +109,9 @@ export default async function NewBookingPage({
               <div><label className="label" htmlFor="clientPhone">Mobile number</label><input className="input" id="clientPhone" name="clientPhone" type="tel" placeholder="98765 43210" required /></div>
               <div><label className="label" htmlFor="clientEmail">Email</label><input className="input" id="clientEmail" name="clientEmail" type="email" placeholder="Optional" /></div>
               <label className="flex items-center gap-3 self-end pb-2 text-sm"><input type="checkbox" className="toggle" name="whatsappOptIn" defaultChecked /> Send WhatsApp updates</label>
+              <QuestionFields questions={svc.questions} />
               <div className="sm:col-span-2"><label className="label" htmlFor="notes">Notes</label><textarea className="input" id="notes" name="notes" rows={2} placeholder="Only staff see these" /></div>
-              <div className="sm:col-span-2"><button className="btn" type="submit">Confirm booking</button></div>
+              <div className="sm:col-span-2"><button className="btn-success" type="submit">Confirm booking</button></div>
             </form>
           )}
         </section>

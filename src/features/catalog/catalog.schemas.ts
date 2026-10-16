@@ -13,6 +13,15 @@ export const serviceInput = z.object({
   slotIntervalMin: z.coerce.number().int().min(5).max(240).nullish(),
   minNoticeMin: optionalMinutes(60 * 24 * 30),
   maxNoticeDays: z.coerce.number().int().min(1).max(730).nullish(),
+  maxPerDay: z.coerce.number().int().min(1).max(1000).nullish(),
+  location: z.string().trim().max(300).nullish(),
+  questions: z.array(z.object({
+    id: z.string().min(1).max(60),
+    label: z.string().min(1).max(120),
+    type: z.enum(["text", "longtext", "choice"]),
+    required: z.boolean(),
+    options: z.array(z.string().min(1).max(100)).max(20).optional(),
+  })).max(10).default([]),
   active: z.boolean().default(true),
 });
 export type ServiceInput = z.input<typeof serviceInput>;

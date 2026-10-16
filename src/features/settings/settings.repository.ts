@@ -14,6 +14,11 @@ const columns = {
   minNoticeMin: business.minNoticeMin,
   maxNoticeDays: business.maxNoticeDays,
   clientCutoffMin: business.clientCutoffMin,
+  logoUrl: business.logoUrl,
+  brandColor: business.brandColor,
+  welcomeText: business.welcomeText,
+  resumeUrl: business.resumeUrl,
+  onlinePayment: business.onlinePayment,
 };
 
 export function createSettingsRepository(db: Db) {

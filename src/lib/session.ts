@@ -18,7 +18,8 @@ export async function currentStaff(): Promise<StaffDTO | null> {
     const member = await app().staff.get(id);
     return member.active ? member : null;
   } catch (err) {
-    if (err instanceof DomainError && err.code === "not_found") return null;
+    // Matched by name as well, because the dev server can load this error class twice and `instanceof` then fails.
+    if (err instanceof Error && err.name === "DomainError" && (err as DomainError).code === "not_found") return null;
     throw err;
   }
 }

@@ -1,5 +1,6 @@
 import { app } from "@/features/container";
 import { toPublicBooking } from "@/features/bookings/bookings.dto";
+import { DomainError } from "@/features/shared/errors";
 import { ApiResult, apiRoute, jsonBody, keyActor } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -21,4 +22,17 @@ export const POST = apiRoute("website", async (req, { key }) => {
     result.replayed ? 200 : 201,
     result.replayed ? { "Idempotent-Replayed": "true" } : {},
   );
+});
+
+/**
+ * GET /api/v1/bookings?phone=+919876543210
+ * For "welcome back": this client's bookings that still need something from them (pay, resume within 24 hours,
+ * or choose a new time). The website decides who the logged-in client is; only their own bookings come back.
+ */
+export const GET = apiRoute("website", async (req) => {
+  const { payments, settings } = app();
+  const phone = new URL(req.url).searchParams.get("phone");
+  if (!phone) throw new DomainError("invalid", "Pass the client's phone number as ?phone=");
+  const { bookingPrefix } = await settings.get();
+  return (await payments.resumable(phone)).map((b) => toPublicBooking(b, bookingPrefix));
 });

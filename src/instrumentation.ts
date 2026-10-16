@@ -5,5 +5,7 @@ export async function register() {
     const { missingEnv } = await import("@/lib/env");
     const missing = missingEnv();
     if (missing.length) console.error(`[config] Missing or invalid environment variables: ${missing.join(", ")}`);
+    const { startWorkflowWorker } = await import("./instrumentation-node");
+    startWorkflowWorker();
   }
 }

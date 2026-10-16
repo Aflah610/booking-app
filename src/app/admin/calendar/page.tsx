@@ -35,7 +35,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     }),
     staff.list(),
   ]);
-  const live = rows.filter((b) => b.status !== "cancelled");
+  // A booking whose payment ran out has given its time back, so it takes no space on the diary.
+  const live = rows.filter((b) => b.status !== "cancelled" && !b.slotReleased);
   const minutesIntoDay = (d: Date) => {
     const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).split(":").map(Number);
     return h * 60 + m;
@@ -65,11 +66,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       />
       <div className="card overflow-x-auto">
         <div className="grid min-w-[56rem] grid-cols-[3.5rem_repeat(7,1fr)]">
-          <div className="border-b border-white/10" />
+          <div className="border-b border-zinc-200" />
           {days.map((d) => (
-            <div key={d} className={`border-b border-l border-white/10 px-3 py-3 text-sm ${d === today ? "text-white" : "text-zinc-400"}`}>
+            <div key={d} className={`border-b border-l border-zinc-200 px-3 py-3 text-sm ${d === today ? "text-black" : "text-zinc-600"}`}>
               {dayLabel(new Date(`${d}T12:00:00Z`), "UTC")}
-              {d === today && <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-white align-middle" />}
+              {d === today && <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-black align-middle" />}
             </div>
           ))}
           <div className="relative" style={{ height: (LAST_HOUR - FIRST_HOUR) * HOUR_PX }}>
@@ -80,9 +81,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             ))}
           </div>
           {days.map((d) => (
-            <div key={d} className="relative border-l border-white/10" style={{ height: (LAST_HOUR - FIRST_HOUR) * HOUR_PX }}>
+            <div key={d} className="relative border-l border-zinc-200" style={{ height: (LAST_HOUR - FIRST_HOUR) * HOUR_PX }}>
               {Array.from({ length: LAST_HOUR - FIRST_HOUR }, (_, i) => (
-                <div key={i} className="absolute inset-x-0 border-t border-white/5" style={{ top: i * HOUR_PX }} />
+                <div key={i} className="absolute inset-x-0 border-t border-zinc-100" style={{ top: i * HOUR_PX }} />
               ))}
               {live
                 .filter((b) => isoDay(b.startsAt, tz) === d)
@@ -93,12 +94,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     <Link
                       key={b.id}
                       href={`/admin/bookings/${b.id}`}
-                      className="absolute inset-x-1 overflow-hidden rounded-md border border-white/15 bg-zinc-800/90 px-2 py-1 text-xs hover:border-white/50"
+                      className="absolute inset-x-1 overflow-hidden rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs shadow-sm hover:border-zinc-600"
                       style={{ top: Math.max(top, 0), height }}
                       title={`${b.serviceName} with ${b.clientName}`}
                     >
-                      <span className="block truncate font-medium text-white">{b.clientName}</span>
-                      <span className="block truncate text-zinc-400">{timeLabel(b.startsAt, tz)} · {b.serviceName}{!staffFilter && ` · ${b.staffName}`}</span>
+                      <span className="block truncate font-medium text-black">{b.clientName}</span>
+                      <span className="block truncate text-zinc-600">{timeLabel(b.startsAt, tz)} · {b.serviceName}{!staffFilter && ` · ${b.staffName}`}</span>
                     </Link>
                   );
                 })}

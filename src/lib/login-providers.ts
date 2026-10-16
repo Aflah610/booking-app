@@ -1,4 +1,6 @@
 import type { Provider } from "next-auth/providers";
+import { createHash, timingSafeEqual } from "node:crypto";
+import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
 export type LoginProviderId = "google" | "zoho";
@@ -50,4 +52,35 @@ export function enabledLoginProviders(env: Record<string, string | undefined> = 
   if (env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET) providers.push({ id: "google", name: "Google", provider: Google });
   if (env.AUTH_ZOHO_ID && env.AUTH_ZOHO_SECRET) providers.push({ id: "zoho", name: "Zoho", provider: zoho(env) });
   return providers;
+}
+
+/**
+ * Email + shared password sign-in for running the app on a developer's computer before Google or Zoho is
+ * set up. Never available in production builds, so a leaked .env can't open the live site.
+ */
+export function localLoginEnabled(env: Record<string, string | undefined> = process.env) {
+  return env.NODE_ENV !== "production" && Boolean(env.LOCAL_LOGIN_PASSWORD);
+}
+
+function samePassword(given: string, expected: string) {
+  // Hash both sides so the comparison takes the same time whatever the lengths.
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+export function localLoginProvider(env: Record<string, string | undefined> = process.env): Provider {
+  return Credentials({
+    id: "local",
+    name: "Email and password",
+    credentials: { email: {}, password: {} },
+    authorize(credentials) {
+      const email = typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : "";
+      const password = typeof credentials?.password === "string" ? credentials.password : "";
+      const expected = env.LOCAL_LOGIN_PASSWORD;
+      if (!localLoginEnabled(env) || !expected || !email || !samePassword(password, expected)) return null;
+      // Whether this email may get in is decided by the shared signIn callback, as for Google and Zoho.
+      return { id: email, email, name: null };
+    },
+  });
 }

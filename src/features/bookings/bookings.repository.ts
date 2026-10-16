@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, lt, lte, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import type { Db, Tx } from "@/db";
 import { booking, client, notification, service, slotHold, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
@@ -6,7 +6,7 @@ import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
 import { upsertClient } from "@/features/clients/clients.repository";
 import { PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
-import type { BookingDTO, BookingSource, BookingStatus } from "./bookings.dto";
+import type { BookingDTO, BookingSource, BookingStatus, NoShowBy, PaymentStatus } from "./bookings.dto";
 
 const columns = {
   id: booking.id,
@@ -21,8 +21,15 @@ const columns = {
   startsAt: booking.startsAt,
   endsAt: booking.endsAt,
   status: booking.status,
+  paymentStatus: booking.paymentStatus,
+  paymentDueAt: booking.paymentDueAt,
+  resumeUntil: booking.resumeUntil,
+  slotReleased: booking.slotReleased,
+  amountPaise: booking.amountPaise,
+  noShowBy: booking.noShowBy,
   source: booking.source,
   notes: booking.notes,
+  formAnswers: booking.formAnswers,
   cancellationReason: booking.cancellationReason,
   cancelledBy: booking.cancelledBy,
   rescheduledFromId: booking.rescheduledFromId,
@@ -40,7 +47,9 @@ export type NewBooking = {
   idempotencyKey?: string | null;
   manageTokenHash?: string | null;
   notes?: string | null;
-  formAnswers?: Record<string, unknown>;
+  formAnswers?: Record<string, string>;
+  /** Set when the booking is paid online: how long the client has to pay, and to come back. */
+  payment?: { status: PaymentStatus; dueAt: Date | null; resumeUntil: Date | null; amountPaise: number | null };
 };
 
 /** Why a write was refused by the database's own guards. */
@@ -90,7 +99,7 @@ async function claimTime(tx: Tx, t: { staffId: string; startsAt: Date; endsAt: D
   return other ? ("held" as const) : null;
 }
 
-async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?: string } = {}) {
+async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?: string; paymentStatus?: PaymentStatus; amountPaise?: number | null } = {}) {
   const clientId = "id" in b.client ? b.client.id : await upsertClient(tx, b.client);
   const [row] = await tx
     .insert(booking)
@@ -105,6 +114,10 @@ async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?:
       manageTokenHash: b.manageTokenHash ?? null,
       notes: b.notes ?? null,
       formAnswers: b.formAnswers ?? {},
+      paymentStatus: b.payment?.status ?? extra.paymentStatus ?? "pending",
+      paymentDueAt: b.payment?.dueAt ?? null,
+      resumeUntil: b.payment?.resumeUntil ?? null,
+      amountPaise: b.payment?.amountPaise ?? extra.amountPaise ?? null,
       rescheduledFromId: extra.rescheduledFromId ?? null,
     })
     .returning({ id: booking.id });
@@ -194,7 +207,7 @@ export function createBookingsRepository(db: Db) {
               last: sql<string | null>`max(${booking.startsAt})::text`,
             })
             .from(booking)
-            .where(and(inArray(booking.staffId, staffIds), ne(booking.status, "cancelled"), gte(booking.startsAt, since)))
+            .where(and(inArray(booking.staffId, staffIds), ne(booking.status, "cancelled"), eq(booking.slotReleased, false), gte(booking.startsAt, since)))
             .groupBy(booking.staffId)
         : [];
       return new Map(rows.map((r) => [r.staffId, { count: r.count, lastStart: r.last ? Date.parse(r.last) : 0 }]));
@@ -222,7 +235,15 @@ export function createBookingsRepository(db: Db) {
     ) {
       return guarded(async (tx) => {
         const [old] = await tx
-          .select({ staffId: booking.staffId, clientId: booking.clientId, source: booking.source, manageTokenHash: booking.manageTokenHash })
+          .select({
+            staffId: booking.staffId,
+            clientId: booking.clientId,
+            source: booking.source,
+            manageTokenHash: booking.manageTokenHash,
+            formAnswers: booking.formAnswers,
+            paymentStatus: booking.paymentStatus,
+            amountPaise: booking.amountPaise,
+          })
           .from(booking)
           .where(eq(booking.id, oldId));
         if (!old) throw new Refused("not_upcoming");
@@ -239,8 +260,9 @@ export function createBookingsRepository(db: Db) {
         const id = await insertBooking(
           tx,
           // The client keeps the same manage link for the moved booking.
-          { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash },
-          { rescheduledFromId: oldId },
+          // The client's answers and what they have paid belong to the visit, not to the time slot, so they move too.
+          { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash, formAnswers: old.formAnswers },
+          { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise },
         );
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, newBookingId: id } });
         return id;
@@ -263,16 +285,141 @@ export function createBookingsRepository(db: Db) {
       });
     },
 
-    async setStatus(id: string, status: "completed" | "no_show" | "upcoming", from: BookingStatus[], audit: AuditEntry) {
+    async setStatus(
+      id: string,
+      status: "completed" | "no_show" | "upcoming",
+      from: BookingStatus[],
+      noShowBy: NoShowBy | null,
+      audit: AuditEntry,
+    ) {
       return guarded(async (tx) => {
         const rows = await tx
           .update(booking)
-          .set({ status })
+          // The database only allows "no_show_by" on a no-show, so every other status clears it.
+          .set({ status, noShowBy: status === "no_show" ? noShowBy : null })
           .where(and(eq(booking.id, id), inArray(booking.status, from)))
           .returning({ id: booking.id });
         if (!rows.length) throw new Refused("not_upcoming");
         await writeAudit(tx, audit);
         return id;
+      });
+    },
+
+    /**
+     * Online bookings whose 15 minutes ran out: the payment fails and the time goes back on offer.
+     * Done in one statement so two workers can't both claim the same booking.
+     */
+    async expirePending(now: Date): Promise<string[]> {
+      return db.transaction(async (tx) => {
+        const rows = await tx
+          .update(booking)
+          .set({ paymentStatus: "failed", slotReleased: true })
+          .where(and(eq(booking.status, "upcoming"), eq(booking.paymentStatus, "pending"), lte(booking.paymentDueAt, now)))
+          .returning({ id: booking.id });
+        for (const r of rows) await writeAudit(tx, { actor: {}, action: "payment_expired", entity: "booking", entityId: r.id });
+        return rows.map((r) => r.id);
+      });
+    },
+
+    /** Unpaid online bookings the client didn't come back to within 24 hours are cancelled. Paid ones are never touched. */
+    async cancelUnpaid(now: Date): Promise<string[]> {
+      return db.transaction(async (tx) => {
+        const rows = await tx
+          .update(booking)
+          .set({ status: "cancelled", cancellationReason: "Payment was not completed within 24 hours", cancelledBy: "system", slotReleased: true })
+          .where(and(eq(booking.status, "upcoming"), inArray(booking.paymentStatus, ["pending", "failed"]), lte(booking.resumeUntil, now)))
+          .returning({ id: booking.id });
+        for (const r of rows) await writeAudit(tx, { actor: {}, action: "payment_timeout_cancel", entity: "booking", entityId: r.id });
+        return rows.map((r) => r.id);
+      });
+    },
+
+    /**
+     * Records a payment. If the time had been given back, it is taken again when nobody else has it;
+     * otherwise the booking stays paid with its time released, and the client is asked to choose a new one.
+     */
+    async markPaid(id: string, audit: AuditEntry): Promise<{ result: "cancelled" | "already" | "paid"; slotReleased: boolean }> {
+      return db.transaction(async (tx) => {
+        const [b] = await tx
+          .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId })
+          .from(booking)
+          .where(eq(booking.id, id))
+          .for("update");
+        if (!b || b.status === "cancelled") return { result: "cancelled" as const, slotReleased: true };
+        if (b.paymentStatus === "paid") return { result: "already" as const, slotReleased: b.slotReleased };
+        await lockStaff(tx, [b.staffId]);
+        let slotReleased = b.slotReleased;
+        if (slotReleased) {
+          try {
+            // A savepoint: if someone took the time meanwhile, only this step is undone.
+            await tx.transaction((sp) => sp.update(booking).set({ slotReleased: false }).where(eq(booking.id, id)));
+            slotReleased = false;
+          } catch (err) {
+            if (pgError(err).code !== PG_EXCLUSION_VIOLATION) throw err;
+          }
+        }
+        await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
+        await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
+        return { result: "paid" as const, slotReleased };
+      });
+    },
+
+    /**
+     * Takes a time for a booking whose time was given back, at the same time or a new one. With `pay`, the
+     * booking goes back to "payment pending" for another 15 minutes.
+     */
+    async reclaim(
+      id: string,
+      t: { staffId: string; startsAt: Date; endsAt: Date; pay: { dueAt: Date } | null },
+      opts: { now: Date; audit: AuditEntry },
+    ) {
+      return guarded(async (tx) => {
+        const [b] = await tx.select({ staffId: booking.staffId, status: booking.status }).from(booking).where(eq(booking.id, id)).for("update");
+        if (!b || b.status !== "upcoming") throw new Refused("not_upcoming");
+        await lockStaff(tx, [b.staffId, t.staffId]);
+        const blocked = await claimTime(tx, { staffId: t.staffId, startsAt: t.startsAt, endsAt: t.endsAt, now: opts.now });
+        if (blocked) throw new Refused(blocked);
+        await tx
+          .update(booking)
+          .set({
+            staffId: t.staffId,
+            startsAt: t.startsAt,
+            endsAt: t.endsAt,
+            slotReleased: false,
+            ...(t.pay ? { paymentStatus: "pending" as const, paymentDueAt: t.pay.dueAt } : {}),
+          })
+          .where(eq(booking.id, id));
+        await writeAudit(tx, opts.audit);
+        return id;
+      });
+    },
+
+    /** A client's bookings that still need something from them: pay, resume, or choose a new time. */
+    listResumable(phoneE164: string, now: Date): Promise<BookingDTO[]> {
+      return base()
+        .where(
+          and(
+            eq(client.phoneE164, phoneE164),
+            eq(booking.status, "upcoming"),
+            or(
+              and(inArray(booking.paymentStatus, ["pending", "failed"]), gt(booking.resumeUntil, now)),
+              and(eq(booking.paymentStatus, "paid"), eq(booking.slotReleased, true)),
+            ),
+          ),
+        )
+        .orderBy(asc(booking.startsAt));
+    },
+
+    /** Highest booking number so far, to show the admin what the next ID will look like. */
+    async latestNumber(): Promise<number> {
+      const [row] = await db.select({ n: sql<number>`coalesce(max(${booking.number}), 0)::int` }).from(booking);
+      return row.n;
+    },
+
+    async setPayment(id: string, status: PaymentStatus, audit: AuditEntry) {
+      await db.transaction(async (tx) => {
+        await tx.update(booking).set({ paymentStatus: status }).where(eq(booking.id, id));
+        await writeAudit(tx, audit);
       });
     },
 

@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { app } from "@/features/container";
 import type { ApiKeyDTO, ApiScope } from "@/features/api-keys/api-keys.dto";
 import { DomainError } from "@/features/shared/errors";
+import { rateLimit } from "@/lib/rate-limit";
 
 type RouteContext = { params: Promise<Record<string, string>> };
 type Handler = (req: NextRequest, ctx: { key: ApiKeyDTO; params: Record<string, string> }) => Promise<unknown>;
@@ -31,6 +32,9 @@ export async function jsonBody(req: NextRequest): Promise<unknown> {
   }
 }
 
+/** Per API key. Generous for a busy website; far below what would strain the server. */
+export const API_LIMIT_PER_MINUTE = 600;
+
 const STATUS: Record<DomainError["code"], number> = { invalid: 400, forbidden: 403, not_found: 404, conflict: 409 };
 
 export function apiError(status: number, code: string, message: string, details?: unknown) {
@@ -54,6 +58,14 @@ export function apiRoute(scope: ApiScope, handler: Handler) {
       if (!key) return apiError(401, "unauthorized", "Missing or invalid API key");
       if (!key.scopes.includes(scope) && !key.scopes.includes("staff")) {
         return apiError(403, "forbidden", "This API key cannot call this endpoint");
+      }
+      // A runaway script or a leaked key shouldn't be able to hammer the booking engine.
+      const limit = rateLimit(`api:${key.id}`, API_LIMIT_PER_MINUTE, 60_000);
+      if (!limit.ok) {
+        return NextResponse.json(
+          { error: { code: "rate_limited", message: `Too many requests. Try again in ${limit.retryAfterSec} seconds.` } },
+          { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
+        );
       }
       const result = await handler(req, { key, params: (await route?.params) ?? {} });
       if (result instanceof ApiResult) {

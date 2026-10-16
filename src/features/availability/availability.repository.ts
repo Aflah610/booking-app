@@ -1,6 +1,6 @@
 import { and, asc, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { booking, calendarBusy, dateOverride, service, slotHold, timeOff, workingHours } from "@/db/schema";
+import { booking, calendarBusy, dateOverride, holiday, service, slotHold, timeOff, workingHours } from "@/db/schema";
 import { groupOverrides } from "@/features/schedules/schedules.repository";
 import type { DateOverrideDTO, WorkingRangeDTO } from "@/features/schedules/schedules.dto";
 import type { Interval } from "./slots";
@@ -25,7 +25,7 @@ export function createAvailabilityRepository(db: Db) {
       if (!staffIds.length) return out;
       const { from, to, fromDate, toDate, now } = window;
 
-      const [weekly, overrides, bookings, off, holds, external] = await Promise.all([
+      const [weekly, overrides, bookings, off, holds, external, holidays] = await Promise.all([
         db
           .select({ staffId: workingHours.staffId, weekday: workingHours.weekday, startTime: workingHours.startTime, endTime: workingHours.endTime })
           .from(workingHours)
@@ -48,6 +48,7 @@ export function createAvailabilityRepository(db: Db) {
             and(
               inArray(booking.staffId, staffIds),
               ne(booking.status, "cancelled"),
+              eq(booking.slotReleased, false),
               // Widened by a day so long buffers at the window edge are still seen.
               lt(booking.startsAt, new Date(to.getTime() + 86_400_000)),
               gt(booking.endsAt, new Date(from.getTime() - 86_400_000)),
@@ -74,6 +75,7 @@ export function createAvailabilityRepository(db: Db) {
           .select({ staffId: calendarBusy.staffId, start: calendarBusy.startsAt, end: calendarBusy.endsAt })
           .from(calendarBusy)
           .where(and(inArray(calendarBusy.staffId, staffIds), lt(calendarBusy.startsAt, to), gt(calendarBusy.endsAt, from))),
+        db.select({ date: holiday.date }).from(holiday).where(sql`${holiday.date} between ${fromDate} and ${toDate}`),
       ]);
 
       for (const r of weekly) {
@@ -86,10 +88,38 @@ export function createAvailabilityRepository(db: Db) {
         overridesByStaff.set(r.staffId, list);
       }
       for (const [staffId, rows] of overridesByStaff) out.get(staffId)!.overrides = groupOverrides(rows);
+      // A firm holiday closes everyone, even where a person had added extra hours for that date.
+      if (holidays.length) {
+        const closed = new Set(holidays.map((h) => h.date));
+        for (const sch of out.values()) {
+          sch.overrides = [...sch.overrides.filter((o) => !closed.has(o.date)), ...[...closed].map((date) => ({ date, ranges: [] }))];
+        }
+      }
       for (const r of [...bookings, ...off, ...holds, ...external]) {
         out.get(r.staffId)!.busy.push({ start: new Date(r.start).getTime(), end: new Date(r.end).getTime() });
       }
       return out;
+    },
+
+    /** Live bookings of one service per local day (in `timeZone`), so a daily limit can close a full day. */
+    async bookingsPerDay(serviceId: string, window: { from: Date; to: Date; timeZone: string; excludeBookingId?: string }): Promise<Map<string, number>> {
+      const day = sql<string>`to_char(${booking.startsAt} at time zone ${window.timeZone}, 'YYYY-MM-DD')`;
+      const rows = await db
+        .select({ day, n: sql<number>`count(*)::int` })
+        .from(booking)
+        .where(
+          and(
+            eq(booking.serviceId, serviceId),
+            ne(booking.status, "cancelled"),
+            eq(booking.slotReleased, false),
+            gt(booking.startsAt, window.from),
+            lt(booking.startsAt, window.to),
+            window.excludeBookingId ? ne(booking.id, window.excludeBookingId) : undefined,
+          ),
+        )
+        // By position: the zone is a bound parameter, and Postgres only treats a repeated one as the same value if it is the same expression.
+        .groupBy(sql`1`);
+      return new Map(rows.map((r) => [r.day, r.n]));
     },
   };
 }

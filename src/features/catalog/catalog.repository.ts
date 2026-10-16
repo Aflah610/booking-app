@@ -14,9 +14,13 @@ const columns = {
   bufferBeforeMin: service.bufferBeforeMin,
   bufferAfterMin: service.bufferAfterMin,
   priceDisplay: service.priceDisplay,
+  pricePaise: service.pricePaise,
   slotIntervalMin: service.slotIntervalMin,
   minNoticeMin: service.minNoticeMin,
   maxNoticeDays: service.maxNoticeDays,
+  maxPerDay: service.maxPerDay,
+  location: service.location,
+  questions: service.questions,
   active: service.active,
 };
 
@@ -32,7 +36,7 @@ export function createCatalogRepository(db: Db) {
       return (activeOnly ? q.where(eq(service.active, true)) : q).orderBy(asc(service.name));
     },
 
-    create(data: ServiceData, audit: Omit<AuditEntry, "entityId">): Promise<ServiceDTO> {
+    create(data: ServiceData & { pricePaise: number | null }, audit: Omit<AuditEntry, "entityId">): Promise<ServiceDTO> {
       return db.transaction(async (tx) => {
         const [row] = await tx.insert(service).values(data).returning(columns);
         await writeAudit(tx, { ...audit, entityId: row.id });
@@ -40,7 +44,7 @@ export function createCatalogRepository(db: Db) {
       });
     },
 
-    update(id: string, data: Partial<ServiceData>, audit: AuditEntry): Promise<ServiceDTO | null> {
+    update(id: string, data: Partial<ServiceData> & { pricePaise?: number | null }, audit: AuditEntry): Promise<ServiceDTO | null> {
       return db.transaction(async (tx) => {
         const [row] = await tx.update(service).set(data).where(eq(service.id, id)).returning(columns);
         if (row) await writeAudit(tx, audit);

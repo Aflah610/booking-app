@@ -1,4 +1,8 @@
 export type BookingStatus = "upcoming" | "completed" | "cancelled" | "no_show";
+export type PaymentStatus = "pending" | "paid" | "failed" | "not_required";
+/** What staff may set by hand; "not_required" is decided by the service's price. */
+export const PAYMENT_STATUSES: readonly PaymentStatus[] = ["pending", "paid", "failed"];
+export type NoShowBy = "client" | "staff";
 export type BookingSource = "web" | "staff";
 
 export type BookingDTO = {
@@ -14,8 +18,19 @@ export type BookingDTO = {
   startsAt: Date;
   endsAt: Date;
   status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  /** Online payment: when this try runs out, and the last moment the client may resume. Null for bookings paid at the desk. */
+  paymentDueAt: Date | null;
+  resumeUntil: Date | null;
+  /** The time was given back because payment wasn't completed. */
+  slotReleased: boolean;
+  amountPaise: number | null;
+  /** Who missed the appointment, when it was marked a no-show. */
+  noShowBy: NoShowBy | null;
   source: BookingSource;
   notes: string | null;
+  /** Answers to the service's extra questions, keyed by the question as it was worded at booking time. */
+  formAnswers: Record<string, string>;
   cancellationReason: string | null;
   cancelledBy: string | null;
   rescheduledFromId: string | null;
@@ -35,12 +50,32 @@ export type PublicBookingDTO = {
   end: string;
   status: BookingStatus;
   rescheduledFromId: string | null;
+  payment: PublicPaymentDTO;
 };
+
+/** Payment state for the website. `action` says what the client still has to do. */
+export type PublicPaymentDTO = {
+  status: PaymentStatus;
+  amountPaise: number | null;
+  /** When the current try at paying runs out (only while pending). */
+  dueAt: string | null;
+  /** The last moment the client can come back and finish. */
+  resumeUntil: string | null;
+  action: "none" | "pay" | "resume" | "choose_new_time";
+};
+
+export function paymentAction(b: Pick<BookingDTO, "status" | "paymentStatus" | "slotReleased" | "resumeUntil">, now: Date): PublicPaymentDTO["action"] {
+  if (b.status !== "upcoming") return "none";
+  if (b.paymentStatus === "paid") return b.slotReleased ? "choose_new_time" : "none";
+  if (b.resumeUntil === null || b.resumeUntil <= now) return "none";
+  if (b.paymentStatus === "pending") return "pay";
+  return b.paymentStatus === "failed" ? "resume" : "none";
+}
 
 /** "BK-" + 5-digit number, e.g. BK-00012. */
 export const bookingReference = (prefix: string, n: number) => `${prefix}${String(n).padStart(5, "0")}`;
 
-export const toPublicBooking = (b: BookingDTO, prefix: string): PublicBookingDTO => ({
+export const toPublicBooking = (b: BookingDTO, prefix: string, now: Date = new Date()): PublicBookingDTO => ({
   id: b.id,
   reference: bookingReference(prefix, b.number),
   serviceId: b.serviceId,
@@ -51,6 +86,23 @@ export const toPublicBooking = (b: BookingDTO, prefix: string): PublicBookingDTO
   end: b.endsAt.toISOString(),
   status: b.status,
   rescheduledFromId: b.rescheduledFromId,
+  payment: {
+    status: b.paymentStatus,
+    amountPaise: b.amountPaise,
+    dueAt: b.paymentStatus === "pending" ? b.paymentDueAt?.toISOString() ?? null : null,
+    resumeUntil: b.resumeUntil?.toISOString() ?? null,
+    action: paymentAction(b, now),
+  },
 });
 
 export type HoldDTO = { token: string; staffId: string; start: Date; end: Date; expiresAt: Date };
+
+/** What the bookings slice tells the rest of the app happened. */
+export type BookingEvent = {
+  type: "booked" | "rescheduled" | "cancelled" | "completed" | "no_show" | "payment_success" | "payment_failed";
+  bookingId: string;
+  /** When it happened, so delays are counted from the same clock the booking used. */
+  at: Date;
+  /** For a reschedule, the booking that was replaced; its unsent messages are dropped. */
+  previousBookingId?: string;
+};

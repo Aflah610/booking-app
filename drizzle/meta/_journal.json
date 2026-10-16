@@ -29,6 +29,41 @@
       "when": 1792101482797,
       "tag": "0003_india_defaults_data",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792141061162,
+      "tag": "0004_workflows",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792162584459,
+      "tag": "0005_payment_status_no_show_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792163443479,
+      "tag": "0006_booking_page_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792170367854,
+      "tag": "0007_online_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792170368618,
+      "tag": "0008_payment_slot_release",
+      "breakpoints": true
     }
   ]
 }

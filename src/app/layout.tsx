@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Bookings", description: "Staff booking dashboard" };
+export const metadata: Metadata = { title: { default: "Waky Booking", template: "%s · Waky Booking" }, description: "Waky Booking: appointments, payments and reminders" };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

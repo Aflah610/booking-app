@@ -23,9 +23,9 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
             {rows.map((s) => (
               <tr key={s.id}>
                 <td><Link className="font-medium hover:underline" href={`/admin/staff/${s.id}`}>{s.name}</Link></td>
-                <td className="text-zinc-400">{s.email}</td>
+                <td className="text-zinc-600">{s.email}</td>
                 <td className="capitalize">{s.role}</td>
-                <td className="text-zinc-400">{s.timezone}</td>
+                <td className="text-zinc-600">{s.timezone}</td>
                 <td><span className="badge">{s.active ? "Active" : "Inactive"}</span></td>
               </tr>
             ))}
@@ -34,7 +34,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
       </div>
       <section className="card max-w-2xl p-6">
         <h2 className="mb-1 font-semibold">Add a staff member</h2>
-        <p className="mb-5 text-sm text-zinc-500">They sign in with this work email.</p>
+        <p className="mb-5 text-sm text-zinc-600">They sign in with this work email.</p>
         <form action={createStaffAction} className="grid gap-4 sm:grid-cols-2">
           <div><label className="label" htmlFor="name">Name</label><input className="input" id="name" name="name" required /></div>
           <div><label className="label" htmlFor="email">Email</label><input className="input" id="email" name="email" type="email" required /></div>

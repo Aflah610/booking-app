@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { DomainError } from "../shared/errors";
 import type { ApiKeyDTO, ApiScope } from "./api-keys.dto";
 import type { ApiKeysRepository } from "./api-keys.repository";
 
@@ -10,9 +11,11 @@ export function createApiKeysService({ apiKeysRepo }: { apiKeysRepo: ApiKeysRepo
   return {
     /** Returns the raw key once; only its SHA-256 hash is stored. */
     async create(input: { name: string; scopes: ApiScope[] }): Promise<{ key: string; record: ApiKeyDTO }> {
+      const name = input.name.trim();
+      if (!name) throw new DomainError("invalid", "An API key needs a name, for example the website it is for");
       const key = KEY_PREFIX + randomBytes(32).toString("base64url");
       const record = await apiKeysRepo.insert({
-        name: input.name,
+        name,
         scopes: input.scopes,
         keyPrefix: key.slice(0, 10),
         keyHash: hashKey(key),
@@ -28,6 +31,8 @@ export function createApiKeysService({ apiKeysRepo }: { apiKeysRepo: ApiKeysRepo
       if (record) apiKeysRepo.touch(record.id).catch(() => {});
       return record;
     },
+
+    list: () => apiKeysRepo.listLive(),
 
     revoke: (id: string) => apiKeysRepo.revoke(id),
   };
