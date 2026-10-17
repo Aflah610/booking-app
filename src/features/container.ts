@@ -18,6 +18,8 @@ import { createClientsService } from "./clients/clients.service";
 import { createHolidaysRepository } from "./holidays/holidays.repository";
 import { createHolidaysService } from "./holidays/holidays.service";
 import { createHealthRepository } from "./health/health.repository";
+import { createPackagesRepository } from "./packages/packages.repository";
+import { createPackagesService } from "./packages/packages.service";
 import { createPaymentsRepository } from "./payments/payments.repository";
 import { createPaymentsService } from "./payments/payments.service";
 import { createReportsRepository } from "./reports/reports.repository";
@@ -86,6 +88,7 @@ export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?
     }),
     workflows,
     calendar,
+    packages: createPackagesService({ packagesRepo: createPackagesRepository(db) }),
     payments: createPaymentsService({
       paymentsRepo: createPaymentsRepository(db),
       bookingsRepo,

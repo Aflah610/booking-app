@@ -49,7 +49,17 @@ export async function updateStaffAction(staffId: string, form: FormData) {
       timezone: str(form, "timezone"),
       active: form.get("active") === "on",
     });
-    await app().staff.setServices({ staffId: me.id }, staffId, form.getAll("serviceIds").map(String));
+    const offered = form.getAll("serviceIds").map(String);
+    await app().staff.setServices({ staffId: me.id }, staffId, offered);
+    // Typed in rupees; blank means "use the service's price".
+    const prices = Object.fromEntries(
+      offered.map((id) => {
+        const raw = str(form, `price_${id}`).replace(/,/g, "");
+        return [id, raw === "" ? null : Math.round(Number(raw) * 100)] as const;
+      }),
+    );
+    if (Object.values(prices).some((p) => p !== null && Number.isNaN(p))) throw new DomainError("invalid", "Enter prices as plain numbers, e.g. 2500");
+    await app().staff.setServicePrices({ staffId: me.id }, staffId, prices);
   });
 }
 

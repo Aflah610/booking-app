@@ -22,6 +22,7 @@ export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNod
           {manager && <p className="nav-heading">Manage</p>}
           {manager && <NavLink href="/admin/services" icon="grid">Services</NavLink>}
           {manager && <NavLink href="/admin/staff" icon="users" exact>Staff</NavLink>}
+          {manager && <NavLink href="/admin/packages" icon="wallet">Packages</NavLink>}
           {manager && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}
           {manager && <NavLink href="/admin/reports" icon="chart">Reports</NavLink>}
           {manager && <NavLink href="/admin/workflows" icon="bolt">Workflows</NavLink>}

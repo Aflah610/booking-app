@@ -42,6 +42,11 @@ export function createClientsRepository(db: Db) {
       return row ?? null;
     },
 
+    async findByPhone(phoneE164: string): Promise<ClientDTO | null> {
+      const [row] = await db.select(clientColumns).from(client).where(eq(client.phoneE164, phoneE164));
+      return row ?? null;
+    },
+
     /** Newest first, with how many bookings each has; `q` matches name, phone or email. */
     list({ q, limit = 100 }: { q?: string; limit?: number } = {}) {
       const pattern = q ? `%${q.replace(/[%_\\]/g, "\\$&")}%` : null;

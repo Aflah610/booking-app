@@ -12,6 +12,8 @@ export const createBookingInput = z.object({
   holdToken: z.string().min(10).max(200).nullish(),
   notes: z.string().trim().max(2000).nullish(),
   formAnswers: z.record(z.string(), z.unknown()).default({}),
+  /** Pay with the client's package session or wallet money when they have any. Send false to leave them untouched. */
+  useCredits: z.boolean().default(true),
 });
 export type CreateBookingInput = z.input<typeof createBookingInput>;
 

@@ -30,3 +30,5 @@ availability so the website can show local times.
 - Services list their `location` and `questions` (`id`, `label`, `type`: `text`, `longtext` or `choice`, `required`, `options`).
   Send the answers in `formAnswers` on the booking, keyed by question `id`. A missing required answer is a 400.
 - Phone numbers without a country code are treated as Indian (`98765 43210` → `+919876543210`).
+
+Prepaid packages and wallet money are described in [packages-wallet.md](packages-wallet.md); `GET /api/v1/credits?phone=` and `useCredits` on booking creation are part of the website API.

@@ -113,6 +113,8 @@ export const service = pgTable("service", {
 export const staffService = pgTable("staff_service", {
   staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
   serviceId: uuid("service_id").notNull().references(() => service.id, { onDelete: "cascade" }),
+  /** This person's own price for the service, in paise (a therapist charging ₹5,000 where the service says ₹1,000). Null = the service's price. */
+  pricePaise: integer("price_paise"),
 }, (t) => [primaryKey({ columns: [t.staffId, t.serviceId] }), index("staff_service_service_idx").on(t.serviceId)]);
 
 /** Weekly pattern in the staff member's own time zone. Several rows per day allowed. weekday: 0 = Sunday. */
@@ -220,6 +222,8 @@ export const servicePackage = pgTable("package", {
   sessions: integer("sessions").notNull(),
   validityDays: integer("validity_days"),
   priceDisplay: text("price_display"),
+  /** What the client pays for the whole package, in paise. */
+  pricePaise: integer("price_paise").notNull().default(0),
   active: boolean("active").notNull().default(true),
   createdAt: createdAt(),
 }, (t) => [check("package_sessions_positive", sql`${t.sessions} > 0`)]);
@@ -229,12 +233,31 @@ export const clientPackage = pgTable("client_package", {
   clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
   packageId: uuid("package_id").notNull().references(() => servicePackage.id),
   sessionsLeft: integer("sessions_left").notNull(),
+  /** Sessions and price as sold, so later edits to the package never change what this client bought. */
+  sessionsTotal: integer("sessions_total").notNull(),
+  pricePaise: integer("price_paise").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   paymentNote: text("payment_note"),
   createdAt: createdAt(),
 }, (t) => [
   index("client_package_client_idx").on(t.clientId),
   check("client_package_sessions_non_negative", sql`${t.sessionsLeft} >= 0`),
+  check("client_package_sessions_within_total", sql`${t.sessionsLeft} <= ${t.sessionsTotal}`),
+]);
+
+/** Money a client has paid in advance. Each top-up is its own lot so it can expire on its own date (one year). */
+export const walletLot = pgTable("wallet_lot", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  amountPaise: integer("amount_paise").notNull(),
+  remainingPaise: integer("remaining_paise").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  note: text("note"),
+  createdAt: createdAt(),
+}, (t) => [
+  index("wallet_lot_client_idx").on(t.clientId, t.expiresAt),
+  check("wallet_lot_amount_positive", sql`${t.amountPaise} > 0`),
+  check("wallet_lot_remaining_within_amount", sql`${t.remainingPaise} >= 0 and ${t.remainingPaise} <= ${t.amountPaise}`),
 ]);
 
 /**
@@ -259,6 +282,9 @@ export const booking = pgTable("booking", {
   /** The time was given back because payment wasn't completed; the booking no longer blocks the calendar. */
   slotReleased: boolean("slot_released").notNull().default(false),
   amountPaise: integer("amount_paise"),
+  /** Paid with a package session (true) or with this much wallet money; both off once returned. */
+  creditSession: boolean("credit_session").notNull().default(false),
+  creditPaise: integer("credit_paise").notNull().default(0),
   /** Who missed a no-show appointment. Empty for older no-shows and for every other status. */
   noShowBy: noShowBy("no_show_by"),
   source: bookingSource("source").notNull(),
@@ -307,6 +333,30 @@ export const bookingCalendarEvent = pgTable("booking_calendar_event", {
   externalEventId: text("external_event_id").notNull(),
   createdAt: createdAt(),
 }, (t) => [primaryKey({ columns: [t.bookingId, t.provider] })]);
+
+/**
+ * What a booking was paid with: one package session, or some wallet money from one lot. Kept after a cancel
+ * (with `returned_at` set) so a balance can always be explained.
+ */
+export const creditUse = pgTable("credit_use", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id").notNull().references(() => booking.id, { onDelete: "cascade" }),
+  clientPackageId: uuid("client_package_id").references(() => clientPackage.id),
+  walletLotId: uuid("wallet_lot_id").references(() => walletLot.id),
+  sessions: integer("sessions").notNull().default(0),
+  amountPaise: integer("amount_paise").notNull().default(0),
+  /** What this use was worth in rupees: the money taken, or the package price divided by its sessions. */
+  valuePaise: integer("value_paise").notNull().default(0),
+  returnedAt: timestamp("returned_at", { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [
+  index("credit_use_booking_idx").on(t.bookingId),
+  check(
+    "credit_use_one_source",
+    sql`(${t.clientPackageId} is not null and ${t.walletLotId} is null and ${t.sessions} = 1 and ${t.amountPaise} = 0)
+      or (${t.walletLotId} is not null and ${t.clientPackageId} is null and ${t.sessions} = 0 and ${t.amountPaise} > 0)`,
+  ),
+]);
 
 /**
  * Calendar writes waiting to happen. One row per booking, so a quick reschedule-then-cancel collapses to the last

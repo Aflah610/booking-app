@@ -177,16 +177,19 @@ export function createBookingsService(deps: {
       // Checked after the time is confirmed free, so a missing answer never hides "that time was taken".
       const answers = checkAnswers(picked.service.questions, data.formAnswers);
       // A website booking of a priced service is held until the website reports a payment (or 15 minutes pass).
-      const owes = hasPrice(picked.service);
-      const online = actor.mode === "client" && owes && picked.service.pricePaise !== null && (await settingsRepo.get()).onlinePayment;
+      // A therapist's own price for the service wins over the service's price.
+      const staffPrice = await bookingsRepo.staffPrice(picked.staffId, data.serviceId);
+      const pricePaise = staffPrice ?? picked.service.pricePaise;
+      const owes = staffPrice !== null ? staffPrice > 0 : hasPrice(picked.service);
+      const online = actor.mode === "client" && owes && pricePaise !== null && (await settingsRepo.get()).onlinePayment;
       const payment = online
         ? {
             status: "pending" as const,
             dueAt: new Date(now.getTime() + PAYMENT_WINDOW_MIN * MIN),
             resumeUntil: new Date(now.getTime() + RESUME_WINDOW_HOURS * 60 * MIN),
-            amountPaise: picked.service.pricePaise,
+            amountPaise: pricePaise,
           }
-        : { status: owes ? ("pending" as const) : ("not_required" as const), dueAt: null, resumeUntil: null, amountPaise: picked.service.pricePaise };
+        : { status: owes ? ("pending" as const) : ("not_required" as const), dueAt: null, resumeUntil: null, amountPaise: pricePaise };
       const manageToken = actor.mode === "client" ? newToken() : null;
       const result = await bookingsRepo.create(
         {
@@ -201,6 +204,7 @@ export function createBookingsService(deps: {
           notes: data.notes,
           formAnswers: answers,
           payment,
+          credit: data.useCredits ? { owes, pricePaise } : undefined,
         },
         {
           holdTokenHash,
@@ -221,9 +225,9 @@ export function createBookingsService(deps: {
         }
         fail(result);
       }
-      // An online booking is confirmed to the client once payment arrives, not before.
-      if (!online) await announce({ type: "booked", bookingId: result.value, at: now });
-      return { booking: await get(result.value), manageToken, replayed: false as const };
+      // An online booking is confirmed to the client once payment arrives, not before; one paid for by credit is already settled.
+      if (!online || result.value.paidByCredit) await announce({ type: "booked", bookingId: result.value.id, at: now });
+      return { booking: await get(result.value.id), manageToken, replayed: false as const };
     },
 
     /** Holds a time for a few minutes while the client fills in the website form. */
@@ -323,7 +327,7 @@ export function createBookingsService(deps: {
       if (b.status !== "upcoming") throw new DomainError("conflict", `Booking ${id} is ${b.status} and can't be cancelled`, { reason: "not_upcoming" });
       if (b.endsAt <= now) throw new DomainError("invalid", "A booking that has already ended can't be cancelled");
       if (actor.mode === "client") checkClientCutoff(b, now, (await settingsRepo.get()).clientCutoffMin, "cancelled");
-      const result = await bookingsRepo.cancel(id, { reason: reason ?? null, cancelledBy: actorLabel(actor) }, {
+      const result = await bookingsRepo.cancel(id, { reason: reason ?? null, cancelledBy: actorLabel(actor), now }, {
         actor,
         action: "cancel",
         entity: "booking",
@@ -357,7 +361,7 @@ export function createBookingsService(deps: {
         entity: "booking",
         entityId: id,
         details: status === "no_show" ? { noShowBy: opts.noShowBy } : undefined,
-      });
+      }, now);
       if (!result.ok) fail(result);
       if (status !== "upcoming") await announce({ type: status, bookingId: id, at: now });
       return get(id);

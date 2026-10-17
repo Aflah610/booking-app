@@ -1,4 +1,4 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { service, staff, staffService } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
@@ -60,9 +60,30 @@ export function createStaffRepository(db: Db) {
 
     async replaceServices(staffId: string, serviceIds: string[], audit: AuditEntry) {
       await db.transaction(async (tx) => {
-        await tx.delete(staffService).where(eq(staffService.staffId, staffId));
+        // Services that stay keep their row, and with it this person's own price.
+        await tx
+          .delete(staffService)
+          .where(serviceIds.length ? and(eq(staffService.staffId, staffId), notInArray(staffService.serviceId, serviceIds)) : eq(staffService.staffId, staffId));
         if (serviceIds.length) {
-          await tx.insert(staffService).values(serviceIds.map((serviceId) => ({ staffId, serviceId })));
+          await tx.insert(staffService).values(serviceIds.map((serviceId) => ({ staffId, serviceId }))).onConflictDoNothing();
+        }
+        await writeAudit(tx, audit);
+      });
+    },
+
+    /** This person's own price (paise) for each service they offer; absent or null = the service's price. */
+    async servicePrices(staffId: string): Promise<Record<string, number | null>> {
+      const rows = await db
+        .select({ id: staffService.serviceId, price: staffService.pricePaise })
+        .from(staffService)
+        .where(eq(staffService.staffId, staffId));
+      return Object.fromEntries(rows.map((r) => [r.id, r.price]));
+    },
+
+    async setServicePrices(staffId: string, prices: Record<string, number | null>, audit: AuditEntry) {
+      await db.transaction(async (tx) => {
+        for (const [serviceId, pricePaise] of Object.entries(prices)) {
+          await tx.update(staffService).set({ pricePaise }).where(and(eq(staffService.staffId, staffId), eq(staffService.serviceId, serviceId)));
         }
         await writeAudit(tx, audit);
       });

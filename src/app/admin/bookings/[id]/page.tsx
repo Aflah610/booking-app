@@ -30,7 +30,7 @@ export default async function BookingPage({
     throw err;
   });
   const s = await settings.get();
-  const paymentRows = await app().payments.forBooking(b.id);
+  const [paymentRows, creditUses] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id)]);
   const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const tz = s.timezone;
   const now = new Date();
@@ -93,6 +93,18 @@ export default async function BookingPage({
                 <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client can resume until</dt><dd className="mt-1">{timeLabel(b.resumeUntil, tz)}, {longDayLabel(b.resumeUntil, tz)}</dd></div>
               )}
             </dl>
+            {creditUses.length > 0 && (
+              <div className="rounded-lg border border-zinc-200 p-3 text-sm">
+                <p className="mb-1 font-medium">Paid with credit</p>
+                {creditUses.map((u) => (
+                  <p key={u.id} className="flex flex-wrap gap-x-3">
+                    <span>{u.kind === "package" ? `1 session of ${u.label}` : `${rupees(u.amountPaise)} from wallet`}</span>
+                    <span className={u.returnedAt ? "font-medium text-green-700" : "text-zinc-600"}>{u.returnedAt ? "Given back to the client" : "Used"}</span>
+                  </p>
+                ))}
+                {b.paymentStatus !== "paid" && b.amountPaise !== null && <p className="mt-1 text-zinc-600">Still to pay: {rupees(b.amountPaise)}</p>}
+              </div>
+            )}
             {b.slotReleased && (
               <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {b.paymentStatus === "paid" ? "Paid, but this time was given to someone else. The client needs to choose a new time." : "Payment didn’t arrive in time, so this time is free for others. The client can still resume within 24 hours."}

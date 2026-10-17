@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, gt, gte, inArray, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import type { Db, Tx } from "@/db";
-import { booking, client, notification, service, slotHold, staff } from "@/db/schema";
+import { booking, client, notification, service, slotHold, staff, staffService } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
 import { upsertClient } from "@/features/clients/clients.repository";
+import { applyCredits, moveCredits, returnCredits } from "@/features/packages/packages.repository";
 import { PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import type { BookingDTO, BookingSource, BookingStatus, NoShowBy, PaymentStatus } from "./bookings.dto";
 
@@ -26,6 +27,8 @@ const columns = {
   resumeUntil: booking.resumeUntil,
   slotReleased: booking.slotReleased,
   amountPaise: booking.amountPaise,
+  creditSession: booking.creditSession,
+  creditPaise: booking.creditPaise,
   noShowBy: booking.noShowBy,
   source: booking.source,
   notes: booking.notes,
@@ -50,7 +53,12 @@ export type NewBooking = {
   formAnswers?: Record<string, string>;
   /** Set when the booking is paid online: how long the client has to pay, and to come back. */
   payment?: { status: PaymentStatus; dueAt: Date | null; resumeUntil: Date | null; amountPaise: number | null };
+  /** Spend the client's package session or wallet money on this booking, if they have any that applies. */
+  credit?: { owes: boolean; pricePaise: number | null };
 };
+
+/** What creating a booking ended up as, after any credit was applied. */
+export type CreatedBooking = { id: string; paidByCredit: boolean };
 
 /** Why a write was refused by the database's own guards. */
 export type WriteResult<T> =
@@ -170,6 +178,15 @@ export function createBookingsRepository(db: Db) {
       return row ?? null;
     },
 
+    /** The price this person charges for the service, when it differs from the service's own. */
+    async staffPrice(staffId: string, serviceId: string): Promise<number | null> {
+      const [row] = await db
+        .select({ p: staffService.pricePaise })
+        .from(staffService)
+        .where(and(eq(staffService.staffId, staffId), eq(staffService.serviceId, serviceId)));
+      return row?.p ?? null;
+    },
+
     async manageTokenHash(id: string): Promise<string | null> {
       const [row] = await db.select({ h: booking.manageTokenHash }).from(booking).where(eq(booking.id, id));
       return row?.h ?? null;
@@ -219,8 +236,22 @@ export function createBookingsRepository(db: Db) {
         const blocked = await claimTime(tx, { ...b, holdTokenHash: opts.holdTokenHash, now: opts.now });
         if (blocked) throw new Refused(blocked);
         const id = await insertBooking(tx, b);
+        let paidByCredit = false;
+        if (b.credit) {
+          const [row] = await tx.select({ clientId: booking.clientId }).from(booking).where(eq(booking.id, id));
+          const used = await applyCredits(tx, { bookingId: id, clientId: row.clientId, serviceId: b.serviceId, ...b.credit, now: opts.now });
+          const covered = used.session || (b.credit.pricePaise !== null && b.credit.pricePaise > 0 && used.walletPaise >= b.credit.pricePaise);
+          if (covered) {
+            // Nothing left to pay: the payment clock never starts.
+            await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null, resumeUntil: null, amountPaise: null }).where(eq(booking.id, id));
+            paidByCredit = true;
+          } else if (used.walletPaise > 0) {
+            // Wallet money paid part of it; what is left is paid in the normal way.
+            await tx.update(booking).set({ amountPaise: b.credit.pricePaise! - used.walletPaise }).where(eq(booking.id, id));
+          }
+        }
         await writeAudit(tx, { ...opts.audit, entityId: id });
-        return id;
+        return { id, paidByCredit } satisfies CreatedBooking;
       });
     },
 
@@ -264,13 +295,14 @@ export function createBookingsRepository(db: Db) {
           { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash, formAnswers: old.formAnswers },
           { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise },
         );
+        await moveCredits(tx, oldId, id);
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, newBookingId: id } });
         return id;
       });
     },
 
     /** Only an upcoming booking can be cancelled; the status check in the UPDATE makes a double cancel a no-op. */
-    async cancel(id: string, data: { reason: string | null; cancelledBy: string }, audit: AuditEntry) {
+    async cancel(id: string, data: { reason: string | null; cancelledBy: string; now: Date }, audit: AuditEntry) {
       return guarded(async (tx) => {
         const rows = await tx
           .update(booking)
@@ -280,7 +312,9 @@ export function createBookingsRepository(db: Db) {
         if (!rows.length) throw new Refused("not_upcoming");
         // Reminders for a cancelled booking must never go out.
         await tx.delete(notification).where(and(eq(notification.bookingId, id), eq(notification.status, "queued")));
-        await writeAudit(tx, audit);
+        // A cancelled booking gives back whatever it was paid with.
+        const back = await returnCredits(tx, id, data.now);
+        await writeAudit(tx, { ...audit, details: { ...audit.details, creditReturned: back } });
         return id;
       });
     },
@@ -291,6 +325,7 @@ export function createBookingsRepository(db: Db) {
       from: BookingStatus[],
       noShowBy: NoShowBy | null,
       audit: AuditEntry,
+      now: Date = new Date(),
     ) {
       return guarded(async (tx) => {
         const rows = await tx
@@ -300,7 +335,9 @@ export function createBookingsRepository(db: Db) {
           .where(and(eq(booking.id, id), inArray(booking.status, from)))
           .returning({ id: booking.id });
         if (!rows.length) throw new Refused("not_upcoming");
-        await writeAudit(tx, audit);
+        // The client missing it keeps the credit used; if the staff member missed it, the client gets it back.
+        const back = status === "no_show" && noShowBy === "staff" ? await returnCredits(tx, id, now) : null;
+        await writeAudit(tx, back ? { ...audit, details: { ...audit.details, creditReturned: back } } : audit);
         return id;
       });
     },
@@ -329,7 +366,11 @@ export function createBookingsRepository(db: Db) {
           .set({ status: "cancelled", cancellationReason: "Payment was not completed within 24 hours", cancelledBy: "system", slotReleased: true })
           .where(and(eq(booking.status, "upcoming"), inArray(booking.paymentStatus, ["pending", "failed"]), lte(booking.resumeUntil, now)))
           .returning({ id: booking.id });
-        for (const r of rows) await writeAudit(tx, { actor: {}, action: "payment_timeout_cancel", entity: "booking", entityId: r.id });
+        for (const r of rows) {
+          // Wallet money or a session held for a booking nobody paid the rest of goes back to the client.
+          await returnCredits(tx, r.id, now);
+          await writeAudit(tx, { actor: {}, action: "payment_timeout_cancel", entity: "booking", entityId: r.id });
+        }
         return rows.map((r) => r.id);
       });
     },

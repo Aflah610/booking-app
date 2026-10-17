@@ -13,6 +13,7 @@ const paths = {
   chart: "M3 3v18h18M7 15v3M12 10v8M17 6v12",
   bolt: "M13 2 3 14h9l-1 8 10-12h-9z",
   plus: "M12 5v14M5 12h14",
+  wallet: "M20 12V8H6a2 2 0 0 1 0-4h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M18 12a2 2 0 0 0 0 4h4v-4z",
 } as const;
 
 export type IconName = keyof typeof paths;

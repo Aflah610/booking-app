@@ -41,13 +41,14 @@ export default async function StaffDetail({
   });
   const now = new Date();
   const today = localDate(now.getTime(), member.timezone);
-  const [services, offered, hours, timeOff, overrides, calendar] = await Promise.all([
+  const [services, offered, hours, timeOff, overrides, calendar, prices] = await Promise.all([
     catalog.list(),
     staff.serviceIds(id),
     schedules.weeklyHours(id),
     schedules.timeOffBetween(id, now, new Date(now.getTime() + 365 * 86400_000)),
     schedules.dateOverrides(id, today, addDays(today, 366)),
     app().calendar.status(id),
+    staff.servicePrices(id),
   ]);
   const google = calendar.connection;
 
@@ -179,14 +180,28 @@ export default async function StaffDetail({
               <input type="checkbox" className="toggle" name="active" defaultChecked={member.active} /> Active (can sign in and be booked)
             </label>
             <fieldset className="sm:col-span-2">
-              <legend className="label">Services they offer</legend>
+              <legend className="label">Services they offer and their price</legend>
+              <p className="mb-2 text-xs text-zinc-600">Leave the price blank to use the service&apos;s own price. A price here is what this person charges.</p>
               {services.length === 0 && <p className="text-sm text-zinc-600">No services yet.</p>}
               <div className="grid gap-2 sm:grid-cols-2">
                 {services.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="serviceIds" value={s.id} defaultChecked={offered.includes(s.id)} />
-                    {s.name}{!s.active && " (hidden)"}
-                  </label>
+                  <div key={s.id} className="flex items-center gap-2 text-sm">
+                    <label className="flex flex-1 items-center gap-2">
+                      <input type="checkbox" name="serviceIds" value={s.id} defaultChecked={offered.includes(s.id)} />
+                      {s.name}{!s.active && " (hidden)"}
+                    </label>
+                    <span className="flex items-center gap-1 text-zinc-600">
+                      ₹
+                      <input
+                        className="input w-24 py-1"
+                        name={`price_${s.id}`}
+                        inputMode="decimal"
+                        aria-label={`Price for ${s.name}`}
+                        placeholder={s.priceDisplay ?? "price"}
+                        defaultValue={prices[s.id] != null ? String(prices[s.id]! / 100) : ""}
+                      />
+                    </span>
+                  </div>
                 ))}
               </div>
             </fieldset>

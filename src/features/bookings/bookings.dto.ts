@@ -25,6 +25,9 @@ export type BookingDTO = {
   /** The time was given back because payment wasn't completed. */
   slotReleased: boolean;
   amountPaise: number | null;
+  /** Paid for with a package session, or with this much wallet money (both cleared if given back). */
+  creditSession: boolean;
+  creditPaise: number;
   /** Who missed the appointment, when it was marked a no-show. */
   noShowBy: NoShowBy | null;
   source: BookingSource;
@@ -62,6 +65,8 @@ export type PublicPaymentDTO = {
   /** The last moment the client can come back and finish. */
   resumeUntil: string | null;
   action: "none" | "pay" | "resume" | "choose_new_time";
+  /** What was paid from the client's package or wallet, if anything. `amountPaise` is what is left to pay. */
+  credit: { session: boolean; walletPaise: number };
 };
 
 export function paymentAction(b: Pick<BookingDTO, "status" | "paymentStatus" | "slotReleased" | "resumeUntil">, now: Date): PublicPaymentDTO["action"] {
@@ -92,6 +97,7 @@ export const toPublicBooking = (b: BookingDTO, prefix: string, now: Date = new D
     dueAt: b.paymentStatus === "pending" ? b.paymentDueAt?.toISOString() ?? null : null,
     resumeUntil: b.resumeUntil?.toISOString() ?? null,
     action: paymentAction(b, now),
+    credit: { session: b.creditSession, walletPaise: b.creditPaise },
   },
 });
 

@@ -58,6 +58,18 @@ export function createStaffService({ staffRepo }: { staffRepo: StaffRepository }
       });
     },
 
+    servicePrices: (staffId: string) => staffRepo.servicePrices(staffId),
+
+    /** Sets what this person charges for services they offer, in paise. Null (or leaving it out) uses the service's price. */
+    async setServicePrices(actor: Actor, staffId: string, prices: Record<string, number | null>) {
+      for (const [serviceId, p] of Object.entries(prices)) {
+        if (p !== null && (!Number.isInteger(p) || p < 0 || p > 100_000_000)) {
+          throw new DomainError("invalid", `Price for service ${serviceId} must be a whole number of paise from 0 to 100000000`);
+        }
+      }
+      await staffRepo.setServicePrices(staffId, prices, { actor, action: "set_service_prices", entity: "staff", entityId: staffId, details: { prices } });
+    },
+
     /**
      * Called on every Google sign-in. Active staff may log in; emails listed in ADMIN_EMAILS
      * are created as admins on first login so the firm can bootstrap without a seed script.

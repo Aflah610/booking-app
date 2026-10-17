@@ -1,0 +1,80 @@
+import { app } from "@/features/container";
+import { requireStaff } from "@/lib/session";
+import { Notice } from "@/components/Notice";
+import { PageHeader } from "@/components/Shell";
+import { createPackageAction, updatePackageAction } from "./actions";
+
+export const dynamic = "force-dynamic";
+
+const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+type Services = Awaited<ReturnType<ReturnType<typeof app>["catalog"]["list"]>>;
+type Pkg = Awaited<ReturnType<ReturnType<typeof app>["packages"]["list"]>>[number];
+
+function Fields({ services, p }: { services: Services; p?: Pkg }) {
+  return (
+    <>
+      <div className="sm:col-span-2"><label className="label">Name</label><input className="input" name="name" defaultValue={p?.name} placeholder="e.g. 4 counselling sessions" required /></div>
+      <div><label className="label">Sessions</label><input className="input" name="sessions" type="number" min={1} max={500} defaultValue={p?.sessions ?? 4} required /></div>
+      <div><label className="label">Price for the package (₹)</label><input className="input" name="price" inputMode="decimal" defaultValue={p ? String(p.pricePaise / 100) : ""} placeholder="3600" required /></div>
+      <div>
+        <label className="label">Valid for (days)</label>
+        <input className="input" name="validityDays" type="number" min={1} max={3650} defaultValue={p ? p.validityDays ?? "" : 365} placeholder="Never expires" />
+      </div>
+      <label className="flex items-center gap-3 self-end pb-2 text-sm"><input type="checkbox" className="toggle" name="active" defaultChecked={p?.active ?? true} /> On sale</label>
+      <fieldset className="sm:col-span-2">
+        <legend className="label">Can be used for</legend>
+        <p className="mb-2 text-xs text-zinc-600">Tick the services it pays for. Leave all unticked for any service.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {services.map((s) => (
+            <label key={s.id} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="serviceIds" value={s.id} defaultChecked={p?.serviceIds.includes(s.id)} /> {s.name}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    </>
+  );
+}
+
+export default async function PackagesPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
+  await requireStaff("manager");
+  const { error, ok } = await searchParams;
+  const [packages, services] = await Promise.all([app().packages.list(), app().catalog.list()]);
+  const nameOf = new Map(services.map((s) => [s.id, s.name]));
+  return (
+    <>
+      <PageHeader title="Packages" subtitle="Sessions sold in advance. Each booking uses one session; cancelling gives it back." />
+      <Notice error={error} ok={ok} />
+      <div className="mb-10 grid gap-3">
+        {packages.length === 0 && <p className="card p-6 text-sm text-zinc-600">No packages yet. Add your first one below.</p>}
+        {packages.map((p) => (
+          <details key={p.id} className="card">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-x-6 gap-y-1 p-4">
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{p.name}</span>
+                <span className="block truncate text-sm text-zinc-600">{p.serviceIds.length ? p.serviceIds.map((id) => nameOf.get(id) ?? "?").join(", ") : "Any service"}</span>
+              </span>
+              <span className="badge">{p.sessions} sessions</span>
+              <span className="w-28 text-right text-sm">{rupees(p.pricePaise)}<span className="block text-xs text-zinc-600">{rupees(Math.round(p.pricePaise / p.sessions))} each</span></span>
+              <span className="text-xs text-zinc-600">{p.validityDays ? `${p.validityDays} days` : "No expiry"}</span>
+              {!p.active && <span className="badge text-zinc-600">Off sale</span>}
+            </summary>
+            <form action={updatePackageAction.bind(null, p.id)} className="grid gap-4 border-t border-zinc-100 p-4 sm:grid-cols-2">
+              <Fields services={services} p={p} />
+              <p className="text-xs text-zinc-600 sm:col-span-2">Changes affect new sales only. Clients who already bought it keep what they bought.</p>
+              <div className="sm:col-span-2"><button className="btn" type="submit">Save</button></div>
+            </form>
+          </details>
+        ))}
+      </div>
+      <section className="card max-w-2xl p-6">
+        <h2 className="mb-5 font-semibold">Add a package</h2>
+        <form action={createPackageAction} className="grid gap-4 sm:grid-cols-2">
+          <Fields services={services} />
+          <div className="sm:col-span-2"><button className="btn" type="submit">Add package</button></div>
+        </form>
+      </section>
+    </>
+  );
+}
