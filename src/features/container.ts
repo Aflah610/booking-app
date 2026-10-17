@@ -24,6 +24,8 @@ import { createPackagesRepository } from "./packages/packages.repository";
 import { createPackagesService } from "./packages/packages.service";
 import { createPaymentsRepository } from "./payments/payments.repository";
 import { createPaymentsService } from "./payments/payments.service";
+import { createPreferencesRepository } from "./preferences/preferences.repository";
+import { createPreferencesService } from "./preferences/preferences.service";
 import { createReportsRepository } from "./reports/reports.repository";
 import { createReportsService } from "./reports/reports.service";
 import { createSchedulesRepository } from "./schedules/schedules.repository";
@@ -91,6 +93,7 @@ export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?
     }),
     workflows,
     calendar,
+    preferences: createPreferencesService({ preferencesRepo: createPreferencesRepository(db) }),
     packages: createPackagesService({
       packagesRepo: createPackagesRepository(db),
       async priceFor(serviceId, staffId) {

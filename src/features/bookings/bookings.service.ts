@@ -223,6 +223,7 @@ export function createBookingsService(deps: {
           notes: data.notes,
           formAnswers: answers,
           payment,
+          pricePaise,
           credit: data.useCredits ? { owes, pricePaise } : undefined,
         },
         {

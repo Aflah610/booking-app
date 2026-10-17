@@ -209,6 +209,14 @@ export const calendarBusy = pgTable("calendar_busy", {
   check("calendar_busy_start_before_end", sql`${t.startsAt} < ${t.endsAt}`),
 ]);
 
+/** A staff member's own settings for how screens look, such as which columns a list shows. Key and value are the screen's business. */
+export const staffPreference = pgTable("staff_preference", {
+  staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  value: jsonb("value").$type<unknown>().notNull(),
+  updatedAt: updatedAt(),
+}, (t) => [primaryKey({ columns: [t.staffId, t.key] })]);
+
 /** Personal data about clients lives only here. */
 export const client = pgTable("client", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -295,6 +303,8 @@ export const booking = pgTable("booking", {
   /** The time was given back because payment wasn't completed; the booking no longer blocks the calendar. */
   slotReleased: boolean("slot_released").notNull().default(false),
   amountPaise: integer("amount_paise"),
+  /** What the session cost when it was booked (that therapist's price), whatever later paid for it. Null when the price is text or unknown. */
+  pricePaise: integer("price_paise"),
   /** Paid with this many package credits (thousandths) and/or this much wallet money; both zero once returned. */
   creditMilli: integer("credit_milli").notNull().default(0),
   /** The video link clients join: made by Google, or pasted by staff. */

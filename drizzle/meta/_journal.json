@@ -127,6 +127,13 @@
       "when": 1792233959691,
       "tag": "0017_google_meet",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792239864393,
+      "tag": "0018_columns_and_price",
+      "breakpoints": true
     }
   ]
 }

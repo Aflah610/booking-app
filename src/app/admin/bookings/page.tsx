@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { app } from "@/features/container";
 import { hasRole, requireStaff } from "@/lib/session";
-import { BookingRow } from "@/components/BookingRow";
+import { BookingsTable } from "@/components/BookingsTable";
+import { ColumnsManager } from "@/components/ColumnsManager";
+import { columnChoices, columnPrefKey, resolveColumns } from "@/lib/booking-columns";
 import { Icon } from "@/components/icons";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
@@ -25,12 +27,14 @@ export default async function BookingsPage({
   const view: View = VIEWS.some(([v]) => v === sp.view) ? (sp.view as View) : "upcoming";
   // Staff see their own diary by default; anyone can switch to the whole firm (front desk).
   const staffFilter = sp.staff === "all" ? null : sp.staff || (hasRole(me, "manager") ? null : me.id);
-  const { bookings, staff, settings } = app();
-  const [rows, people, s] = await Promise.all([
+  const { bookings, staff, settings, preferences } = app();
+  const [rows, people, s, savedColumns] = await Promise.all([
     bookings.list({ view, staffId: staffFilter, limit: 200 }),
     staff.list(),
     settings.get(),
+    preferences.get(me.id, columnPrefKey("bookings")),
   ]);
+  const columns = resolveColumns(savedColumns, "bookings");
   const link = (patch: Record<string, string>) => {
     const p = new URLSearchParams({ view, staff: staffFilter ?? "all", ...patch });
     return `/admin/bookings?${p}`;
@@ -50,6 +54,7 @@ export default async function BookingsPage({
             <Link key={v} href={link({ view: v })} className={`tab ${v === view ? "tab-active" : ""}`}>{label}</Link>
           ))}
         </nav>
+        <div className="flex gap-2">
         <form className="flex gap-2" action="/admin/bookings">
           <input type="hidden" name="view" value={view} />
           <select className="input w-48" name="staff" defaultValue={staffFilter ?? "all"} aria-label="Staff member">
@@ -58,11 +63,10 @@ export default async function BookingsPage({
           </select>
           <button className="btn-ghost" type="submit">Filter</button>
         </form>
+        <ColumnsManager list="bookings" choices={columnChoices(columns)} />
+        </div>
       </div>
-      <div className="card divide-y divide-zinc-100 overflow-hidden">
-        {rows.length === 0 && <p className="p-10 text-center text-sm text-zinc-600">No {view} bookings.</p>}
-        {rows.map((b) => <BookingRow key={b.id} b={b} tz={s.timezone} prefix={s.bookingPrefix} showStaff={!staffFilter} />)}
-      </div>
+      <BookingsTable rows={rows} columns={columns} tz={s.timezone} prefix={s.bookingPrefix} empty={`No ${view} bookings.`} />
     </>
   );
 }

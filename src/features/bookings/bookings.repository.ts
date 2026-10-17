@@ -20,6 +20,7 @@ const columns = {
   clientId: booking.clientId,
   clientName: client.name,
   clientPhone: client.phoneE164,
+  clientEmail: client.email,
   startsAt: booking.startsAt,
   endsAt: booking.endsAt,
   status: booking.status,
@@ -28,6 +29,7 @@ const columns = {
   resumeUntil: booking.resumeUntil,
   slotReleased: booking.slotReleased,
   amountPaise: booking.amountPaise,
+  pricePaise: booking.pricePaise,
   creditMilli: booking.creditMilli,
   creditPaise: booking.creditPaise,
   meetingType: service.meetingType,
@@ -58,6 +60,8 @@ export type NewBooking = {
   formAnswers?: Record<string, string>;
   /** Set when the booking is paid online: how long the client has to pay, and to come back. */
   payment?: { status: PaymentStatus; dueAt: Date | null; resumeUntil: Date | null; amountPaise: number | null };
+  /** What the session costs (that therapist's price), kept for the booking list and reports. */
+  pricePaise?: number | null;
   /** Spend the client's package session or wallet money on this booking, if they have any that applies. */
   credit?: { owes: boolean; pricePaise: number | null };
 };
@@ -112,7 +116,7 @@ async function claimTime(tx: Tx, t: { staffId: string; startsAt: Date; endsAt: D
   return other ? ("held" as const) : null;
 }
 
-async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?: string; paymentStatus?: PaymentStatus; amountPaise?: number | null } = {}) {
+async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?: string; paymentStatus?: PaymentStatus; amountPaise?: number | null; pricePaise?: number | null } = {}) {
   const clientId = "id" in b.client ? b.client.id : await upsertClient(tx, b.client);
   const [row] = await tx
     .insert(booking)
@@ -131,6 +135,7 @@ async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?:
       paymentDueAt: b.payment?.dueAt ?? null,
       resumeUntil: b.payment?.resumeUntil ?? null,
       amountPaise: b.payment?.amountPaise ?? extra.amountPaise ?? null,
+      pricePaise: b.pricePaise ?? extra.pricePaise ?? null,
       rescheduledFromId: extra.rescheduledFromId ?? null,
     })
     .returning({ id: booking.id });
@@ -287,6 +292,7 @@ export function createBookingsRepository(db: Db) {
             formAnswers: booking.formAnswers,
             paymentStatus: booking.paymentStatus,
             amountPaise: booking.amountPaise,
+            pricePaise: booking.pricePaise,
           })
           .from(booking)
           .where(eq(booking.id, oldId));
@@ -306,7 +312,7 @@ export function createBookingsRepository(db: Db) {
           // The client keeps the same manage link for the moved booking.
           // The client's answers and what they have paid belong to the visit, not to the time slot, so they move too.
           { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash, formAnswers: old.formAnswers },
-          { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise },
+          { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise, pricePaise: old.pricePaise },
         );
         await moveCredits(tx, oldId, id);
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, newBookingId: id } });

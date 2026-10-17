@@ -15,6 +15,7 @@ export type BookingDTO = {
   clientId: string;
   clientName: string;
   clientPhone: string;
+  clientEmail: string | null;
   startsAt: Date;
   endsAt: Date;
   status: BookingStatus;
@@ -25,6 +26,8 @@ export type BookingDTO = {
   /** The time was given back because payment wasn't completed. */
   slotReleased: boolean;
   amountPaise: number | null;
+  /** What the session cost when booked, whatever later paid for it. */
+  pricePaise: number | null;
   /** Paid for with this many package credits (in thousandths: 1,500 = 1.5) and this much wallet money; both zero if given back. */
   creditMilli: number;
   creditPaise: number;
