@@ -1,10 +1,13 @@
 import { z } from "zod";
-import { DEFAULT_PACKAGE_VALIDITY_DAYS } from "./packages.dto";
+import { DEFAULT_CREDIT_VALUE_PAISE, DEFAULT_PACKAGE_VALIDITY_DAYS } from "./packages.dto";
 
 export const packageInput = z.object({
   name: z.string().trim().min(1, "Give the package a name").max(120),
   serviceIds: z.array(z.string().uuid()).default([]),
-  sessions: z.number().int().min(1, "At least one session").max(500),
+  /** How many credits the client gets. */
+  sessions: z.number().int().min(1, "At least one credit").max(500),
+  /** How much service price one credit covers (₹1,000 means a ₹1,500 service takes 1.5 credits). */
+  creditValuePaise: z.number().int().min(100, "A credit must cover at least ₹1").max(100_000_000).default(DEFAULT_CREDIT_VALUE_PAISE),
   /** How many days the client has to use it after buying. Null = never expires. */
   validityDays: z.number().int().min(1).max(3650).nullable().default(DEFAULT_PACKAGE_VALIDITY_DAYS),
   pricePaise: z.number().int().min(0).max(100_000_000),

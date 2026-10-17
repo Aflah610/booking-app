@@ -1,10 +1,14 @@
 import { and, asc, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
-import type { Db, Tx } from "@/db";
+import type { Db, DbOrTx, Tx } from "@/db";
 import { booking, client, clientPackage, creditUse, service, servicePackage, walletLot } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import {
+  allocate,
+  toCredits,
   valueLeftPaise,
+  MILLI,
+  type Allocation,
   type ClientPackageDTO,
   type CreditSummaryDTO,
   type CreditTaken,
@@ -19,13 +23,11 @@ const packageColumns = {
   name: servicePackage.name,
   serviceIds: servicePackage.serviceIds,
   sessions: servicePackage.sessions,
+  creditValuePaise: servicePackage.creditValuePaise,
   validityDays: servicePackage.validityDays,
   pricePaise: servicePackage.pricePaise,
   active: servicePackage.active,
 };
-
-type PackageRow = Omit<ClientPackageDTO, "valueLeftPaise">;
-const withValue = (r: PackageRow): ClientPackageDTO => ({ ...r, valueLeftPaise: valueLeftPaise(r.pricePaise, r.sessionsTotal, r.sessionsLeft) });
 
 const clientPackageColumns = {
   id: clientPackage.id,
@@ -33,13 +35,36 @@ const clientPackageColumns = {
   packageId: clientPackage.packageId,
   packageName: servicePackage.name,
   serviceIds: servicePackage.serviceIds,
-  sessionsTotal: clientPackage.sessionsTotal,
-  sessionsLeft: clientPackage.sessionsLeft,
+  totalMilli: clientPackage.creditsTotalMilli,
+  leftMilli: clientPackage.creditsLeftMilli,
+  creditValuePaise: clientPackage.creditValuePaise,
   pricePaise: clientPackage.pricePaise,
   expiresAt: clientPackage.expiresAt,
   paymentNote: clientPackage.paymentNote,
   createdAt: clientPackage.createdAt,
 };
+
+type PackageRow = {
+  id: string;
+  clientId: string;
+  packageId: string;
+  packageName: string;
+  serviceIds: string[];
+  totalMilli: number;
+  leftMilli: number;
+  creditValuePaise: number;
+  pricePaise: number;
+  expiresAt: Date | null;
+  paymentNote: string | null;
+  createdAt: Date;
+};
+
+const toPackageDto = ({ totalMilli, leftMilli, ...r }: PackageRow): ClientPackageDTO => ({
+  ...r,
+  creditsTotal: toCredits(totalMilli),
+  creditsLeft: toCredits(leftMilli),
+  valueLeftPaise: valueLeftPaise(r.pricePaise, totalMilli, leftMilli),
+});
 
 const lotColumns = {
   id: walletLot.id,
@@ -51,91 +76,88 @@ const lotColumns = {
 };
 
 /**
- * Spends credit for a booking, inside the booking's own transaction so the booking and what paid for it
- * succeed or fail together. A package session is used first (the one expiring soonest that covers the
- * service); otherwise wallet money, oldest expiry first, up to the price. Rows are locked, so two bookings
- * made at the same moment can never spend the same session or rupee twice.
+ * The client's spendable credit for a service: packages that cover it and haven't expired (soonest expiry first),
+ * and wallet lots (soonest expiry first). With `lock`, the rows are locked until the transaction ends, so two
+ * bookings made at the same moment can never spend the same credit twice.
+ */
+async function balances(tx: DbOrTx, clientId: string, serviceId: string, now: Date, lock: boolean) {
+  const pkgQuery = tx
+    .select({ ...clientPackageColumns })
+    .from(clientPackage)
+    .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
+    .where(
+      and(
+        eq(clientPackage.clientId, clientId),
+        gt(clientPackage.creditsLeftMilli, 0),
+        or(isNull(clientPackage.expiresAt), gt(clientPackage.expiresAt, now)),
+        sql`(cardinality(${servicePackage.serviceIds}) = 0 or ${serviceId}::uuid = any(${servicePackage.serviceIds}))`,
+      ),
+    )
+    .orderBy(sql`${clientPackage.expiresAt} asc nulls last`, asc(clientPackage.createdAt));
+  const lotQuery = tx
+    .select({ id: walletLot.id, remainingPaise: walletLot.remainingPaise })
+    .from(walletLot)
+    .where(and(eq(walletLot.clientId, clientId), gt(walletLot.remainingPaise, 0), gt(walletLot.expiresAt, now)))
+    .orderBy(asc(walletLot.expiresAt), asc(walletLot.createdAt));
+  const [packages, lots] = await Promise.all([
+    lock ? pkgQuery.for("update", { of: clientPackage }) : pkgQuery,
+    lock ? lotQuery.for("update") : lotQuery,
+  ]);
+  return { packages, lots };
+}
+
+/** How a price would be paid from this client's credit right now. Reads only, for quotes. */
+export async function quoteCredits(db: DbOrTx, t: { clientId: string; serviceId: string; owes: boolean; pricePaise: number | null; now: Date }): Promise<Allocation> {
+  const { packages, lots } = await balances(db, t.clientId, t.serviceId, t.now, false);
+  return allocate(t.owes ? t.pricePaise : 0, t.owes ? packages.map(toBalance) : [], t.owes ? lots : []);
+}
+
+const toBalance = (p: PackageRow) => ({ id: p.id, leftMilli: p.leftMilli, totalMilli: p.totalMilli, creditValuePaise: p.creditValuePaise, pricePaise: p.pricePaise });
+
+/**
+ * Spends credit for a booking, inside the booking's own transaction so the booking and what paid for it succeed
+ * or fail together. See `allocate` for the order and the amounts.
  */
 export async function applyCredits(
   tx: Tx,
   t: { bookingId: string; clientId: string; serviceId: string; owes: boolean; pricePaise: number | null; now: Date },
-): Promise<CreditTaken> {
-  if (t.owes) {
-    const [pkg] = await tx
-      .select({ id: clientPackage.id, total: clientPackage.sessionsTotal, left: clientPackage.sessionsLeft, price: clientPackage.pricePaise })
-      .from(clientPackage)
-      .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
-      .where(
-        and(
-          eq(clientPackage.clientId, t.clientId),
-          gt(clientPackage.sessionsLeft, 0),
-          or(isNull(clientPackage.expiresAt), gt(clientPackage.expiresAt, t.now)),
-          sql`(cardinality(${servicePackage.serviceIds}) = 0 or ${t.serviceId}::uuid = any(${servicePackage.serviceIds}))`,
-        ),
-      )
-      .orderBy(sql`${clientPackage.expiresAt} asc nulls last`, asc(clientPackage.createdAt))
-      .limit(1)
-      .for("update", { of: clientPackage });
-    if (pkg) {
-      await tx.update(clientPackage).set({ sessionsLeft: sql`${clientPackage.sessionsLeft} - 1` }).where(eq(clientPackage.id, pkg.id));
-      await tx.insert(creditUse).values({
-        bookingId: t.bookingId,
-        clientPackageId: pkg.id,
-        sessions: 1,
-        // The money this session stands for: the package's remaining value before it, minus the value after.
-        valuePaise: valueLeftPaise(pkg.price, pkg.total, pkg.left) - valueLeftPaise(pkg.price, pkg.total, pkg.left - 1),
-      });
-      await tx.update(booking).set({ creditSession: true }).where(eq(booking.id, t.bookingId));
-      return { session: true, walletPaise: 0 };
-    }
+): Promise<Allocation> {
+  if (!t.owes) return allocate(0, [], []);
+  const { packages, lots } = await balances(tx, t.clientId, t.serviceId, t.now, true);
+  const plan = allocate(t.pricePaise, packages.map(toBalance), lots);
+  for (const p of plan.packages) {
+    await tx.update(clientPackage).set({ creditsLeftMilli: sql`${clientPackage.creditsLeftMilli} - ${p.milli}` }).where(eq(clientPackage.id, p.id));
+    await tx.insert(creditUse).values({ bookingId: t.bookingId, clientPackageId: p.id, creditsMilli: p.milli, coveredPaise: p.coveredPaise, valuePaise: p.valuePaise });
   }
-
-  let need = t.pricePaise && t.pricePaise > 0 ? t.pricePaise : 0;
-  let taken = 0;
-  if (need > 0) {
-    const lots = await tx
-      .select({ id: walletLot.id, remaining: walletLot.remainingPaise })
-      .from(walletLot)
-      .where(and(eq(walletLot.clientId, t.clientId), gt(walletLot.remainingPaise, 0), gt(walletLot.expiresAt, t.now)))
-      .orderBy(asc(walletLot.expiresAt), asc(walletLot.createdAt))
-      .for("update");
-    for (const lot of lots) {
-      if (need === 0) break;
-      const take = Math.min(lot.remaining, need);
-      await tx.update(walletLot).set({ remainingPaise: sql`${walletLot.remainingPaise} - ${take}` }).where(eq(walletLot.id, lot.id));
-      await tx.insert(creditUse).values({ bookingId: t.bookingId, walletLotId: lot.id, amountPaise: take, valuePaise: take });
-      need -= take;
-      taken += take;
-    }
-    if (taken) await tx.update(booking).set({ creditPaise: taken }).where(eq(booking.id, t.bookingId));
+  for (const l of plan.lots) {
+    await tx.update(walletLot).set({ remainingPaise: sql`${walletLot.remainingPaise} - ${l.amountPaise}` }).where(eq(walletLot.id, l.id));
+    await tx.insert(creditUse).values({ bookingId: t.bookingId, walletLotId: l.id, amountPaise: l.amountPaise, coveredPaise: l.amountPaise, valuePaise: l.amountPaise });
   }
-  return { session: false, walletPaise: taken };
+  if (plan.creditsMilli || plan.walletPaise) {
+    await tx.update(booking).set({ creditMilli: plan.creditsMilli, creditPaise: plan.walletPaise }).where(eq(booking.id, t.bookingId));
+  }
+  return plan;
 }
 
 /**
- * Gives back whatever a booking took. A session or amount whose package or lot has expired in the meantime is not
- * restored (it would be unusable), but the use is still marked returned so it is never handled twice.
+ * Gives back whatever a booking took. Credits or money whose package or lot has expired in the meantime are not
+ * restored (they would be unusable), but the use is still marked returned so it is never handled twice.
  */
 export async function returnCredits(tx: Tx, bookingId: string, now: Date): Promise<CreditTaken> {
   const uses = await tx
-    .select({
-      id: creditUse.id,
-      packageId: creditUse.clientPackageId,
-      lotId: creditUse.walletLotId,
-      amount: creditUse.amountPaise,
-    })
+    .select({ id: creditUse.id, packageId: creditUse.clientPackageId, lotId: creditUse.walletLotId, milli: creditUse.creditsMilli, amount: creditUse.amountPaise })
     .from(creditUse)
     .where(and(eq(creditUse.bookingId, bookingId), isNull(creditUse.returnedAt)))
     .for("update");
-  const back: CreditTaken = { session: false, walletPaise: 0 };
+  const back: CreditTaken = { credits: 0, walletPaise: 0 };
   for (const u of uses) {
     if (u.packageId) {
       const restored = await tx
         .update(clientPackage)
-        .set({ sessionsLeft: sql`${clientPackage.sessionsLeft} + 1` })
+        .set({ creditsLeftMilli: sql`${clientPackage.creditsLeftMilli} + ${u.milli}` })
         .where(and(eq(clientPackage.id, u.packageId), or(isNull(clientPackage.expiresAt), gt(clientPackage.expiresAt, now))))
         .returning({ id: clientPackage.id });
-      if (restored.length) back.session = true;
+      if (restored.length) back.credits += toCredits(u.milli);
     } else if (u.lotId) {
       const restored = await tx
         .update(walletLot)
@@ -146,17 +168,17 @@ export async function returnCredits(tx: Tx, bookingId: string, now: Date): Promi
     }
     await tx.update(creditUse).set({ returnedAt: now }).where(eq(creditUse.id, u.id));
   }
-  if (uses.length) await tx.update(booking).set({ creditSession: false, creditPaise: 0 }).where(eq(booking.id, bookingId));
+  if (uses.length) await tx.update(booking).set({ creditMilli: 0, creditPaise: 0 }).where(eq(booking.id, bookingId));
   return back;
 }
 
 /** A moved booking is a new row; what paid for the old one now pays for the new one. */
 export async function moveCredits(tx: Tx, fromBookingId: string, toBookingId: string) {
   await tx.update(creditUse).set({ bookingId: toBookingId }).where(and(eq(creditUse.bookingId, fromBookingId), isNull(creditUse.returnedAt)));
-  const [old] = await tx.select({ s: booking.creditSession, p: booking.creditPaise }).from(booking).where(eq(booking.id, fromBookingId));
+  const [old] = await tx.select({ m: booking.creditMilli, p: booking.creditPaise }).from(booking).where(eq(booking.id, fromBookingId));
   if (old) {
-    await tx.update(booking).set({ creditSession: old.s, creditPaise: old.p }).where(eq(booking.id, toBookingId));
-    await tx.update(booking).set({ creditSession: false, creditPaise: 0 }).where(eq(booking.id, fromBookingId));
+    await tx.update(booking).set({ creditMilli: old.m, creditPaise: old.p }).where(eq(booking.id, toBookingId));
+    await tx.update(booking).set({ creditMilli: 0, creditPaise: 0 }).where(eq(booking.id, fromBookingId));
   }
 }
 
@@ -191,7 +213,7 @@ export function createPackagesRepository(db: Db) {
       return new Set((await db.select({ id: service.id }).from(service)).map((r) => r.id));
     },
 
-    /** Records a sale: the client now holds the package's sessions, priced and dated as of today. */
+    /** Records a sale: the client now holds the package's credits, priced and dated as of today. */
     sell(clientId: string, pkg: PackageDTO, v: { expiresAt: Date | null; paymentNote: string | null }, audit: Omit<AuditEntry, "entityId">): Promise<string> {
       return db.transaction(async (tx) => {
         const [row] = await tx
@@ -199,8 +221,9 @@ export function createPackagesRepository(db: Db) {
           .values({
             clientId,
             packageId: pkg.id,
-            sessionsLeft: pkg.sessions,
-            sessionsTotal: pkg.sessions,
+            creditsTotalMilli: pkg.sessions * MILLI,
+            creditsLeftMilli: pkg.sessions * MILLI,
+            creditValuePaise: pkg.creditValuePaise,
             pricePaise: pkg.pricePaise,
             expiresAt: v.expiresAt,
             paymentNote: v.paymentNote,
@@ -222,14 +245,14 @@ export function createPackagesRepository(db: Db) {
       });
     },
 
-    /** Everything this client can still spend at `now`. */
+    /** Everything this client can still spend at `now`, on any service. */
     async summary(clientId: string, now: Date): Promise<CreditSummaryDTO> {
       const [packages, lots] = await Promise.all([
         db
           .select(clientPackageColumns)
           .from(clientPackage)
           .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
-          .where(and(eq(clientPackage.clientId, clientId), gt(clientPackage.sessionsLeft, 0), or(isNull(clientPackage.expiresAt), gt(clientPackage.expiresAt, now))))
+          .where(and(eq(clientPackage.clientId, clientId), gt(clientPackage.creditsLeftMilli, 0), or(isNull(clientPackage.expiresAt), gt(clientPackage.expiresAt, now))))
           .orderBy(sql`${clientPackage.expiresAt} asc nulls last`, asc(clientPackage.createdAt)),
         db
           .select(lotColumns)
@@ -237,20 +260,25 @@ export function createPackagesRepository(db: Db) {
           .where(and(eq(walletLot.clientId, clientId), gt(walletLot.remainingPaise, 0), gt(walletLot.expiresAt, now)))
           .orderBy(asc(walletLot.expiresAt), asc(walletLot.createdAt)),
       ]);
-      const withValues = packages.map(withValue);
+      const dtos = packages.map(toPackageDto);
       const walletPaise = lots.reduce((n, l) => n + l.remainingPaise, 0);
-      const packageValuePaise = withValues.reduce((n, p) => n + p.valueLeftPaise, 0);
-      return { packages: withValues, lots, walletPaise, packageValuePaise, totalPaise: walletPaise + packageValuePaise };
+      const packageValuePaise = dtos.reduce((n, p) => n + p.valueLeftPaise, 0);
+      return { packages: dtos, lots, walletPaise, packageValuePaise, totalPaise: walletPaise + packageValuePaise };
     },
+
+    /** How a booking of this price would be paid from the client's credit, without taking anything. */
+    quote: (clientId: string, t: { serviceId: string; owes: boolean; pricePaise: number | null; now: Date }) => quoteCredits(db, { clientId, ...t }),
 
     /** Every package the client has bought, including used-up and expired ones. */
     async allPackages(clientId: string): Promise<ClientPackageDTO[]> {
-      return (await db
-        .select(clientPackageColumns)
-        .from(clientPackage)
-        .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
-        .where(eq(clientPackage.clientId, clientId))
-        .orderBy(desc(clientPackage.createdAt))).map(withValue);
+      return (
+        await db
+          .select(clientPackageColumns)
+          .from(clientPackage)
+          .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
+          .where(eq(clientPackage.clientId, clientId))
+          .orderBy(desc(clientPackage.createdAt))
+      ).map(toPackageDto);
     },
 
     allLots(clientId: string): Promise<WalletLotDTO[]> {
@@ -258,15 +286,16 @@ export function createPackagesRepository(db: Db) {
     },
 
     /** What one booking, or a client's recent bookings, were paid with. */
-    uses(filter: { bookingId?: string; clientId?: string }, limit = 50): Promise<CreditUseDTO[]> {
-      return db
+    async uses(filter: { bookingId?: string; clientId?: string }, limit = 50): Promise<CreditUseDTO[]> {
+      const rows = await db
         .select({
           id: creditUse.id,
           bookingId: creditUse.bookingId,
           bookingNumber: booking.number,
           kind: sql<"package" | "wallet">`case when ${creditUse.clientPackageId} is not null then 'package' else 'wallet' end`,
           label: sql<string>`coalesce(${servicePackage.name}, 'Wallet')`,
-          sessions: creditUse.sessions,
+          milli: creditUse.creditsMilli,
+          coveredPaise: creditUse.coveredPaise,
           amountPaise: creditUse.amountPaise,
           valuePaise: creditUse.valuePaise,
           returnedAt: creditUse.returnedAt,
@@ -284,6 +313,7 @@ export function createPackagesRepository(db: Db) {
         )
         .orderBy(desc(creditUse.createdAt))
         .limit(limit);
+      return rows.map(({ milli, ...r }) => ({ ...r, credits: toCredits(milli) }));
     },
 
     async clientExists(id: string): Promise<boolean> {

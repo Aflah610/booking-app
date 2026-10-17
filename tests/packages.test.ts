@@ -81,7 +81,7 @@ describe("packages", () => {
     await c.packages.sell({}, clientId, { packageId: p.id, paymentNote: "UPI 123" }, t0);
     await c.packages.update({}, p.id, { name: "Renamed", serviceIds: [], sessions: 10, pricePaise: 1, validityDays: 5, active: true });
     const [mine] = (await left(clientId)).packages;
-    expect(mine).toMatchObject({ sessionsTotal: 4, sessionsLeft: 4, pricePaise: 360000, paymentNote: "UPI 123" });
+    expect(mine).toMatchObject({ creditsTotal: 4, creditsLeft: 4, pricePaise: 360000, paymentNote: "UPI 123" });
     expect(mine.expiresAt).toEqual(days(t0, 365));
   });
 
@@ -99,9 +99,9 @@ describe("booking with a package", () => {
     const { counselling, asha, clientId } = await setup();
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
     const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
-    expect(b).toMatchObject({ paymentStatus: "paid", creditSession: true, creditPaise: 0, amountPaise: null, paymentDueAt: null });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(3);
-    expect((await c.packages.usesForBooking(b.id))[0]).toMatchObject({ kind: "package", sessions: 1, valuePaise: 90000 }); // ₹3,600 / 4
+    expect(b).toMatchObject({ paymentStatus: "paid", creditMilli: 1000, creditPaise: 0, amountPaise: null, paymentDueAt: null });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
+    expect((await c.packages.usesForBooking(b.id))[0]).toMatchObject({ kind: "package", credits: 1, valuePaise: 90000 }); // ₹3,600 / 4
     expect(await c.workflows.processDue({ now: t0 })).toBeGreaterThan(0);
   });
 
@@ -112,7 +112,7 @@ describe("booking with a package", () => {
     const later = await pack([counselling.id], { name: "Later", validityDays: 300 });
     for (const p of [onlyOther, later, soon]) await c.packages.sell({}, clientId, { packageId: p.id }, t0);
     await book(counselling.id, asha.id, "2026-10-19T10:00");
-    const byName = Object.fromEntries((await left(clientId)).packages.map((p) => [p.packageName, p.sessionsLeft]));
+    const byName = Object.fromEntries((await left(clientId)).packages.map((p) => [p.packageName, p.creditsLeft]));
     expect(byName).toEqual({ Assessments: 1, Soon: 3, Later: 4 });
   });
 
@@ -121,21 +121,21 @@ describe("booking with a package", () => {
     await c.packages.sell({}, clientId, { packageId: (await pack([])).id }, t0);
     await book(free.id, asha.id, "2026-10-19T10:00");
     await book(counselling.id, asha.id, "2026-10-19T12:00", { useCredits: false });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(4);
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(4);
   });
 
   it("ignores a package that has expired", async () => {
     const { counselling, asha, clientId } = await setup();
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id], { validityDays: 10 })).id }, t0);
     const b = await book(counselling.id, asha.id, "2026-10-30T10:00", { now: days(t0, 11) });
-    expect(b).toMatchObject({ creditSession: false, paymentStatus: "pending", amountPaise: 100000 });
+    expect(b).toMatchObject({ creditMilli: 0, paymentStatus: "pending", amountPaise: 100000 });
   });
 
   it("never lets two bookings made at once share the last session", async () => {
     const { counselling, asha, clientId } = await setup();
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id], { sessions: 1 })).id }, t0);
     const both = await Promise.all([book(counselling.id, asha.id, "2026-10-19T10:00"), book(counselling.id, asha.id, "2026-10-20T10:00")]);
-    expect(both.filter((b) => b.creditSession)).toHaveLength(1);
+    expect(both.filter((b) => b.creditMilli > 0)).toHaveLength(1);
     expect(both.filter((b) => b.paymentStatus === "pending")).toHaveLength(1);
     expect((await left(clientId)).packages).toHaveLength(0);
   });
@@ -146,7 +146,7 @@ describe("booking with wallet money", () => {
     const { counselling, asha, dev, clientId } = await setup();
     await c.packages.topUp({}, clientId, { amountPaise: 700000 }, t0);
     const cheap = await book(counselling.id, asha.id, "2026-10-19T10:00");
-    expect(cheap).toMatchObject({ paymentStatus: "paid", creditPaise: 100000, creditSession: false, amountPaise: null });
+    expect(cheap).toMatchObject({ paymentStatus: "paid", creditPaise: 100000, creditMilli: 0, amountPaise: null });
     const dear = await book(counselling.id, dev.id, "2026-10-19T10:00");
     expect(dear).toMatchObject({ paymentStatus: "paid", creditPaise: 500000 });
     expect((await left(clientId)).walletPaise).toBe(100000);
@@ -177,7 +177,7 @@ describe("booking with wallet money", () => {
     await c.packages.topUp({}, clientId, { amountPaise: 500000 }, t0);
     await book(counselling.id, asha.id, "2026-10-19T10:00");
     const s = await left(clientId);
-    expect([s.packages[0].sessionsLeft, s.walletPaise]).toEqual([3, 500000]);
+    expect([s.packages[0].creditsLeft, s.walletPaise]).toEqual([3, 500000]);
   });
 
   it("can never go below zero when bookings race for the same money", async () => {
@@ -214,8 +214,8 @@ describe("giving credit back", () => {
     await c.bookings.cancel(desk, withSession.id, {}, { now: t0 });
     await c.bookings.cancel(desk, withMoney.id, {}, { now: t0 });
     const s = await left(clientId);
-    expect([s.packages[0].sessionsLeft, s.walletPaise]).toEqual([1, 600000]);
-    expect(await c.bookings.get(withMoney.id)).toMatchObject({ creditPaise: 0, creditSession: false });
+    expect([s.packages[0].creditsLeft, s.walletPaise]).toEqual([1, 600000]);
+    expect(await c.bookings.get(withMoney.id)).toMatchObject({ creditPaise: 0, creditMilli: 0 });
     // The history still shows what it was paid with, marked as given back.
     expect((await c.packages.usesForBooking(withMoney.id))[0].returnedAt).not.toBeNull();
   });
@@ -233,10 +233,10 @@ describe("giving credit back", () => {
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
     const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
     const moved = await c.bookings.reschedule(desk, b.id, { start: at("2026-10-20T10:00"), staffId: asha.id }, { now: t0 });
-    expect(moved).toMatchObject({ creditSession: true, paymentStatus: "paid" });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(3);
+    expect(moved).toMatchObject({ creditMilli: 1000, paymentStatus: "paid" });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
     await c.bookings.cancel(desk, moved.id, {}, { now: t0 });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(4);
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(4);
   });
 
   it("keeps the credit used when the client misses it, and gives it back when the staff member does", async () => {
@@ -246,9 +246,9 @@ describe("giving credit back", () => {
     const missedByStaff = await book(counselling.id, asha.id, "2026-10-20T10:00");
     const after = days(t0, 10);
     await c.bookings.markStatus(desk, missedByClient.id, "no_show", { now: after, noShowBy: "client" });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(2);
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(2);
     await c.bookings.markStatus(desk, missedByStaff.id, "no_show", { now: after, noShowBy: "staff" });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(3);
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
   });
 
   it("completing a booking uses nothing more", async () => {
@@ -256,7 +256,7 @@ describe("giving credit back", () => {
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
     const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
     await c.bookings.markStatus(desk, b.id, "completed", { now: days(t0, 10) });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(3);
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
   });
 });
 
@@ -317,7 +317,7 @@ describe("on the website", () => {
     await c.packages.topUp({}, clientId, { amountPaise: 40000 }, t0);
     const { toPublicBooking } = await import("@/features/bookings/bookings.dto");
     const b = (await webBook(counselling.id, "2026-10-19T10:00")).booking;
-    expect(toPublicBooking(b, "BK-", t0).payment.credit).toEqual({ session: false, walletPaise: 40000 });
+    expect(toPublicBooking(b, "BK-", t0).payment.credit).toEqual({ credits: 0, walletPaise: 40000 });
   });
 });
 
@@ -325,10 +325,10 @@ describe("paying an existing booking with credit", () => {
   it("uses a package bought after the booking was made", async () => {
     const { counselling, asha, clientId } = await setup();
     const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
-    expect(b).toMatchObject({ paymentStatus: "pending", creditSession: false });
+    expect(b).toMatchObject({ paymentStatus: "pending", creditMilli: 0 });
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
-    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditSession: true, amountPaise: null });
-    expect((await left(clientId)).packages[0].sessionsLeft).toBe(3);
+    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditMilli: 1000, amountPaise: null });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
   });
 
   it("uses wallet money added later, leaving the difference to pay", async () => {
@@ -346,7 +346,7 @@ describe("paying an existing booking with credit", () => {
     await c.packages.topUp({}, clientId, { amountPaise: 500000 }, t0);
     await expect(c.bookings.useCredit({}, b.id, { now: t0 })).rejects.toMatchObject({ code: "invalid" }); // no amount, so the wallet can't pay it
     await c.packages.sell({}, clientId, { packageId: (await pack([vague.id])).id }, t0);
-    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditSession: true });
+    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditMilli: 1000 });
   });
 
   it("refuses when nothing applies, when already paid, when credit was used, or when cancelled", async () => {
@@ -385,7 +385,7 @@ describe("wallet total follows package purchases", () => {
     expect(await left(clientId)).toMatchObject({ totalPaise: 360000, packageValuePaise: 360000, walletPaise: 0 });
     const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
     expect(await left(clientId)).toMatchObject({ totalPaise: 270000, packageValuePaise: 270000 });
-    expect((await left(clientId)).packages[0]).toMatchObject({ sessionsLeft: 3, valueLeftPaise: 270000 });
+    expect((await left(clientId)).packages[0]).toMatchObject({ creditsLeft: 3, valueLeftPaise: 270000 });
     await c.bookings.cancel(desk, b.id, {}, { now: t0 });
     expect(await left(clientId)).toMatchObject({ totalPaise: 360000, packageValuePaise: 360000 });
   });
@@ -417,7 +417,7 @@ describe("wallet total follows package purchases", () => {
     const { counselling, other, asha, clientId } = await setup();
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
     const b = await book(other.id, asha.id, "2026-10-19T10:00");
-    expect(b).toMatchObject({ creditSession: false, creditPaise: 0, paymentStatus: "pending", amountPaise: 200000 });
+    expect(b).toMatchObject({ creditMilli: 0, creditPaise: 0, paymentStatus: "pending", amountPaise: 200000 });
     expect((await left(clientId)).totalPaise).toBe(360000);
   });
 
@@ -425,5 +425,101 @@ describe("wallet total follows package purchases", () => {
     const { counselling, clientId } = await setup();
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id], { validityDays: 10 })).id }, t0);
     expect((await left(clientId, days(t0, 11))).totalPaise).toBe(0);
+  });
+});
+
+import { allocate } from "@/features/packages/packages.dto";
+
+describe("credit that flexes with the price", () => {
+  const pkg = (leftMilli: number, over: Partial<{ id: string; creditValuePaise: number; pricePaise: number; totalMilli: number }> = {}) => ({
+    id: over.id ?? "p1", leftMilli, totalMilli: over.totalMilli ?? 4000, creditValuePaise: over.creditValuePaise ?? 100000, pricePaise: over.pricePaise ?? 360000,
+  });
+
+  it("takes 1.5 credits for a ₹1,500 service when a credit covers ₹1,000, worth ₹1,350 of a ₹3,600 package", () => {
+    const a = allocate(150000, [pkg(4000)], []);
+    expect(a).toMatchObject({ creditsMilli: 1500, walletPaise: 0, duePaise: 0, covered: true });
+    expect(a.packages[0]).toMatchObject({ milli: 1500, coveredPaise: 150000, valuePaise: 135000 });
+  });
+
+  it("takes 5 credits for a ₹5,000 service, and asks for the rest when there are too few", () => {
+    expect(allocate(500000, [pkg(5000, { totalMilli: 5000, pricePaise: 450000 })], [])).toMatchObject({ creditsMilli: 5000, covered: true });
+    expect(allocate(500000, [pkg(4000)], [])).toMatchObject({ creditsMilli: 4000, duePaise: 100000, covered: false });
+  });
+
+  it("pays what packages can, then wallet money, then leaves the rest", () => {
+    const a = allocate(100000, [pkg(500)], [{ id: "l1", remainingPaise: 30000 }]);
+    expect(a).toMatchObject({ creditsMilli: 500, walletPaise: 30000, duePaise: 20000, covered: false });
+  });
+
+  it("spreads one booking across packages, soonest expiry first, and across wallet lots", () => {
+    const a = allocate(300000, [pkg(1000, { id: "a" }), pkg(4000, { id: "b" })], []);
+    expect(a.packages.map((p) => [p.id, p.milli])).toEqual([["a", 1000], ["b", 2000]]);
+    const w = allocate(100000, [], [{ id: "x", remainingPaise: 60000 }, { id: "y", remainingPaise: 60000 }]);
+    expect(w.lots).toEqual([{ id: "x", amountPaise: 60000 }, { id: "y", amountPaise: 40000 }]);
+  });
+
+  it("uses exactly what is left of a package when it is the last of it, so no sliver is stranded", () => {
+    const last = pkg(333, { creditValuePaise: 300000, totalMilli: 1000, pricePaise: 90000 }); // 0.333 of a credit covers ₹999
+    expect(allocate(99900, [last], [])).toMatchObject({ creditsMilli: 333, duePaise: 0, covered: true });
+    expect(allocate(100000, [last], [])).toMatchObject({ creditsMilli: 333, duePaise: 100, covered: false });
+  });
+
+  it("counts a service with no known price as one credit and charges nothing", () => {
+    expect(allocate(null, [pkg(4000)], [])).toMatchObject({ creditsMilli: 1000, covered: true });
+    expect(allocate(null, [pkg(500)], [])).toMatchObject({ creditsMilli: 0, covered: false });
+  });
+
+  it("charges the booked service's price: a ₹1,500 service takes 1.5 credits, the wallet total falls by ₹1,350, and cancelling restores both", async () => {
+    const { clientId } = await setup();
+    const mid = await c.catalog.create({}, { name: "Session", durationMin: 60, priceDisplay: "1500" });
+    const dr = (await c.staff.list()).find((x) => x.name === "Asha")!;
+    await c.staff.setServices({}, dr.id, [mid.id]);
+    await c.packages.sell({}, clientId, { packageId: (await pack([])).id }, t0); // 4 credits for ₹3,600, one credit covers ₹1,000
+    const b = await book(mid.id, dr.id, "2026-10-19T10:00");
+    expect(b).toMatchObject({ paymentStatus: "paid", creditMilli: 1500, amountPaise: null });
+    expect(await left(clientId)).toMatchObject({ totalPaise: 225000, packageValuePaise: 225000 });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(2.5);
+    expect((await c.packages.usesForBooking(b.id))[0]).toMatchObject({ credits: 1.5, coveredPaise: 150000, valuePaise: 135000 });
+    await c.bookings.cancel(desk, b.id, {}, { now: t0 });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(4);
+    expect((await left(clientId)).totalPaise).toBe(360000);
+  });
+
+  it("lets one package pay for services of different prices, and a pricey therapist uses more credits", async () => {
+    const { counselling, other, asha, dev, clientId } = await setup();
+    await c.packages.sell({}, clientId, { packageId: (await pack([])).id }, t0);
+    const cheap = await book(counselling.id, asha.id, "2026-10-19T10:00"); // ₹1,000 → 1 credit
+    const mid = await book(other.id, asha.id, "2026-10-20T10:00"); // ₹2,000 → 2 credits
+    expect([cheap.creditMilli, mid.creditMilli]).toEqual([1000, 2000]);
+    const dear = await book(counselling.id, dev.id, "2026-10-21T10:00"); // ₹5,000, only 1 credit left
+    expect(dear).toMatchObject({ creditMilli: 1000, paymentStatus: "pending", amountPaise: 400000 });
+    expect((await left(clientId)).packages).toHaveLength(0);
+  });
+
+  it("combines part-used credit with wallet money and leaves the difference to pay", async () => {
+    const { counselling, asha, clientId } = await setup();
+    await c.packages.sell({}, clientId, { packageId: (await pack([], { sessions: 1, price: 90000 })).id }, t0);
+    const mid = await c.catalog.create({}, { name: "Long", durationMin: 60, priceDisplay: "1500" });
+    await c.staff.setServices({}, asha.id, [counselling.id, mid.id]);
+    await c.packages.topUp({}, clientId, { amountPaise: 20000 }, t0);
+    const b = await book(mid.id, asha.id, "2026-10-19T10:00"); // wants ₹1,500: 1 credit covers ₹1,000, wallet ₹200, ₹300 left
+    expect(b).toMatchObject({ creditMilli: 1000, creditPaise: 20000, paymentStatus: "pending", amountPaise: 30000 });
+  });
+
+  it("quotes exactly what booking will do, and takes nothing", async () => {
+    const { counselling, dev, clientId } = await setup();
+    await c.packages.sell({}, clientId, { packageId: (await pack([])).id }, t0);
+    const q = await c.packages.quote(clientId, { serviceId: counselling.id, staffId: dev.id }, t0);
+    expect(q.pricePaise).toBe(500000);
+    expect(q.plan).toMatchObject({ creditsMilli: 4000, duePaise: 100000, covered: false });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(4); // nothing taken
+    const b = await book(counselling.id, dev.id, "2026-10-19T10:00");
+    expect([b.creditMilli, b.amountPaise]).toEqual([q.plan.creditsMilli, q.plan.duePaise]);
+  });
+
+  it("quotes nothing for a free service", async () => {
+    const { free, clientId } = await setup();
+    await c.packages.sell({}, clientId, { packageId: (await pack([])).id }, t0);
+    expect((await c.packages.quote(clientId, { serviceId: free.id }, t0)).plan).toMatchObject({ creditsMilli: 0, covered: false });
   });
 });

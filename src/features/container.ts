@@ -7,6 +7,8 @@ import type { BookingEvent } from "./bookings/bookings.dto";
 import { manageToken } from "./bookings/manage-link";
 import { createBookingsRepository } from "./bookings/bookings.repository";
 import { createBookingsService } from "./bookings/bookings.service";
+import { hasPrice } from "./catalog/catalog.dto";
+import { DomainError } from "./shared/errors";
 import { createCatalogRepository } from "./catalog/catalog.repository";
 import { createCatalogService } from "./catalog/catalog.service";
 import { createCalendarRepository } from "./calendar/calendar.repository";
@@ -88,7 +90,15 @@ export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?
     }),
     workflows,
     calendar,
-    packages: createPackagesService({ packagesRepo: createPackagesRepository(db) }),
+    packages: createPackagesService({
+      packagesRepo: createPackagesRepository(db),
+      async priceFor(serviceId, staffId) {
+        const svc = await catalogRepo.findById(serviceId);
+        if (!svc) throw new DomainError("not_found", `Service ${serviceId} not found`);
+        const own = staffId ? await bookingsRepo.staffPrice(staffId, serviceId) : null;
+        return { serviceName: svc.name, owes: own !== null ? own > 0 : hasPrice(svc), pricePaise: own ?? svc.pricePaise };
+      },
+    }),
     payments: createPaymentsService({
       paymentsRepo: createPaymentsRepository(db),
       bookingsRepo,

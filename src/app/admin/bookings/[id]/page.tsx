@@ -93,10 +93,10 @@ export default async function BookingPage({
                 <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client can resume until</dt><dd className="mt-1">{timeLabel(b.resumeUntil, tz)}, {longDayLabel(b.resumeUntil, tz)}</dd></div>
               )}
             </dl>
-            {b.status === "upcoming" && !b.slotReleased && (b.paymentStatus === "pending" || b.paymentStatus === "failed") && !b.creditSession && b.creditPaise === 0 && (credit.packages.length > 0 || credit.walletPaise > 0) && (
+            {b.status === "upcoming" && !b.slotReleased && (b.paymentStatus === "pending" || b.paymentStatus === "failed") && b.creditMilli === 0 && b.creditPaise === 0 && (credit.packages.length > 0 || credit.walletPaise > 0) && (
               <form action={useCreditAction.bind(null, b.id)} className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-3 text-sm">
                 <span className="flex-1">
-                  This client has {credit.packages.reduce((n, p) => n + p.sessionsLeft, 0)} package sessions ({rupees(credit.packageValuePaise)}) and {rupees(credit.walletPaise)} in wallet money.
+                  This client has {Number(credit.packages.reduce((n, p) => n + p.creditsLeft, 0).toFixed(3))} package credits ({rupees(credit.packageValuePaise)}) and {rupees(credit.walletPaise)} in wallet money.
                 </span>
                 <button className="btn-ghost" type="submit">Pay with their credit</button>
               </form>
@@ -106,7 +106,7 @@ export default async function BookingPage({
                 <p className="mb-1 font-medium">Paid with credit</p>
                 {creditUses.map((u) => (
                   <p key={u.id} className="flex flex-wrap gap-x-3">
-                    <span>{u.kind === "package" ? `1 session of ${u.label} (${rupees(u.valuePaise)})` : `${rupees(u.amountPaise)} from wallet`}</span>
+                    <span>{u.kind === "package" ? `${Number(u.credits.toFixed(3))} credit${u.credits === 1 ? "" : "s"} of ${u.label} (${rupees(u.valuePaise)}), covering ${rupees(u.coveredPaise)}` : `${rupees(u.amountPaise)} from wallet`}</span>
                     <span className={u.returnedAt ? "font-medium text-green-700" : "text-zinc-600"}>{u.returnedAt ? "Given back to the client" : "Used"}</span>
                   </p>
                 ))}

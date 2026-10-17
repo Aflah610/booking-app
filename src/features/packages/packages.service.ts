@@ -12,8 +12,12 @@ const DAY = 86_400_000;
  * back credit happens inside the booking's own transaction (see packages.repository); this service is the
  * staff-facing side: what is on sale, what each client holds.
  */
-export function createPackagesService(deps: { packagesRepo: PackagesRepository }) {
-  const { packagesRepo } = deps;
+export function createPackagesService(deps: {
+  packagesRepo: PackagesRepository;
+  /** What a service costs with a given person (their own price if they have one), for quotes. */
+  priceFor: (serviceId: string, staffId: string | null) => Promise<{ serviceName: string; owes: boolean; pricePaise: number | null }>;
+}) {
+  const { packagesRepo, priceFor } = deps;
 
   async function checkServices(serviceIds: string[]) {
     if (!serviceIds.length) return;
@@ -69,6 +73,17 @@ export function createPackagesService(deps: { packagesRepo: PackagesRepository }
         { amountPaise: data.amountPaise, expiresAt: new Date(now.getTime() + WALLET_VALIDITY_DAYS * DAY), note: data.note ?? null },
         { actor, action: "wallet_top_up", entity: "wallet_lot" },
       );
+    },
+
+    /**
+     * How a booking of this service would be paid from the client's credit right now, without taking anything. Lets the
+     * website show "this costs 1.5 credits" or "₹500 left to pay" before the client commits. It matches what booking does.
+     */
+    async quote(clientId: string, input: { serviceId: string; staffId?: string | null }, now = new Date()) {
+      await requireClient(clientId);
+      const price = await priceFor(input.serviceId, input.staffId ?? null);
+      const plan = await packagesRepo.quote(clientId, { serviceId: input.serviceId, owes: price.owes, pricePaise: price.pricePaise, now });
+      return { serviceName: price.serviceName, pricePaise: price.pricePaise, plan };
     },
 
     async summary(clientId: string, now = new Date()) {

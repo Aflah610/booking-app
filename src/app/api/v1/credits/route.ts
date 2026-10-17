@@ -25,8 +25,10 @@ export const GET = apiRoute("website", async (req) => {
     packages: credit.packages.map((p) => ({
       id: p.id,
       name: p.packageName,
-      sessionsLeft: p.sessionsLeft,
-      sessionsTotal: p.sessionsTotal,
+      creditsLeft: p.creditsLeft,
+      creditsTotal: p.creditsTotal,
+      // One credit covers this much of a service's price: a ₹1,500 service takes 1.5 credits when it is ₹1,000.
+      creditValuePaise: p.creditValuePaise,
       valueLeftPaise: p.valueLeftPaise,
       // Empty = any service.
       serviceIds: p.serviceIds,

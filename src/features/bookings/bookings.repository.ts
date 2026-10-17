@@ -5,6 +5,7 @@ import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
 import { upsertClient } from "@/features/clients/clients.repository";
+import type { Allocation } from "@/features/packages/packages.dto";
 import { applyCredits, moveCredits, returnCredits } from "@/features/packages/packages.repository";
 import { PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import type { BookingDTO, BookingSource, BookingStatus, NoShowBy, PaymentStatus } from "./bookings.dto";
@@ -27,7 +28,7 @@ const columns = {
   resumeUntil: booking.resumeUntil,
   slotReleased: booking.slotReleased,
   amountPaise: booking.amountPaise,
-  creditSession: booking.creditSession,
+  creditMilli: booking.creditMilli,
   creditPaise: booking.creditPaise,
   noShowBy: booking.noShowBy,
   source: booking.source,
@@ -139,13 +140,13 @@ async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?:
 async function settleWithCredit(tx: Tx, bookingId: string, serviceId: string, credit: { owes: boolean; pricePaise: number | null }, now: Date) {
   const [row] = await tx.select({ clientId: booking.clientId }).from(booking).where(eq(booking.id, bookingId));
   const used = await applyCredits(tx, { bookingId, clientId: row.clientId, serviceId, ...credit, now });
-  const covered = used.session || (credit.pricePaise !== null && credit.pricePaise > 0 && used.walletPaise >= credit.pricePaise);
+  const covered = used.covered;
   if (covered) {
     // Nothing left to pay: the payment clock never starts.
     await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null, resumeUntil: null, amountPaise: null }).where(eq(booking.id, bookingId));
-  } else if (used.walletPaise > 0) {
-    // Wallet money paid part of it; what is left is paid in the normal way.
-    await tx.update(booking).set({ amountPaise: credit.pricePaise! - used.walletPaise }).where(eq(booking.id, bookingId));
+  } else if ((used.creditsMilli > 0 || used.walletPaise > 0) && used.duePaise !== null) {
+    // Credit paid part of it; what is left is paid in the normal way.
+    await tx.update(booking).set({ amountPaise: used.duePaise }).where(eq(booking.id, bookingId));
   }
   return { used, covered };
 }
@@ -448,7 +449,7 @@ export function createBookingsRepository(db: Db) {
     async useCredit(
       id: string,
       opts: { now: Date; audit: AuditEntry },
-    ): Promise<WriteResult<{ covered: boolean; taken: { session: boolean; walletPaise: number }; wasOnline: boolean }>> {
+    ): Promise<WriteResult<{ covered: boolean; taken: Allocation; wasOnline: boolean }>> {
       return guarded(async (tx) => {
         const [b] = await tx
           .select({
@@ -459,13 +460,13 @@ export function createBookingsRepository(db: Db) {
             staffId: booking.staffId,
             amountPaise: booking.amountPaise,
             resumeUntil: booking.resumeUntil,
-            creditSession: booking.creditSession,
+            creditMilli: booking.creditMilli,
             creditPaise: booking.creditPaise,
           })
           .from(booking)
           .where(eq(booking.id, id))
           .for("update");
-        if (!b || b.status !== "upcoming" || b.slotReleased || !["pending", "failed"].includes(b.paymentStatus) || b.creditSession || b.creditPaise > 0) {
+        if (!b || b.status !== "upcoming" || b.slotReleased || !["pending", "failed"].includes(b.paymentStatus) || b.creditMilli > 0 || b.creditPaise > 0) {
           throw new Refused("not_upcoming");
         }
         const { used, covered } = await settleWithCredit(tx, id, b.serviceId, { owes: true, pricePaise: b.amountPaise }, opts.now);

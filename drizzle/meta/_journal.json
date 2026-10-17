@@ -92,6 +92,20 @@
       "when": 1792223867749,
       "tag": "0012_backfill_service_price_paise",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792225343596,
+      "tag": "0013_flexible_credits_add",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792225354840,
+      "tag": "0014_flexible_credits_drop",
+      "breakpoints": true
     }
   ]
 }

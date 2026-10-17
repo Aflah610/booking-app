@@ -14,6 +14,7 @@ function packageFromForm(form: FormData) {
     serviceIds: form.getAll("serviceIds").map(String),
     sessions: Number(str(form, "sessions")),
     pricePaise: paise(str(form, "price")),
+    creditValuePaise: paise(str(form, "creditValue")),
     validityDays: validity === "" ? null : Number(validity),
     active: form.get("active") === "on",
   };

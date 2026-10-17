@@ -15,8 +15,13 @@ function Fields({ services, p }: { services: Services; p?: Pkg }) {
   return (
     <>
       <div className="sm:col-span-2"><label className="label">Name</label><input className="input" name="name" defaultValue={p?.name} placeholder="e.g. 4 counselling sessions" required /></div>
-      <div><label className="label">Sessions</label><input className="input" name="sessions" type="number" min={1} max={500} defaultValue={p?.sessions ?? 4} required /></div>
+      <div><label className="label">Credits</label><input className="input" name="sessions" type="number" min={1} max={500} defaultValue={p?.sessions ?? 4} required /></div>
       <div><label className="label">Price for the package (₹)</label><input className="input" name="price" inputMode="decimal" defaultValue={p ? String(p.pricePaise / 100) : ""} placeholder="3600" required /></div>
+      <div>
+        <label className="label">One credit covers (₹)</label>
+        <input className="input" name="creditValue" inputMode="decimal" defaultValue={p ? String(p.creditValuePaise / 100) : "1000"} required />
+        <p className="mt-1 text-xs text-zinc-600">A ₹1,500 service uses 1.5 credits when this is ₹1,000.</p>
+      </div>
       <div>
         <label className="label">Valid for (days)</label>
         <input className="input" name="validityDays" type="number" min={1} max={3650} defaultValue={p ? p.validityDays ?? "" : 365} placeholder="Never expires" />
@@ -44,7 +49,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
   const nameOf = new Map(services.map((s) => [s.id, s.name]));
   return (
     <>
-      <PageHeader title="Packages" subtitle="Sessions sold in advance. Each booking uses one session; cancelling gives it back." />
+      <PageHeader title="Packages" subtitle="Credits sold in advance. A booking uses credits in proportion to its price; cancelling gives them back." />
       <Notice error={error} ok={ok} />
       <div className="mb-10 grid gap-3">
         {packages.length === 0 && <p className="card p-6 text-sm text-zinc-600">No packages yet. Add your first one below.</p>}
@@ -55,8 +60,8 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                 <span className="block font-medium">{p.name}</span>
                 <span className="block truncate text-sm text-zinc-600">{p.serviceIds.length ? p.serviceIds.map((id) => nameOf.get(id) ?? "?").join(", ") : "Any service"}</span>
               </span>
-              <span className="badge">{p.sessions} sessions</span>
-              <span className="w-28 text-right text-sm">{rupees(p.pricePaise)}<span className="block text-xs text-zinc-600">{rupees(Math.round(p.pricePaise / p.sessions))} each</span></span>
+              <span className="badge">{p.sessions} credits</span>
+              <span className="w-28 text-right text-sm">{rupees(p.pricePaise)}<span className="block text-xs text-zinc-600">{rupees(Math.round(p.pricePaise / p.sessions))} per credit</span></span>
               <span className="text-xs text-zinc-600">{p.validityDays ? `${p.validityDays} days` : "No expiry"}</span>
               {!p.active && <span className="badge text-zinc-600">Off sale</span>}
             </summary>

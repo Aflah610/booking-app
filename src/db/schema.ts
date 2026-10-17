@@ -224,6 +224,8 @@ export const servicePackage = pgTable("package", {
   priceDisplay: text("price_display"),
   /** What the client pays for the whole package, in paise. */
   pricePaise: integer("price_paise").notNull().default(0),
+  /** How much service price one credit covers, in paise (₹1,000 by default): a ₹1,500 service takes 1.5 credits. */
+  creditValuePaise: integer("credit_value_paise").notNull().default(100000),
   active: boolean("active").notNull().default(true),
   createdAt: createdAt(),
 }, (t) => [check("package_sessions_positive", sql`${t.sessions} > 0`)]);
@@ -232,17 +234,19 @@ export const clientPackage = pgTable("client_package", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
   packageId: uuid("package_id").notNull().references(() => servicePackage.id),
-  sessionsLeft: integer("sessions_left").notNull(),
-  /** Sessions and price as sold, so later edits to the package never change what this client bought. */
-  sessionsTotal: integer("sessions_total").notNull(),
+  /** Credits and price as sold, so later edits to the package never change what this client bought. */
   pricePaise: integer("price_paise").notNull().default(0),
+  /** Credits in thousandths (1,500 = 1.5 credits), so a part-used credit stays exact. */
+  creditsTotalMilli: integer("credits_total_milli").notNull().default(0),
+  creditsLeftMilli: integer("credits_left_milli").notNull().default(0),
+  creditValuePaise: integer("credit_value_paise").notNull().default(100000),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   paymentNote: text("payment_note"),
   createdAt: createdAt(),
 }, (t) => [
   index("client_package_client_idx").on(t.clientId),
-  check("client_package_sessions_non_negative", sql`${t.sessionsLeft} >= 0`),
-  check("client_package_sessions_within_total", sql`${t.sessionsLeft} <= ${t.sessionsTotal}`),
+  check("client_package_credits_within_total", sql`${t.creditsLeftMilli} >= 0 and ${t.creditsLeftMilli} <= ${t.creditsTotalMilli}`),
+  check("client_package_credit_value_positive", sql`${t.creditValuePaise} > 0`),
 ]);
 
 /** Money a client has paid in advance. Each top-up is its own lot so it can expire on its own date (one year). */
@@ -282,8 +286,8 @@ export const booking = pgTable("booking", {
   /** The time was given back because payment wasn't completed; the booking no longer blocks the calendar. */
   slotReleased: boolean("slot_released").notNull().default(false),
   amountPaise: integer("amount_paise"),
-  /** Paid with a package session (true) or with this much wallet money; both off once returned. */
-  creditSession: boolean("credit_session").notNull().default(false),
+  /** Paid with this many package credits (thousandths) and/or this much wallet money; both zero once returned. */
+  creditMilli: integer("credit_milli").notNull().default(0),
   creditPaise: integer("credit_paise").notNull().default(0),
   /** Who missed a no-show appointment. Empty for older no-shows and for every other status. */
   noShowBy: noShowBy("no_show_by"),
@@ -343,7 +347,9 @@ export const creditUse = pgTable("credit_use", {
   bookingId: uuid("booking_id").notNull().references(() => booking.id, { onDelete: "cascade" }),
   clientPackageId: uuid("client_package_id").references(() => clientPackage.id),
   walletLotId: uuid("wallet_lot_id").references(() => walletLot.id),
-  sessions: integer("sessions").notNull().default(0),
+  creditsMilli: integer("credits_milli").notNull().default(0),
+  /** How much of the booking's price this use paid. */
+  coveredPaise: integer("covered_paise").notNull().default(0),
   amountPaise: integer("amount_paise").notNull().default(0),
   /** What this use was worth in rupees: the money taken, or the package price divided by its sessions. */
   valuePaise: integer("value_paise").notNull().default(0),
@@ -353,8 +359,8 @@ export const creditUse = pgTable("credit_use", {
   index("credit_use_booking_idx").on(t.bookingId),
   check(
     "credit_use_one_source",
-    sql`(${t.clientPackageId} is not null and ${t.walletLotId} is null and ${t.sessions} = 1 and ${t.amountPaise} = 0)
-      or (${t.walletLotId} is not null and ${t.clientPackageId} is null and ${t.sessions} = 0 and ${t.amountPaise} > 0)`,
+    sql`(${t.clientPackageId} is not null and ${t.walletLotId} is null and ${t.creditsMilli} > 0 and ${t.amountPaise} = 0)
+      or (${t.walletLotId} is not null and ${t.clientPackageId} is null and ${t.creditsMilli} = 0 and ${t.amountPaise} > 0)`,
   ),
 ]);
 
