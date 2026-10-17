@@ -7,18 +7,31 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/v1/bookings  (header Idempotency-Key required)
- * { serviceId, staffId?, start, client: { name, phone, email?, whatsappOptIn? }, holdToken?, notes? }
- * 201 with the booking and a `manageToken` (shown once; needed to view, move or cancel it).
- * A retry with the same key returns 200 and the original booking. 409 when the time was just taken.
+ * { serviceId, staffId?, start, client: { name, phone, email?, whatsappOptIn? }, holdToken?, notes?,
+ *   purchase?: { packageId, amountPaise, razorpayPaymentId, razorpayOrderId?, method?, paidAt? } }
+ * The one call that books. The client's package credit or wallet money is applied for you, picking the right package.
+ * With `purchase`, the package the client just paid for through Razorpay is recorded first and then used by this
+ * booking, so "buy a package and book" is still a single call. Repeating the call with the same key and payment id
+ * changes nothing. 201 with the booking and a `manageToken` (shown once; needed to view, move or cancel it).
+ * A retry with the same key returns 200 and the original booking. 409 when the time was just taken (a purchase
+ * already recorded stays with the client as credit).
  */
 export const POST = apiRoute("website", async (req, { key }) => {
-  const { bookings, settings } = app();
-  const result = await bookings.create(keyActor(key), await jsonBody(req), {
+  const { bookings, packages, settings } = app();
+  const actor = keyActor(key);
+  const { purchase, ...input } = (await jsonBody(req)) as { purchase?: Record<string, unknown> } & Record<string, unknown>;
+  // The buyer is the person booking, so the website sends their details once.
+  const bought = purchase ? await packages.purchasePackage(actor, String(purchase.packageId ?? ""), { ...purchase, client: input.client }) : null;
+  const result = await bookings.create(actor, input, {
     idempotencyKey: req.headers.get("idempotency-key"),
   });
   const { bookingPrefix } = await settings.get();
   return new ApiResult(
-    { booking: toPublicBooking(result.booking, bookingPrefix), manageToken: result.manageToken },
+    {
+      booking: toPublicBooking(result.booking, bookingPrefix),
+      manageToken: result.manageToken,
+      ...(bought ? { purchase: { purchaseId: bought.purchaseId, replayed: bought.replayed } } : {}),
+    },
     result.replayed ? 200 : 201,
     result.replayed ? { "Idempotent-Replayed": "true" } : {},
   );

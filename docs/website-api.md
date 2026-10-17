@@ -29,6 +29,24 @@ takes a payment through Razorpay** (see below); Razorpay is not connected to thi
 Who the logged-in client is, is the website's business: it passes their phone number. This app finds (or, on a first
 booking or purchase, creates) the client from it.
 
+### One call to book, with the right package
+
+The website's own package screens can show whatever it likes. To book it sends **one** request:
+`POST /api/v1/bookings` with the service, time and the client's details. This app finds the client by phone and pays for the
+booking from their credit, choosing the right package itself (the one that covers the service and expires soonest), then wallet
+money, and tells the website what is left to charge, if anything. Nothing about packages is sent or decided on the website.
+
+To buy a package and book in the same step, add `purchase` to that same request after Razorpay has taken the money:
+
+```json
+{ "serviceId": "...", "start": "2026-10-20T04:30:00Z", "client": { "name": "Ravi", "phone": "+919876543210" },
+  "purchase": { "packageId": "...", "amountPaise": 360000, "razorpayPaymentId": "pay_abc123" } }
+```
+
+The package is recorded first and then used by this booking. Repeating the call (same `Idempotency-Key`, same payment id) books
+and credits once. If the time was just taken (409), the purchase stays with the client as credit, so the retry for another time
+needs no new payment. A wrong `amountPaise` is a 400 and nothing is booked.
+
 ### The one Razorpay function
 
 Wherever the table says "charge ... in Razorpay", the website calls its single payment function:
