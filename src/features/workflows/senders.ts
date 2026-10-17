@@ -8,6 +8,15 @@ type Env = Record<string, string | undefined>;
 
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 
+/**
+ * Google shows an app password in four groups of four letters, and people paste it with those spaces. The spaces are
+ * not part of the password, so they are dropped for Google's mail servers (other providers' passwords are left as typed).
+ */
+export function smtpPassword(env: Env): string | undefined {
+  const pass = env.SMTP_PASS;
+  return pass && /(^|\.)(gmail|google|googlemail)\.com$/i.test(env.SMTP_HOST ?? "") ? pass.replace(/\s+/g, "") : pass;
+}
+
 /** SMTP works with Zoho Mail, Gmail, SES and most providers: the firm picks one in its environment settings. */
 function emailSender(env: Env): Sender {
   let transport: nodemailer.Transporter | undefined;
@@ -19,7 +28,7 @@ function emailSender(env: Env): Sender {
       port: Number(env.SMTP_PORT ?? 465),
       // Port 465 speaks TLS from the start; 587 upgrades after connecting.
       secure: Number(env.SMTP_PORT ?? 465) === 465,
-      auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
+      auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: smtpPassword(env) } : undefined,
     });
     // The invite says it comes from the same address the email does; Gmail ignores invites whose organiser differs.
     const from = /<([^>]+)>/.exec(env.EMAIL_FROM)?.[1] ?? env.EMAIL_FROM;

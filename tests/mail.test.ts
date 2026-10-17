@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mailStatus, sendTestEmail } from "@/features/workflows/mail";
+import { smtpPassword } from "@/features/workflows/senders";
 import { NotConfigured, type OutgoingMessage } from "@/features/workflows/workflows.dto";
 
 describe("mail status", () => {
@@ -28,5 +29,14 @@ describe("test email", () => {
   it("explains when email is not set up, and passes on the mail server's own words when it refuses", async () => {
     await expect(sendTestEmail(async () => { throw new NotConfigured("Email isn't set up yet. Set SMTP_HOST."); }, "a@b.com", "Firm")).rejects.toMatchObject({ code: "invalid", message: "Email isn't set up yet. Set SMTP_HOST." });
     await expect(sendTestEmail(async () => { throw new Error("Invalid login: 535 Authentication failed"); }, "a@b.com", "Firm")).rejects.toThrow("The email could not be sent: Invalid login: 535 Authentication failed");
+  });
+});
+
+describe("SMTP password", () => {
+  it("drops the spaces Google shows in an app password, for Google's servers only", () => {
+    expect(smtpPassword({ SMTP_HOST: "smtp.gmail.com", SMTP_PASS: "abcd efgh ijkl mnop" })).toBe("abcdefghijklmnop");
+    expect(smtpPassword({ SMTP_HOST: "smtp.gmail.com", SMTP_PASS: "abcdefghijklmnop" })).toBe("abcdefghijklmnop");
+    expect(smtpPassword({ SMTP_HOST: "smtp.zoho.in", SMTP_PASS: "keep my spaces" })).toBe("keep my spaces");
+    expect(smtpPassword({ SMTP_HOST: "smtp.gmail.com" })).toBeUndefined();
   });
 });
