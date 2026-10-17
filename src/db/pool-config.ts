@@ -15,5 +15,7 @@ export function poolConfig(connectionString: string, max: number, env: Record<st
   }
   const wantsTls =
     !url.searchParams.has("sslmode") && (url.hostname.endsWith(".neon.tech") || env.DATABASE_SSL === "true");
-  return wantsTls ? { connectionString, max, ssl: { rejectUnauthorized: true } } : { connectionString, max };
+  // Idle connections are let go quickly (a serverless function may be frozen for minutes) and a slow database fails fast.
+  const common = { connectionString, max, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000, keepAlive: true };
+  return wantsTls ? { ...common, ssl: { rejectUnauthorized: true } } : common;
 }

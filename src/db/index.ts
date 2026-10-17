@@ -9,6 +9,9 @@ export type DbOrTx = Db | Tx;
 
 export function createDb(connectionString: string) {
   const pool = new Pool(poolConfig(connectionString, 10));
+  // A connection the database dropped while idle (Neon does this) emits an error on the pool. Unhandled, that would crash the
+  // process; handled, the pool simply discards the broken connection and opens a new one next time.
+  pool.on("error", (err) => console.error("Database connection dropped while idle", err.message));
   return drizzle(pool, { schema, casing: "snake_case" });
 }
 

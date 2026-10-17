@@ -5,7 +5,8 @@
  * Kept out of instrumentation.ts so the Edge build never tries to load Node-only code.
  */
 export function startWorkflowWorker() {
-  if (process.env.WORKFLOW_RUNNER === "off") return;
+  // A serverless host (Vercel) freezes the app between requests, so a timer can't be relied on: it calls /api/internal/jobs/run instead.
+  if (process.env.WORKFLOW_RUNNER === "off" || process.env.VERCEL) return;
   const g = globalThis as unknown as { workflowTimer?: NodeJS.Timeout };
   if (g.workflowTimer) return; // dev reloads call register() again
   let running = false;

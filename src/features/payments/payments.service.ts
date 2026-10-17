@@ -41,8 +41,11 @@ export function createPaymentsService(deps: {
 
   /** Marks overdue payments failed and cancels what the client never came back to. Cheap; safe to call often. */
   async function expire(now = new Date()) {
-    for (const id of await bookingsRepo.expirePending(now)) await announce({ type: "payment_failed", bookingId: id, at: now });
-    for (const id of await bookingsRepo.cancelUnpaid(now)) await announce({ type: "cancelled", bookingId: id, at: now });
+    const failed = await bookingsRepo.expirePending(now);
+    for (const id of failed) await announce({ type: "payment_failed", bookingId: id, at: now });
+    const cancelled = await bookingsRepo.cancelUnpaid(now);
+    for (const id of cancelled) await announce({ type: "cancelled", bookingId: id, at: now });
+    return { failed: failed.length, cancelled: cancelled.length };
   }
 
   async function record(actor: Actor, bookingId: string, input: unknown, source: "website" | "staff", now: Date) {
