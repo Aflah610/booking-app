@@ -14,7 +14,7 @@ export const PRESETS: { key: string; title: string; blurb: string; input: Workfl
         recipient: "client",
         attachInvite: true,
         subject: "Your {{service}} is confirmed",
-        body: "Hi {{client_name}},\n\nYour {{service}} with {{staff}} is confirmed for {{date}} at {{time}}.\nBooking ID: {{booking_id}}\nWhere: {{location}}\n\nNeed to change it? {{manage_link}}\n\nThank you,\n{{firm_name}}",
+        body: "Hi {{client_name}},\n\nYour {{service}} with {{staff}} is confirmed for {{date}} at {{time}}.\nBooking ID: {{booking_id}}\nWhere: {{location}}\n\nAdd to your calendar:\nGoogle: {{add_to_google}}\nOutlook: {{add_to_outlook}}\n\nNeed to change it? {{manage_link}}\n\nThank you,\n{{firm_name}}",
       },
     },
   },
