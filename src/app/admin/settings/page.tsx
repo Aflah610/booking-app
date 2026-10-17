@@ -5,13 +5,14 @@ import { BookingPrefixField } from "@/components/BookingPrefixField";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
-import { updateSettingsAction } from "../actions";
+import { sendTestEmailAction, updateSettingsAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
-  await requireStaff("admin");
+  const me = await requireStaff("admin");
   const { error, ok } = await searchParams;
+  const mail = app().mail.status();
   const [s, nextNumber] = await Promise.all([app().settings.get(), app().bookings.nextNumber()]);
   return (
     <>
@@ -76,6 +77,34 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </section>
         <div><button className="btn" type="submit">Save settings</button></div>
       </form>
+
+      <section className="card mt-8 grid max-w-3xl gap-4 p-6">
+        <h2 className="font-semibold">Email</h2>
+        <p className="text-sm text-zinc-600">
+          Every email the app sends (confirmations, reminders, cancellations, payment and staff alerts) goes out from one mailbox. Each workflow only changes the subject and the text.
+        </p>
+        {mail.configured ? (
+          <p className="text-sm">
+            <span className="badge border-[var(--forest-line)] text-[var(--forest)]">Connected</span>{" "}
+            Sending from <strong>{mail.from}</strong> through {mail.host}
+            {mail.replyTo ? <>; replies go to <strong>{mail.replyTo}</strong></> : null}.
+          </p>
+        ) : (
+          <p className="text-sm font-medium text-red-700">
+            Not connected yet. Add {mail.missing.join(", ") || "the email settings"} in your host&apos;s environment settings (see docs/deploy-vercel.md), then redeploy.
+          </p>
+        )}
+        {mail.configured && mail.missing.length > 0 && (
+          <p className="text-sm text-zinc-600">Still empty: {mail.missing.join(", ")}. Most mail providers need a login too.</p>
+        )}
+        <form action={sendTestEmailAction} className="flex flex-wrap items-end gap-3">
+          <div className="min-w-64 flex-1">
+            <label className="label" htmlFor="to">Send a test email to</label>
+            <input className="input" id="to" name="to" type="email" defaultValue={me.email} required />
+          </div>
+          <button className="btn-ghost" type="submit">Send test email</button>
+        </form>
+      </section>
     </>
   );
 }

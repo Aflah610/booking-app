@@ -34,6 +34,8 @@ function emailSender(env: Env): Sender {
           }
         : {}),
       from: env.EMAIL_FROM,
+      // Replies go to the front desk rather than the no-reply style address mail is sent from.
+      replyTo: env.EMAIL_REPLY_TO || undefined,
       to: msg.to,
       subject: msg.subject,
       text: msg.body,

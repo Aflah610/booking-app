@@ -35,6 +35,7 @@ import { createSettingsRepository } from "./settings/settings.repository";
 import { createSettingsService } from "./settings/settings.service";
 import { createStaffRepository } from "./staff/staff.repository";
 import { createStaffService } from "./staff/staff.service";
+import { mailStatus, sendTestEmail } from "./workflows/mail";
 import { createSenders } from "./workflows/senders";
 import { createWorkflowsRepository } from "./workflows/workflows.repository";
 import { createWorkflowsService, type Senders } from "./workflows/workflows.service";
@@ -63,6 +64,7 @@ export function createContainer(db: Db, opts: {
     staffRepo,
     settingsRepo,
   });
+  const senders = opts.senders ?? createSenders();
   const workflows = createWorkflowsService({
     // The client's page for moving or cancelling a booking, for use in messages.
     manageToken: (id) => (manageSecret ? manageToken(id, manageSecret) : null),
@@ -72,7 +74,7 @@ export function createContainer(db: Db, opts: {
     workflowsRepo: createWorkflowsRepository(db),
     catalogRepo,
     settingsRepo,
-    senders: opts.senders ?? createSenders(),
+    senders,
   });
   const calendar = createCalendarService({
     calendarRepo: createCalendarRepository(db),
@@ -106,6 +108,11 @@ export function createContainer(db: Db, opts: {
       manageSecret,
     }),
     workflows,
+    /** The one mailbox every notification is sent from: whether it is set up, and a test message. */
+    mail: {
+      status: () => mailStatus(),
+      sendTest: async (to: string) => sendTestEmail(senders.email, to, (await settingsRepo.get()).name),
+    },
     calendar,
     preferences: createPreferencesService({ preferencesRepo: createPreferencesRepository(db) }),
     packages: createPackagesService({

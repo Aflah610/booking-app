@@ -142,6 +142,12 @@ export async function removeDateOverrideAction(staffId: string, date: string) {
   );
 }
 
+export async function sendTestEmailAction(form: FormData) {
+  await requireStaff("admin");
+  const to = str(form, "to");
+  await act("/admin/settings", `Test email sent to ${to}. Check that inbox (and spam).`, () => app().mail.sendTest(to));
+}
+
 export async function updateSettingsAction(form: FormData) {
   const me = await requireStaff("admin");
   await act("/admin/settings", "Settings saved", () =>
