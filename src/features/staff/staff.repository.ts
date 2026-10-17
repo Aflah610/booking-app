@@ -92,7 +92,7 @@ export function createStaffRepository(db: Db) {
     /** Active staff offering an active service. */
     listBookableForService(serviceId: string): Promise<PublicStaffDTO[]> {
       return db
-        .select({ id: staff.id, name: staff.name, timezone: staff.timezone })
+        .select({ id: staff.id, name: staff.name, timezone: staff.timezone, pricePaise: sql<number | null>`coalesce(${staffService.pricePaise}, ${service.pricePaise})` })
         .from(staffService)
         .innerJoin(staff, eq(staff.id, staffService.staffId))
         .innerJoin(service, eq(service.id, staffService.serviceId))

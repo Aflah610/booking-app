@@ -7,6 +7,7 @@ import { hasPrice } from "@/features/catalog/catalog.dto";
 import { checkAnswers } from "@/features/catalog/questions";
 import { PAYMENT_WINDOW_MIN, RESUME_WINDOW_HOURS } from "@/features/payments/payments.dto";
 import { DomainError } from "@/features/shared/errors";
+import { toE164 } from "@/features/shared/phone";
 import { isUuid } from "@/features/shared/validation";
 import { PAYMENT_STATUSES, type BookingDTO, type BookingEvent, type BookingStatus, type HoldDTO, type NoShowBy, type PaymentStatus } from "./bookings.dto";
 import { isValidManageToken, manageToken } from "./manage-link";
@@ -133,6 +134,24 @@ export function createBookingsService(deps: {
         order: v.order,
         limit: q.limit,
       });
+    },
+
+    /**
+     * A client's own bookings for the website's "my bookings" page, found by phone. Each comes with its manage token so
+     * the website can move or cancel it without storing anything. The website decides who is logged in.
+     */
+    async listForPhone(rawPhone: string, view: "upcoming" | "past" | "cancelled" | "all", now = new Date()) {
+      const phone = toE164(rawPhone);
+      if (!phone) throw new DomainError("invalid", "Enter a valid phone number, e.g. +91 98765 43210");
+      const views: Record<typeof view, { statuses?: BookingStatus[]; from?: Date; to?: Date; order: "asc" | "desc" }> = {
+        upcoming: { statuses: ["upcoming"], from: now, order: "asc" },
+        past: { statuses: ["upcoming", "completed", "no_show"], to: now, order: "desc" },
+        cancelled: { statuses: ["cancelled"], order: "desc" },
+        all: { order: "desc" },
+      };
+      const q = views[view];
+      const rows = await bookingsRepo.list({ phoneE164: phone, statuses: q.statuses, from: q.from, to: q.to, order: q.order, limit: 200 });
+      return rows.map((b) => ({ booking: b, manageToken: deps.manageSecret ? manageToken(b.id, deps.manageSecret) : null }));
     },
 
     /**

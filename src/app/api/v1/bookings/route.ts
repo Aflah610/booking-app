@@ -25,14 +25,22 @@ export const POST = apiRoute("website", async (req, { key }) => {
 });
 
 /**
- * GET /api/v1/bookings?phone=+919876543210
- * For "welcome back": this client's bookings that still need something from them (pay, resume within 24 hours,
- * or choose a new time). The website decides who the logged-in client is; only their own bookings come back.
+ * GET /api/v1/bookings?phone=+919876543210&view=pending|upcoming|past|cancelled|all
+ * The logged-in client's own bookings (the website decides who that is). `pending` (the default) are the ones that still
+ * need something from them: pay, resume within 24 hours, or choose a new time. Every item carries a `manageToken` for
+ * the header of the move and cancel calls, so the website needs to store nothing.
  */
 export const GET = apiRoute("website", async (req) => {
-  const { payments, settings } = app();
-  const phone = new URL(req.url).searchParams.get("phone");
+  const { payments, bookings, settings } = app();
+  const q = new URL(req.url).searchParams;
+  const phone = q.get("phone");
   if (!phone) throw new DomainError("invalid", "Pass the client's phone number as ?phone=");
+  const view = q.get("view") ?? "pending";
   const { bookingPrefix } = await settings.get();
-  return (await payments.resumable(phone)).map((b) => toPublicBooking(b, bookingPrefix));
+  const token = (id: string) => bookings.manageToken(id);
+  if (view === "pending") return (await payments.resumable(phone)).map((b) => ({ ...toPublicBooking(b, bookingPrefix), manageToken: token(b.id) }));
+  if (view !== "upcoming" && view !== "past" && view !== "cancelled" && view !== "all") {
+    throw new DomainError("invalid", "view must be pending, upcoming, past, cancelled or all");
+  }
+  return (await bookings.listForPhone(phone, view)).map((r) => ({ ...toPublicBooking(r.booking, bookingPrefix), manageToken: r.manageToken }));
 });

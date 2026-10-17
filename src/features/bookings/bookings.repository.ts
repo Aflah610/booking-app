@@ -215,6 +215,7 @@ export function createBookingsRepository(db: Db) {
       statuses?: BookingStatus[];
       staffId?: string | null;
       clientId?: string | null;
+      phoneE164?: string | null;
       from?: Date | null;
       to?: Date | null;
       order?: "asc" | "desc";
@@ -224,6 +225,7 @@ export function createBookingsRepository(db: Db) {
         q.statuses?.length ? inArray(booking.status, q.statuses) : undefined,
         q.staffId ? eq(booking.staffId, q.staffId) : undefined,
         q.clientId ? eq(booking.clientId, q.clientId) : undefined,
+        q.phoneE164 ? eq(client.phoneE164, q.phoneE164) : undefined,
         q.from ? gte(booking.endsAt, q.from) : undefined,
         q.to ? lte(booking.startsAt, q.to) : undefined,
       ];

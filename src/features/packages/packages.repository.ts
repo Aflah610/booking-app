@@ -1,8 +1,11 @@
 import { and, asc, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import type { Db, DbOrTx, Tx } from "@/db";
-import { booking, client, clientPackage, creditUse, service, servicePackage, walletLot } from "@/db/schema";
+import { booking, client, clientPackage, creditPurchase, creditUse, service, servicePackage, walletLot } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
+import type { ClientContact } from "@/features/clients/clients.dto";
+import { upsertClient } from "@/features/clients/clients.repository";
+import { PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import {
   allocate,
   toCredits,
@@ -13,6 +16,7 @@ import {
   type CreditTaken,
   type CreditUseDTO,
   type PackageDTO,
+  type PurchaseResultDTO,
   type WalletLotDTO,
 } from "./packages.dto";
 import type { PackageData } from "./packages.schemas";
@@ -236,6 +240,89 @@ export function createPackagesRepository(db: Db) {
         await writeAudit(tx, { ...audit, entityId: row.id, details: { ...audit.details, clientId, packageId: pkg.id, pricePaise: pkg.pricePaise } });
         return row.id;
       });
+    },
+
+    /**
+     * Records a package or wallet top-up the website sold. All in one transaction: the client (created if new), the
+     * credit, and the payment record. A payment id already recorded returns that purchase instead of crediting twice.
+     */
+    async recordPurchase(
+      p: {
+        kind: "package" | "wallet";
+        client: ClientContact;
+        amountPaise: number;
+        currency: string;
+        razorpayOrderId: string | null;
+        razorpayPaymentId: string;
+        method: string | null;
+        paidAt: Date;
+        pkg?: PackageDTO;
+        expiresAt: Date | null;
+      },
+      audit: Omit<AuditEntry, "entityId">,
+    ): Promise<PurchaseResultDTO> {
+      const existing = async () => {
+        const [row] = await db
+          .select({ id: creditPurchase.id, kind: creditPurchase.kind, clientId: creditPurchase.clientId })
+          .from(creditPurchase)
+          .where(eq(creditPurchase.razorpayPaymentId, p.razorpayPaymentId));
+        return row ? ({ purchaseId: row.id, kind: row.kind as "package" | "wallet", clientId: row.clientId, replayed: true } satisfies PurchaseResultDTO) : null;
+      };
+      const seen = await existing();
+      if (seen) return seen;
+      try {
+        return await db.transaction(async (tx) => {
+          const clientId = await upsertClient(tx, p.client);
+          let packageId: string | null = null;
+          let lotId: string | null = null;
+          if (p.kind === "package") {
+            const pkg = p.pkg!;
+            [{ id: packageId }] = await tx
+              .insert(clientPackage)
+              .values({
+                clientId,
+                packageId: pkg.id,
+                creditsTotalMilli: pkg.sessions * MILLI,
+                creditsLeftMilli: pkg.sessions * MILLI,
+                creditValuePaise: pkg.creditValuePaise,
+                pricePaise: pkg.pricePaise,
+                valueLeftPaise: pkg.pricePaise,
+                expiresAt: p.expiresAt,
+                paymentNote: `Razorpay ${p.razorpayPaymentId}`,
+              })
+              .returning({ id: clientPackage.id });
+          } else {
+            [{ id: lotId }] = await tx
+              .insert(walletLot)
+              .values({ clientId, amountPaise: p.amountPaise, remainingPaise: p.amountPaise, expiresAt: p.expiresAt!, note: `Razorpay ${p.razorpayPaymentId}` })
+              .returning({ id: walletLot.id });
+          }
+          const [row] = await tx
+            .insert(creditPurchase)
+            .values({
+              clientId,
+              kind: p.kind,
+              clientPackageId: packageId,
+              walletLotId: lotId,
+              amountPaise: p.amountPaise,
+              currency: p.currency,
+              razorpayOrderId: p.razorpayOrderId,
+              razorpayPaymentId: p.razorpayPaymentId,
+              method: p.method,
+              paidAt: p.paidAt,
+            })
+            .returning({ id: creditPurchase.id });
+          await writeAudit(tx, { ...audit, entityId: row.id, details: { ...audit.details, clientId, kind: p.kind, amountPaise: p.amountPaise } });
+          return { purchaseId: row.id, kind: p.kind, clientId, replayed: false };
+        });
+      } catch (err) {
+        // Two reports of the same payment raced: the other one won, so report what it recorded.
+        if (pgError(err).code === PG_UNIQUE_VIOLATION && pgError(err).constraint?.includes("razorpay_payment_id")) {
+          const again = await existing();
+          if (again) return again;
+        }
+        throw err;
+      }
     },
 
     topUp(clientId: string, v: { amountPaise: number; expiresAt: Date; note: string | null }, audit: Omit<AuditEntry, "entityId">): Promise<string> {

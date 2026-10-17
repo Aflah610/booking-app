@@ -35,7 +35,7 @@ describe("/api/v1", () => {
     const a = await c.staff.create({}, { name: "Asha", email: "asha@firm.test" });
     await c.staff.setServices({}, a.id, [svc.id]);
     const body = await (await getStaffForService(req(`/api/v1/staff?service=${svc.id}`, key))).json();
-    expect(body.data).toEqual([{ id: a.id, name: "Asha", timezone: "Asia/Kolkata" }]);
+    expect(body.data).toEqual([{ id: a.id, name: "Asha", timezone: "Asia/Kolkata", pricePaise: null }]); // null: this service is free
   });
 
   it("returns 400 for a bad service id and 404 for an unknown one", async () => {

@@ -82,6 +82,12 @@ Undoing a "staff no-show" later does not take the credit again.
 - `GET /api/v1/credits/quote?phone=...&serviceId=...&staffId=...` → what a booking would use, taking nothing:
   `{ pricePaise, creditsUsed, walletPaise, duePaise, covered, uses: [...] }`. Show "This uses 1.5 credits" or "₹500 left to pay"
   before the client commits. Leave out `staffId` to price the service at its own price.
+- `GET /api/v1/packages` lists packages on sale (`credits`, `creditValuePaise`, `pricePaise`, `perCreditPaise`, `validityDays`).
+- `POST /api/v1/packages/{id}/purchase` `{ client: { name, phone, email?, whatsappOptIn? }, amountPaise, razorpayPaymentId, razorpayOrderId?, method?, paidAt? }`
+  after Razorpay has taken the money. `amountPaise` must equal the package price (400 `amount_mismatch` otherwise, nothing
+  credited). Creates the client if new. 201 with the client's credit; 200 + `Idempotent-Replayed: true` if that Razorpay payment was
+  already recorded, so a retry or double click credits once.
+- `POST /api/v1/wallet/top-ups` same body: the wallet gets exactly `amountPaise`, expiring in a year.
 - `POST /api/v1/bookings` uses credit automatically exactly as the quote said. Send `"useCredits": false` to leave the balance alone.
   The response's `payment.credit` is `{ credits, walletPaise }` and `payment.amountPaise` is what is left to charge.
   Always charge the response's amount, not the quote's: the balance may have changed in between.
@@ -94,5 +100,4 @@ shown on the booking page and the client page.
 
 ## Not built yet
 
-Website endpoints to buy a package or add wallet money (reporting the Razorpay payment); reports on credit sold, used and
-expired; refunds to cash; restricting a package to certain therapists; detecting no-shows automatically from Google Meet.
+Reports on credit sold, used and expired; handling a Razorpay refund or chargeback on a package (done by hand for now); refunds to cash; restricting a package to certain therapists; detecting no-shows automatically from Google Meet.

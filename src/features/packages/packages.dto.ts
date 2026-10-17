@@ -167,3 +167,33 @@ export function allocate(pricePaise: number | null, packages: PackageBalance[], 
 
 /** 1500 -> 1.5 */
 export const toCredits = (milli: number) => milli / MILLI;
+
+/** What the website sees of a package on sale. */
+export type PublicPackageDTO = {
+  id: string;
+  name: string;
+  /** Services it can pay for; empty means any. */
+  serviceIds: string[];
+  credits: number;
+  /** Service price one credit covers, in paise. */
+  creditValuePaise: number;
+  /** What to charge, in paise. */
+  pricePaise: number;
+  /** pricePaise divided by credits. */
+  perCreditPaise: number;
+  validityDays: number | null;
+};
+
+export const toPublicPackage = (p: PackageDTO): PublicPackageDTO => ({
+  id: p.id,
+  name: p.name,
+  serviceIds: p.serviceIds,
+  credits: p.sessions,
+  creditValuePaise: p.creditValuePaise,
+  pricePaise: p.pricePaise,
+  perCreditPaise: Math.round(p.pricePaise / p.sessions),
+  validityDays: p.validityDays,
+});
+
+/** A purchase the website reported. `replayed` is true when the same Razorpay payment had already been recorded. */
+export type PurchaseResultDTO = { purchaseId: string; kind: "package" | "wallet"; clientId: string; replayed: boolean };

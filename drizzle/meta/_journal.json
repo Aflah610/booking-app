@@ -113,6 +113,13 @@
       "when": 1792226117450,
       "tag": "0015_package_value_left",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792226826323,
+      "tag": "0016_credit_purchase",
+      "breakpoints": true
     }
   ]
 }

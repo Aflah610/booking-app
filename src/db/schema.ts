@@ -342,6 +342,32 @@ export const bookingCalendarEvent = pgTable("booking_calendar_event", {
 }, (t) => [primaryKey({ columns: [t.bookingId, t.provider] })]);
 
 /**
+ * A package or wallet top-up the website sold and told us about, with Razorpay's own details. The unique payment id
+ * makes a repeated report (a retry, a double click) credit the client only once.
+ */
+export const creditPurchase = pgTable("credit_purchase", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => client.id),
+  kind: text("kind").notNull(),
+  clientPackageId: uuid("client_package_id").references(() => clientPackage.id),
+  walletLotId: uuid("wallet_lot_id").references(() => walletLot.id),
+  amountPaise: integer("amount_paise").notNull(),
+  currency: text("currency").notNull().default("INR"),
+  razorpayOrderId: text("razorpay_order_id"),
+  razorpayPaymentId: text("razorpay_payment_id").notNull().unique(),
+  method: text("method"),
+  paidAt: timestamp("paid_at", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  index("credit_purchase_client_idx").on(t.clientId),
+  check(
+    "credit_purchase_one_target",
+    sql`(${t.kind} = 'package' and ${t.clientPackageId} is not null and ${t.walletLotId} is null)
+      or (${t.kind} = 'wallet' and ${t.walletLotId} is not null and ${t.clientPackageId} is null)`,
+  ),
+]);
+
+/**
  * What a booking was paid with: one package session, or some wallet money from one lot. Kept after a cancel
  * (with `returned_at` set) so a balance can always be explained.
  */

@@ -1,11 +1,20 @@
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { WALLET_VALIDITY_DAYS, type PackageDTO } from "./packages.dto";
+import type { ClientContact } from "@/features/clients/clients.dto";
+import { WALLET_VALIDITY_DAYS, toPublicPackage, type PackageDTO } from "./packages.dto";
 import type { PackagesRepository } from "./packages.repository";
-import { packageInput, sellInput, topUpInput } from "./packages.schemas";
+import { packageInput, packagePurchaseInput, sellInput, topUpInput, walletTopUpInput } from "./packages.schemas";
 
 const DAY = 86_400_000;
+
+/** The form a website sends a client in, as the stored contact. */
+const toContact = (c: { name: string; phone: string; email?: string | null; whatsappOptIn: boolean }): ClientContact => ({
+  name: c.name,
+  phoneE164: c.phone,
+  email: c.email ?? null,
+  whatsappOptIn: c.whatsappOptIn,
+});
 
 /**
  * Packages (a number of sessions for one price) and wallet money (rupees paid in advance). Spending and giving
@@ -84,6 +93,63 @@ export function createPackagesService(deps: {
       const price = await priceFor(input.serviceId, input.staffId ?? null);
       const plan = await packagesRepo.quote(clientId, { serviceId: input.serviceId, owes: price.owes, pricePaise: price.pricePaise, now });
       return { serviceName: price.serviceName, pricePaise: price.pricePaise, plan };
+    },
+
+    /** Packages the website may sell: only those on sale. */
+    async onSale() {
+      return (await packagesRepo.list()).filter((p) => p.active).map(toPublicPackage);
+    },
+
+    /**
+     * The website sold a package through Razorpay and tells us. The amount must be the package's price. The buyer is found
+     * by phone (and created if new). Reporting the same Razorpay payment again changes nothing and says so.
+     */
+    async purchasePackage(actor: Actor, packageId: string, input: unknown, now = new Date()) {
+      const data = packagePurchaseInput.parse(input);
+      const pkg = await get(packageId);
+      if (!pkg.active) throw new DomainError("conflict", `Package "${pkg.name}" is not on sale`, { reason: "package_not_on_sale" });
+      if (data.currency !== "INR") throw new DomainError("invalid", "Only INR payments are supported");
+      if (data.amountPaise !== pkg.pricePaise) {
+        throw new DomainError("invalid", `Amount ${data.amountPaise} paise does not match the package price of ${pkg.pricePaise} paise`, {
+          reason: "amount_mismatch",
+          expectedPaise: pkg.pricePaise,
+        });
+      }
+      return packagesRepo.recordPurchase(
+        {
+          kind: "package",
+          client: toContact(data.client),
+          amountPaise: data.amountPaise,
+          currency: data.currency,
+          razorpayOrderId: data.razorpayOrderId ?? null,
+          razorpayPaymentId: data.razorpayPaymentId,
+          method: data.method ?? null,
+          paidAt: data.paidAt ?? now,
+          pkg,
+          expiresAt: pkg.validityDays ? new Date(now.getTime() + pkg.validityDays * DAY) : null,
+        },
+        { actor, action: "package_purchase", entity: "credit_purchase" },
+      );
+    },
+
+    /** The website took money into the client's wallet through Razorpay. The client gets exactly the amount paid. */
+    async topUpFromPayment(actor: Actor, input: unknown, now = new Date()) {
+      const data = walletTopUpInput.parse(input);
+      if (data.currency !== "INR") throw new DomainError("invalid", "Only INR payments are supported");
+      return packagesRepo.recordPurchase(
+        {
+          kind: "wallet",
+          client: toContact(data.client),
+          amountPaise: data.amountPaise,
+          currency: data.currency,
+          razorpayOrderId: data.razorpayOrderId ?? null,
+          razorpayPaymentId: data.razorpayPaymentId,
+          method: data.method ?? null,
+          paidAt: data.paidAt ?? now,
+          expiresAt: new Date(now.getTime() + WALLET_VALIDITY_DAYS * DAY),
+        },
+        { actor, action: "wallet_top_up_payment", entity: "credit_purchase" },
+      );
     },
 
     async summary(clientId: string, now = new Date()) {
