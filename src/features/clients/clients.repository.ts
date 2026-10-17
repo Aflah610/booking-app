@@ -48,7 +48,7 @@ export function createClientsRepository(db: Db) {
     },
 
     /** Newest first, with how many bookings each has; `q` matches name, phone or email. */
-    list({ q, limit = 100 }: { q?: string; limit?: number } = {}) {
+    list({ q, limit = 100, relevance = false }: { q?: string; limit?: number; relevance?: boolean } = {}) {
       const like = (s: string) => `%${s.replace(/[%_\\]/g, "\\$&")}%`;
       const pattern = q ? like(q) : null;
       // "98765 43210" or "+91 98765" should find +919876543210, so a phone search also tries the digits alone.
@@ -61,7 +61,8 @@ export function createClientsRepository(db: Db) {
         })
         .from(client)
         .where(pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined)
-        .orderBy(desc(client.createdAt), asc(client.name))
+        // For a search box: names that start with what was typed come first, then the rest alphabetically. Otherwise newest first.
+        .orderBy(...(relevance && q ? [sql`case when ${client.name} ilike ${like(q).slice(1)} then 0 else 1 end`, asc(client.name)] : [desc(client.createdAt), asc(client.name)]))
         .limit(limit);
     },
 

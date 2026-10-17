@@ -19,7 +19,7 @@ export function ClientFields({ canSearch }: { canSearch: boolean }) {
   const latest = useRef(0);
 
   useEffect(() => {
-    if (!canSearch || query.trim().length < 2) return;
+    if (!canSearch || query.trim().length < 1) return;
     const id = ++latest.current;
     const timer = setTimeout(async () => {
       try {
@@ -30,12 +30,12 @@ export function ClientFields({ canSearch }: { canSearch: boolean }) {
       } catch {
         if (id === latest.current) setMatches([]);
       }
-    }, 250);
+    }, 150);
     return () => clearTimeout(timer);
   }, [query, canSearch]);
 
-  // Nothing is shown for a query that is too short, whatever answer came back for an earlier, longer one.
-  const shown = canSearch && query.trim().length >= 2 ? matches : null;
+  // Nothing is shown for an empty box, whatever answer came back for an earlier search.
+  const shown = canSearch && query.trim().length >= 1 ? matches : null;
   const pick = (m: Match) => {
     setPicked(m);
     setName(m.name);

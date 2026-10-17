@@ -15,7 +15,7 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
   return {
     get,
     findByPhone: (phoneE164: string) => clientsRepo.findByPhone(phoneE164),
-    list: (opts?: { q?: string; limit?: number }) => clientsRepo.list(opts),
+    list: (opts?: { q?: string; limit?: number; relevance?: boolean }) => clientsRepo.list(opts),
 
     async update(actor: Actor, id: string, input: unknown) {
       const data = clientUpdateInput.parse(input);

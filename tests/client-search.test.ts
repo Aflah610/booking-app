@@ -47,6 +47,19 @@ describe("finding an existing client", () => {
     expect(byName).toMatchObject({ "Ravi Kumar": 2, "Meena Rao": 0 });
   });
 
+  it("works from a single letter: everyone with it in their name, phone or email, names starting with it first", async () => {
+    await add("Zara Khan", "90000 00001");
+    await add("Meena Rao", "90000 00002", "meena@example.com");
+    await add("Ravi Kumar", "90000 00003", "ravi@gmail.com");
+    await add("Bob Lee", "90000 00004", "bob@work.org");
+    expect(await found("a")).toEqual(["Meena Rao", "Ravi Kumar", "Zara Khan"]); // Bob Lee has no "a" anywhere
+    expect((await c.clients.list({ q: "a", relevance: true })).map((x) => x.name)).toEqual(["Meena Rao", "Ravi Kumar", "Zara Khan"]); // none starts with "a", so alphabetical
+    await add("Anil Das", "90000 00005");
+    expect((await c.clients.list({ q: "a", relevance: true })).map((x) => x.name)[0]).toBe("Anil Das");
+    expect(await found("z")).toEqual(["Zara Khan"]);
+    expect(await found("@gm")).toEqual(["Ravi Kumar"]);
+  });
+
   it("does not treat % or _ typed by the person as wildcards", async () => {
     await add("Ravi Kumar", "98765 43210");
     expect(await found("%")).toEqual([]);
