@@ -93,7 +93,7 @@ export default async function BookingPage({
                 return (
                   <div className="grid gap-3 text-sm">
                     <p className="flex flex-wrap items-center gap-3">
-                      <a className="btn" href={b.meetingUrl} target="_blank" rel="noreferrer">Join</a>
+                      <a className="btn-join" href={b.meetingUrl} target="_blank" rel="noreferrer">Join now</a>
                       <span className="min-w-0 break-all text-zinc-600">{b.meetingUrl}</span>
                       <span className="badge">{b.meetingSource === "manual" ? "Pasted link" : "Google Meet"}</span>
                     </p>

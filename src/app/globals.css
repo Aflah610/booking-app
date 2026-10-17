@@ -3,6 +3,10 @@
 /* Plain white theme with black text; red and green only mark outcomes (cancelled, done, errors). */
 :root {
   color-scheme: light;
+  /* A soft, matte forest green: "paid" text and the Join button when touched. */
+  --forest: #4a7c5e;
+  --forest-soft: #dcebe1;
+  --forest-line: #a9c7b4;
 }
 
 body {
@@ -44,6 +48,17 @@ body {
 }
 .btn-success {
   @apply inline-flex items-center gap-2 rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-800 disabled:opacity-50;
+}
+.btn-join {
+  @apply inline-flex shrink-0 items-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium transition-colors;
+  border-color: var(--forest-line);
+  color: var(--forest);
+}
+.btn-join:hover,
+.btn-join:focus-visible,
+.btn-join:active {
+  background-color: var(--forest-soft);
+  border-color: var(--forest);
 }
 .icon-btn {
   @apply grid h-8 w-8 place-items-center rounded-md text-zinc-600 hover:bg-zinc-100 hover:text-black;

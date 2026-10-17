@@ -13,7 +13,7 @@ export function StatusBadge({ status }: { status: BookingStatus }) {
 }
 
 const paymentTone: Record<PaymentStatus, string> = {
-  paid: "border-green-600/40 text-green-700",
+  paid: "border-[var(--forest-line)] text-[var(--forest)]",
   failed: "border-red-600/40 text-red-700",
   pending: "border-zinc-300 text-zinc-600",
   not_required: "border-zinc-200 text-zinc-500",
