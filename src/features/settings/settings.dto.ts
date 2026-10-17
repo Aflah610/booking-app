@@ -19,4 +19,6 @@ export type BusinessSettingsDTO = {
   onlinePayment: boolean;
   /** Services set to "Google Meet" get a Meet link for their sessions. */
   meetEnabled: boolean;
+  /** Emails use the branded design. */
+  emailBranded: boolean;
 };

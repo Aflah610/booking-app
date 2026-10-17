@@ -48,7 +48,7 @@ function emailSender(env: Env): Sender {
       to: msg.to,
       subject: msg.subject,
       text: msg.body,
-      html: `<div style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(msg.body)}</div>`,
+      html: msg.html ?? `<div style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(msg.body)}</div>`,
     });
     return { providerMessageId: info.messageId };
   };

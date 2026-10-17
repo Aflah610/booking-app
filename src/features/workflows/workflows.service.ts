@@ -7,6 +7,7 @@ import { bookingReference, type BookingEvent } from "@/features/bookings/booking
 import { longDayLabel, timeLabel } from "@/lib/format";
 import { isOnlineSession } from "@/features/bookings/meeting";
 import { addToCalendarLinks } from "@/lib/ics";
+import { renderBrandedEmail } from "./email-design";
 import { render, type TemplateVars } from "./templates";
 import {
   NotConfigured,
@@ -35,7 +36,7 @@ const TIME_BASED: WorkflowTrigger[] = ["appointment_start", "appointment_end"];
 const FIRES_WITH_BOOKING: BookingEvent["type"][] = ["booked", "rescheduled"];
 
 export type Senders = Record<WorkflowChannel, Sender>;
-type Firm = { name: string; timezone: string; bookingPrefix: string; resumeUrl: string | null; meetEnabled: boolean };
+type Firm = { name: string; timezone: string; bookingPrefix: string; resumeUrl: string | null; meetEnabled: boolean; emailBranded: boolean; logoUrl: string | null };
 
 /**
  * Workflows: "when X happens to a booking, send Y". Booking events queue messages (a message is a row, so it
@@ -58,8 +59,10 @@ export function createWorkflowsService(deps: {
   calendarFileUrl?: (bookingId: string) => string;
   /** The app's own link that opens the online session (it redirects to Meet), signed for this booking. */
   joinLink?: (bookingId: string) => string | null;
+  /** The app's own logo address, used in emails when the firm has not set a logo of its own. */
+  defaultLogoUrl?: string | null;
 }) {
-  const { workflowsRepo, catalogRepo, settingsRepo, senders, manageLink, manageToken, calendarFileUrl, joinLink } = deps;
+  const { workflowsRepo, catalogRepo, settingsRepo, senders, manageLink, manageToken, calendarFileUrl, joinLink, defaultLogoUrl } = deps;
 
   async function get(id: string): Promise<WorkflowDTO> {
     const row = isUuid(id) ? await workflowsRepo.findById(id) : null;
@@ -180,7 +183,16 @@ export function createWorkflowsService(deps: {
               attendee: { name: ctx.clientName, email: to },
             }
           : undefined;
-      return { msg: { channel: "email", to, subject, body, invite }, to, summary: `${subject}\n\n${body}${invite ? `\n\n[Calendar invite attached: ${invite.method}]` : ""}` };
+      // The styled version is made from the template itself, not from the filled-in text, so a client's name can't be read as markup.
+      const styled = firm.emailBranded
+        ? renderBrandedEmail({ template: c.body, vars: v, subject, firmName: firm.name, logoUrl: firm.logoUrl ?? defaultLogoUrl ?? null })
+        : null;
+      const plain = styled ? styled.text : body;
+      return {
+        msg: { channel: "email", to, subject, body: plain, html: styled?.html, invite },
+        to,
+        summary: `${subject}\n\n${plain}${invite ? `\n\n[Calendar invite attached: ${invite.method}]` : ""}`,
+      };
     }
     if (w.channel === "whatsapp") {
       const c = w.config as WhatsappConfig;

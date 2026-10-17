@@ -14,7 +14,7 @@ export const PRESETS: { key: string; title: string; blurb: string; input: Workfl
         recipient: "client",
         attachInvite: true,
         subject: "Your {{service}} is confirmed",
-        body: "Hi {{client_name}},\n\nYour {{service}} with {{staff}} is confirmed for {{date}} at {{time}}.\nBooking ID: {{booking_id}}\nWhere: {{location}}\nJoin online: {{meeting_link}}\n\nPLEASE ADD IT TO YOUR CALENDAR\nPress \"Yes\" on the calendar invitation at the top of this email and it is added to your calendar.\nOr add it yourself:\nGoogle Calendar: {{add_to_google}}\nOutlook: {{add_to_outlook}}\n\nNeed to change it? {{manage_link}}\n\nThank you,\n{{firm_name}}",
+        body: "# Your {{service}} is confirmed\n\nHi {{client_name}},\n\n> **When:** {{date}} at {{time}}\n> **With:** {{staff}}\n> **Booking ID:** {{booking_id}}\n> **Where:** {{location}}\n\n[Join online]({{meeting_link}})\n\n**Add it to your calendar**\nPress \"Yes\" on the calendar invitation at the top of this email. Or add it yourself: [Google Calendar]({{add_to_google}}) · [Outlook]({{add_to_outlook}})\n\n[~Change or cancel your booking]({{manage_link}})\n\nThank you,\n{{firm_name}}",
       },
     },
   },

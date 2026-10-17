@@ -70,6 +70,8 @@ export const business = pgTable("business", {
   onlinePayment: boolean("online_payment").notNull().default(false),
   /** Online sessions: services marked "Google Meet" get a Meet link in the therapist's calendar event. */
   meetEnabled: boolean("meet_enabled").notNull().default(false),
+  /** Emails use the branded design (logo, green and gold) instead of plain text. */
+  emailBranded: boolean("email_branded").notNull().default(true),
   updatedAt: updatedAt(),
 }, (t) => [check("business_single_row", sql`${t.id} = 1`)]);
 

@@ -148,6 +148,12 @@ export async function sendTestEmailAction(form: FormData) {
   await act("/admin/settings", `Test email sent to ${to}. Check that inbox (and spam).`, () => app().mail.sendTest(to));
 }
 
+export async function sendSampleEmailAction(form: FormData) {
+  await requireStaff("admin");
+  const to = str(form, "to");
+  await act("/admin/settings", `Sample email sent to ${to}. Open it to check the design.`, () => app().mail.sendSample(to));
+}
+
 export async function updateSettingsAction(form: FormData) {
   const me = await requireStaff("admin");
   await act("/admin/settings", "Settings saved", () =>
@@ -166,6 +172,7 @@ export async function updateSettingsAction(form: FormData) {
       resumeUrl: str(form, "resumeUrl"),
       onlinePayment: form.get("onlinePayment") === "on",
       meetEnabled: form.get("meetEnabled") === "on",
+      emailBranded: form.get("emailBranded") === "on",
     }),
   );
 }

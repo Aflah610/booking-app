@@ -12,4 +12,7 @@ export async function reset() {
   await db.execute(sql`
     truncate audit_log, slot_hold, booking_calendar_event, calendar_busy, date_override, notification, booking, client_package, package, client, calendar_connection,
       time_off, working_hours, staff_service, service, staff, api_key, workflow, holiday restart identity cascade`);
+  // The business row survives a reset. Most tests look at the plain wording of a message, so they start with the styled design off;
+  // the tests of the design turn it on themselves.
+  await db.execute(sql`update business set email_branded = false`);
 }

@@ -35,7 +35,8 @@ import { createSettingsRepository } from "./settings/settings.repository";
 import { createSettingsService } from "./settings/settings.service";
 import { createStaffRepository } from "./staff/staff.repository";
 import { createStaffService } from "./staff/staff.service";
-import { mailStatus, sendTestEmail } from "./workflows/mail";
+import { mailStatus, sendSampleEmail, sendTestEmail } from "./workflows/mail";
+import { PRESETS } from "./workflows/presets";
 import { createSenders } from "./workflows/senders";
 import { createWorkflowsRepository } from "./workflows/workflows.repository";
 import { createWorkflowsService, type Senders } from "./workflows/workflows.service";
@@ -69,6 +70,7 @@ export function createContainer(db: Db, opts: {
     // The client's page for moving or cancelling a booking, for use in messages.
     manageToken: (id) => (manageSecret ? manageToken(id, manageSecret) : null),
     calendarFileUrl: (id) => `${appUrl}/manage/${id}/calendar.ics`,
+    defaultLogoUrl: `${appUrl}/brand/waky-logo.png`,
     joinLink: (id) => (manageSecret ? `${appUrl}/join/${id}?t=${manageToken(id, manageSecret)}` : null),
     manageLink: (id) => (manageSecret ? `${appUrl}/manage/${id}?t=${manageToken(id, manageSecret)}` : null),
     workflowsRepo: createWorkflowsRepository(db),
@@ -112,6 +114,13 @@ export function createContainer(db: Db, opts: {
     mail: {
       status: () => mailStatus(),
       sendTest: async (to: string) => sendTestEmail(senders.email, to, (await settingsRepo.get()).name),
+      /** The confirmation message as it will look, with made-up details. Uses the firm's own confirmation text when there is one. */
+      async sendSample(to: string) {
+        const firm = await settingsRepo.get();
+        const own = (await workflows.list()).find((w) => w.channel === "email" && w.trigger === "booked" && w.active);
+        const template = own && "body" in own.config ? own.config.body : (PRESETS[0].input.action as { body: string }).body;
+        return sendSampleEmail(senders.email, to, { name: firm.name, logoUrl: firm.logoUrl ?? `${appUrl}/brand/waky-logo.png` }, template);
+      },
     },
     calendar,
     preferences: createPreferencesService({ preferencesRepo: createPreferencesRepository(db) }),

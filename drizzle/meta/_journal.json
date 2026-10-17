@@ -134,6 +134,13 @@
       "when": 1792239864393,
       "tag": "0018_columns_and_price",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792254154569,
+      "tag": "0019_email_branded",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "business" ADD COLUMN "email_branded" boolean DEFAULT true NOT NULL;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DomainError } from "@/features/shared/errors";
+import { renderBrandedEmail, SAMPLE_VARS } from "./email-design";
 import { NotConfigured, type Sender } from "./workflows.dto";
 
 type Env = Record<string, string | undefined>;
@@ -34,6 +35,20 @@ export async function sendTestEmail(sendEmail: Sender, to: string, firmName: str
   } catch (err) {
     if (err instanceof NotConfigured) throw new DomainError("invalid", err.message);
     // The mail server's own words (for example "Invalid login") tell the admin what to fix.
+    throw new DomainError("invalid", `The email could not be sent: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** Sends the branded design with made-up details, so the look can be checked in a real inbox before any client sees it. */
+export async function sendSampleEmail(sendEmail: Sender, to: string, firm: { name: string; logoUrl: string | null }, template: string): Promise<void> {
+  const parsed = address.safeParse(to);
+  if (!parsed.success) throw new DomainError("invalid", "Enter a valid email address to send the sample to");
+  const subject = `Sample: your session is confirmed`;
+  const out = renderBrandedEmail({ template, vars: { ...SAMPLE_VARS, firm_name: firm.name }, subject, firmName: firm.name, logoUrl: firm.logoUrl });
+  try {
+    await sendEmail({ channel: "email", to: parsed.data, subject, body: out.text, html: out.html });
+  } catch (err) {
+    if (err instanceof NotConfigured) throw new DomainError("invalid", err.message);
     throw new DomainError("invalid", `The email could not be sent: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

@@ -116,7 +116,7 @@ export type InviteDTO = {
 
 /** A message ready to hand to a channel. */
 export type OutgoingMessage =
-  | { channel: "email"; to: string; subject: string; body: string; invite?: InviteDTO }
+  | { channel: "email"; to: string; subject: string; body: string; /** The styled version of the message; `body` is its plain-text copy. */ html?: string; invite?: InviteDTO }
   | { channel: "whatsapp"; to: string; templateName: string; language: string; params: string[] }
   | { channel: "webhook"; url: string; payload: Record<string, unknown> };
 

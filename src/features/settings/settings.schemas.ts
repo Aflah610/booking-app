@@ -22,5 +22,6 @@ export const settingsInput = z.object({
   resumeUrl: emptyToNull(z.string().trim().url("Use a full web address starting with https://").max(500).refine((u) => u.startsWith("https://") || u.startsWith("http://localhost"), "Use an https:// address")),
   onlinePayment: z.boolean().default(false),
   meetEnabled: z.boolean().default(false),
+  emailBranded: z.boolean().default(true),
 });
 export type SettingsInput = z.input<typeof settingsInput>;

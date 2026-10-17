@@ -20,6 +20,7 @@ const columns = {
   resumeUrl: business.resumeUrl,
   onlinePayment: business.onlinePayment,
   meetEnabled: business.meetEnabled,
+  emailBranded: business.emailBranded,
 };
 
 export function createSettingsRepository(db: Db) {

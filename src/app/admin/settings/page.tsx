@@ -5,7 +5,7 @@ import { BookingPrefixField } from "@/components/BookingPrefixField";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
-import { sendTestEmailAction, updateSettingsAction } from "../actions";
+import { sendSampleEmailAction, sendTestEmailAction, updateSettingsAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +41,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div><label className="label" htmlFor="minNoticeMin">Minimum notice for online bookings (minutes)</label><input className="input" id="minNoticeMin" name="minNoticeMin" type="number" min={0} defaultValue={s.minNoticeMin} /></div>
           <div><label className="label" htmlFor="maxNoticeDays">Clients can book up to (days ahead)</label><input className="input" id="maxNoticeDays" name="maxNoticeDays" type="number" min={1} defaultValue={s.maxNoticeDays} /></div>
           <div><label className="label" htmlFor="clientCutoffHours">Online cancel or move allowed until (hours before)</label><input className="input" id="clientCutoffHours" name="clientCutoffHours" type="number" min={0} step={0.5} defaultValue={s.clientCutoffMin / 60} /></div>
+        </section>
+        <section className="card grid gap-4 p-6">
+          <h2 className="font-semibold">Email design</h2>
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="toggle mt-0.5" name="emailBranded" defaultChecked={s.emailBranded} />
+            <span>Use the branded email design<span className="block text-zinc-600">Your logo and firm name at the top, in forest green and gold, with buttons for the join link and the calendar. Off sends plain text.</span></span>
+          </label>
+          <Link href="/admin/email-preview" className="btn-ghost w-fit">Preview the confirmation email</Link>
         </section>
         <section className="card grid gap-4 p-6">
           <h2 className="font-semibold">Online sessions</h2>
@@ -103,6 +111,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <input className="input" id="to" name="to" type="email" defaultValue={me.email} required />
           </div>
           <button className="btn-ghost" type="submit">Send test email</button>
+        </form>
+        <form action={sendSampleEmailAction} className="flex flex-wrap items-end gap-3">
+          <div className="min-w-64 flex-1">
+            <label className="label" htmlFor="sampleTo">Send the sample confirmation (with the design) to</label>
+            <input className="input" id="sampleTo" name="to" type="email" defaultValue={me.email} required />
+          </div>
+          <button className="btn-ghost" type="submit">Send sample</button>
         </form>
       </section>
     </>
