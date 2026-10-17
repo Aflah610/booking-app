@@ -252,3 +252,30 @@ describe("the join link", () => {
     expect(await (await open(made.booking.id, token)).text()).toContain("cancelled");
   });
 });
+
+describe("making the link right after booking, without a scheduler", () => {
+  it("queues follow-up work for every booking change, and running it writes the event and sends the message", async () => {
+    const tasks: (() => Promise<unknown>)[] = [];
+    const quick = createContainer(db, {
+      manageSecret: SECRET,
+      appUrl: "https://book.example.com",
+      calendarProvider: google.provider,
+      senders: { email: send, whatsapp: send, webhook: send },
+      defer: (task) => void tasks.push(task),
+    });
+    await quick.settings.update({}, { ...(await quick.settings.get()), meetEnabled: true });
+    const svc = await quick.catalog.create({}, { name: "Counselling", durationMin: 60, meetingType: "google_meet" });
+    const asha = await quick.staff.create({}, { name: "Asha", email: "asha@firm.test" });
+    await quick.staff.setServices({}, asha.id, [svc.id]);
+    await quick.schedules.setWeeklyHours({}, asha.id, everyDay);
+    await quick.calendar.completeConnect("x", new URL(quick.calendar.connectUrl(asha.id, t0)).searchParams.get("state")!, t0);
+    await quick.workflows.create({}, { name: "Confirm", trigger: "booked", action: { channel: "email", recipient: "client", subject: "ok", body: "Join: {{meeting_link}}" } });
+
+    const { booking } = await quick.bookings.create(desk, { serviceId: svc.id, staffId: asha.id, start: zonedToUtc(`${new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)}T10:00`, "Asia/Kolkata"), client: { name: "Ravi", phone: "98765 43210", email: "ravi@example.com" } });
+    expect(tasks).toHaveLength(1); // one follow-up queued by the booking
+    expect((await quick.bookings.get(booking.id)).meetingUrl).toBeNull(); // not yet: it runs after the response
+    for (const task of tasks) await task();
+    expect((await quick.bookings.get(booking.id)).meetingUrl).toMatch(/^https:\/\/meet\.google\.com\//);
+    expect(sent.some((m) => m.channel === "email" && m.body.startsWith("Join: https://book.example.com/join/"))).toBe(true);
+  });
+});

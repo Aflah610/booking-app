@@ -32,6 +32,13 @@ Do **not** set `LOCAL_LOGIN_PASSWORD` in production (it is ignored in production
 
 ## Background jobs
 
+Two things make work happen:
+1. **Straight after a booking changes** the app starts the follow-up itself, once the response has gone back (Next.js `after`): the Google
+   Calendar event with its Meet link, and the confirmation message. This needs no scheduler, so a new booking gets its link within seconds.
+2. **A scheduler** calls the jobs route for everything that happens with the passing of time: the 15-minute and 24-hour payment timeouts,
+   reminders and other delayed messages, retries after Google or the mail server failed, and refreshing busy times.
+   **Without a scheduler these never happen**, so set one up before real use.
+
 Call `GET /api/internal/jobs/run` with `Authorization: Bearer $CRON_SECRET` every minute or two.
 - **Vercel Cron** (Pro plan): `vercel.json` → `{ "crons": [{ "path": "/api/internal/jobs/run", "schedule": "* * * * *" }] }`.
   Vercel sends the bearer token itself when `CRON_SECRET` is set. Hobby plans are limited to rarer schedules.

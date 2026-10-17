@@ -1,4 +1,5 @@
 import { getDb, type Db } from "@/db";
+import { defer } from "@/lib/after";
 import { createApiKeysRepository } from "./api-keys/api-keys.repository";
 import { createApiKeysService } from "./api-keys/api-keys.service";
 import { createAvailabilityRepository } from "./availability/availability.repository";
@@ -42,7 +43,14 @@ import { createWorkflowsService, type Senders } from "./workflows/workflows.serv
  * Wires repositories into services. This is the only place that picks the storage
  * implementation, so swapping Postgres for another store means new repositories here.
  */
-export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?: string; appUrl?: string; calendarProvider?: CalendarProvider } = {}) {
+export function createContainer(db: Db, opts: {
+    senders?: Senders;
+    manageSecret?: string;
+    appUrl?: string;
+    calendarProvider?: CalendarProvider;
+    /** Runs follow-up work after the current request has answered. Without it, queued work waits for the scheduler. */
+    defer?: (task: () => Promise<unknown>) => void;
+  } = {}) {
   const appUrl = (opts.appUrl ?? process.env.AUTH_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const manageSecret = opts.manageSecret ?? process.env.AUTH_SECRET;
   const staffRepo = createStaffRepository(db);
@@ -76,6 +84,12 @@ export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?
   const onEvent = async (event: BookingEvent) => {
     const results = await Promise.allSettled([workflows.onBookingEvent(event), calendar.onBookingEvent(event)]);
     for (const r of results) if (r.status === "rejected") console.error(`Listener for booking event ${event.type} failed`, r.reason);
+    // Send what was just queued (the calendar event with its Meet link, the confirmation message) straight away instead of
+    // waiting for the next scheduled run. The scheduler still covers reminders, timeouts and retries.
+    opts.defer?.(async () => {
+      await calendar.processDue();
+      await workflows.processDue();
+    });
   };
   return {
     staff: createStaffService({ staffRepo }),
@@ -121,6 +135,7 @@ export type Container = ReturnType<typeof createContainer>;
 const globalForContainer = globalThis as unknown as { container?: Container };
 
 export function app(): Container {
-  globalForContainer.container ??= createContainer(getDb());
+  // Tests wait for nothing in the background, so follow-up work is only deferred outside them.
+  globalForContainer.container ??= createContainer(getDb(), { defer: process.env.NODE_ENV === "test" ? undefined : defer });
   return globalForContainer.container;
 }
