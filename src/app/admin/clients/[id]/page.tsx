@@ -52,14 +52,14 @@ export default async function ClientPage({
                 <p className="mt-1 text-2xl font-semibold">{rupees(credit.totalPaise)}</p>
                 <p className="text-xs text-zinc-600">{rupees(credit.packageValuePaise)} in packages · {rupees(credit.walletPaise)} added as wallet money</p>
                 {credit.lots.map((l) => (
-                  <p key={l.id} className="text-xs text-zinc-600">{rupees(l.remainingPaise)} of {rupees(l.amountPaise)}, expires {longDayLabel(l.expiresAt, s.timezone)}</p>
+                  <p key={l.id} className="text-xs text-zinc-600">{rupees(l.remainingPaise)} of {rupees(l.amountPaise)}, expires {longDayLabel(l.expiresAt, s.timezone)}{l.note ? ` · ${l.note}` : ""}</p>
                 ))}
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wider text-zinc-600">Package credits</p>
                 <p className="mt-1 text-2xl font-semibold">{num(credit.packages.reduce((n, p) => n + p.creditsLeft, 0))}</p>
                 {credit.packages.map((p) => (
-                  <p key={p.id} className="text-xs text-zinc-600">{p.packageName}: {num(p.creditsLeft)} of {num(p.creditsTotal)} left ({rupees(p.valueLeftPaise)}){p.expiresAt ? `, expires ${longDayLabel(p.expiresAt, s.timezone)}` : ""}</p>
+                  <p key={p.id} className="text-xs text-zinc-600">{p.packageName}: {num(p.creditsLeft)} of {num(p.creditsTotal)} left ({rupees(p.valueLeftPaise)}){p.expiresAt ? `, expires ${longDayLabel(p.expiresAt, s.timezone)}` : ""}{p.paymentNote ? ` · ${p.paymentNote}` : ""}</p>
                 ))}
                 {credit.packages.length === 0 && <p className="text-xs text-zinc-600">None left.</p>}
               </div>
