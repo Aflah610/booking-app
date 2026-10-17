@@ -4,7 +4,10 @@ import { addDays } from "@/features/availability/slots";
 import { requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, timeLabel } from "@/lib/format";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
+import { Icon } from "@/components/icons";
 import { QuestionFields } from "@/components/QuestionFields";
+import { groupByPart } from "@/lib/day-parts";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { createBookingAction } from "../actions";
@@ -53,7 +56,7 @@ export default async function NewBookingPage({
       <PageHeader title="New booking" subtitle={`Times are in ${tz}.`} />
       <Notice error={sp.error} />
       <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
-        <form className="card grid content-start gap-4 p-5" action="/admin/bookings/new">
+        <AutoSubmitForm className="card grid content-start gap-4 p-5" action="/admin/bookings/new">
           <div>
             <label className="label" htmlFor="service">Service</label>
             <select className="input" id="service" name="service" defaultValue={serviceId}>
@@ -68,8 +71,8 @@ export default async function NewBookingPage({
             </select>
           </div>
           <div><label className="label" htmlFor="date">Date</label><input className="input" id="date" name="date" type="date" defaultValue={date} /></div>
-          <button className="btn-ghost justify-center" type="submit">Show times</button>
-        </form>
+          <noscript><button className="btn-ghost justify-center" type="submit">Show times</button></noscript>
+        </AutoSubmitForm>
 
         <section className="card p-5">
           <div className="mb-4 flex items-center justify-between gap-2">
@@ -79,20 +82,27 @@ export default async function NewBookingPage({
           </div>
           {!people.length && <p className="text-sm text-zinc-600">Nobody offers {svc?.name} yet. Give it to a staff member on the Staff page.</p>}
           {people.length > 0 && slots.length === 0 && <p className="text-sm text-zinc-600">No free times this day. Try another date.</p>}
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
-            {slots.map((x) => {
-              const iso = x.start.toISOString();
-              const active = iso === sp.start;
-              return (
-                <Link
-                  key={iso}
-                  href={href({ start: iso })}
-                  className={`rounded-md border px-2 py-2 text-center text-sm transition-colors ${active ? "border-black bg-black text-white" : "border-zinc-200 hover:border-zinc-500"}`}
-                >
-                  {timeLabel(x.start, tz)}
-                </Link>
-              );
-            })}
+          <div className="grid gap-5">
+            {groupByPart(slots, tz).map((part) => (
+              <div key={part.id}>
+                <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-600"><Icon name={part.icon} className="h-4 w-4 text-black" />{part.label}</h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
+                  {part.slots.map((x) => {
+                    const iso = x.start.toISOString();
+                    const active = iso === sp.start;
+                    return (
+                      <Link
+                        key={iso}
+                        href={href({ start: iso })}
+                        className={`rounded-md border px-2 py-2 text-center text-sm transition-colors ${active ? "border-black bg-black text-white" : "border-zinc-200 hover:border-zinc-500"}`}
+                      >
+                        {timeLabel(x.start, tz)}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {chosen && svc && (
