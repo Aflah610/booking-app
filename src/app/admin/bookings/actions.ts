@@ -67,6 +67,17 @@ export async function useCreditAction(id: string) {
   await act(`/admin/bookings/${id}`, "Paid with the client's credit", () => app().bookings.useCredit({ staffId: me.id }, id));
 }
 
+export async function meetingAction(id: string, action: "add" | "remove" | "reset") {
+  const me = await requireStaff();
+  const done = { add: "Meet link requested", remove: "Online link removed", reset: "Back to the service's setting" } as const;
+  await act(`/admin/bookings/${id}`, done[action], () => app().bookings.setMeeting({ staffId: me.id }, id, { action }));
+}
+
+export async function manualMeetingAction(id: string, form: FormData) {
+  const me = await requireStaff();
+  await act(`/admin/bookings/${id}`, "Link saved", () => app().bookings.setMeeting({ staffId: me.id }, id, { action: "manual", url: str(form, "url") }));
+}
+
 export async function updateBookingNotesAction(id: string, form: FormData) {
   const me = await requireStaff();
   await act(`/admin/bookings/${id}`, "Notes saved", () => app().bookings.updateNotes({ staffId: me.id }, id, optional(form, "notes")));

@@ -30,6 +30,10 @@ const columns = {
   amountPaise: booking.amountPaise,
   creditMilli: booking.creditMilli,
   creditPaise: booking.creditPaise,
+  meetingType: service.meetingType,
+  meetingUrl: booking.meetingUrl,
+  meetingSource: sql<"google" | "manual" | null>`${booking.meetingSource}`,
+  meetingOverride: sql<"on" | "off" | null>`${booking.meetingOverride}`,
   noShowBy: booking.noShowBy,
   source: booking.source,
   notes: booking.notes,
@@ -491,6 +495,18 @@ export function createBookingsRepository(db: Db) {
           ),
         )
         .orderBy(asc(booking.startsAt));
+    },
+
+    /** Staff change how this booking's meeting works. `undefined` leaves a field as it is. */
+    async setMeeting(
+      id: string,
+      patch: { meetingUrl?: string | null; meetingSource?: "google" | "manual" | null; meetingOverride?: "on" | "off" | null },
+      audit: AuditEntry,
+    ) {
+      await db.transaction(async (tx) => {
+        await tx.update(booking).set(patch).where(eq(booking.id, id));
+        await writeAudit(tx, audit);
+      });
     },
 
     /** Highest booking number so far, to show the admin what the next ID will look like. */

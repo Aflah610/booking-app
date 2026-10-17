@@ -408,6 +408,37 @@ export function createBookingsService(deps: {
       return get(id);
     },
 
+    /**
+     * Staff change how one booking's online session works: add a Meet link, take it away, paste another link (Zoom or
+     * anything), or go back to following the service. The calendar sync then makes or removes the Google link.
+     */
+    async setMeeting(actor: Actor, id: string, change: { action: "add" | "remove" | "reset" } | { action: "manual"; url: string }, opts: { now?: Date } = {}) {
+      const b = await get(id);
+      if (b.status === "cancelled") throw new DomainError("conflict", `Booking ${id} is cancelled`, { reason: "cancelled" });
+      const audit = { actor, action: `meeting_${change.action}`, entity: "booking", entityId: id };
+      if (change.action === "manual") {
+        const url = change.url.trim();
+        let ok = false;
+        try {
+          ok = /^https?:$/.test(new URL(url).protocol) && url.length <= 500;
+        } catch {
+          ok = false;
+        }
+        if (!ok) throw new DomainError("invalid", "Paste a full web address starting with https://");
+        await bookingsRepo.setMeeting(id, { meetingUrl: url, meetingSource: "manual", meetingOverride: "on" }, audit);
+      } else if (change.action === "add") {
+        // A pasted link is replaced by a Google one; the sync fills it in within about half a minute.
+        await bookingsRepo.setMeeting(id, { meetingOverride: "on", ...(b.meetingSource === "manual" ? { meetingUrl: null, meetingSource: null } : {}) }, audit);
+      } else if (change.action === "remove") {
+        // A Google link is cleared by the calendar sync, which also takes it off the event; a pasted link goes at once.
+        await bookingsRepo.setMeeting(id, { meetingOverride: "off", ...(b.meetingSource === "google" ? {} : { meetingUrl: null, meetingSource: null }) }, audit);
+      } else {
+        await bookingsRepo.setMeeting(id, { meetingOverride: null, ...(b.meetingSource === "manual" ? { meetingUrl: null, meetingSource: null } : {}) }, audit);
+      }
+      await announce({ type: "meeting_changed", bookingId: id, at: opts.now ?? new Date() });
+      return get(id);
+    },
+
     /** What the next booking's number will roughly be; gaps from failed attempts can make it a little higher. */
     async nextNumber() {
       return (await bookingsRepo.latestNumber()) + 1;

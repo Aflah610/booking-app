@@ -13,6 +13,8 @@ export interface IcsEvent {
   method?: "PUBLISH" | "REQUEST" | "CANCEL";
   organizer?: { name?: string; email: string };
   attendee?: { name?: string; email: string };
+  /** Where to join an online session; calendars show it as a link or Join button. */
+  url?: string | null;
   /** Rises each time the same event (same uid) changes, so calendars know to replace the older copy. */
   sequence?: number;
 }
@@ -54,6 +56,7 @@ export function bookingIcs(e: IcsEvent): string {
     `SUMMARY:${esc(e.title)}`,
     ...(e.description ? [`DESCRIPTION:${esc(e.description)}`] : []),
     ...(e.location ? [`LOCATION:${esc(e.location)}`] : []),
+    ...(e.url ? [`URL:${e.url}`] : []),
     ...(e.organizer ? [person("ORGANIZER", e.organizer)] : []),
     ...(e.attendee ? [person("ATTENDEE", e.attendee)] : []),
     ...(e.sequence !== undefined ? [`SEQUENCE:${e.sequence}`] : []),

@@ -20,6 +20,7 @@ const columns = {
   maxNoticeDays: service.maxNoticeDays,
   maxPerDay: service.maxPerDay,
   location: service.location,
+  meetingType: service.meetingType,
   questions: service.questions,
   active: service.active,
 };

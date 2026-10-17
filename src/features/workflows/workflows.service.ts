@@ -5,6 +5,7 @@ import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
 import { bookingReference, type BookingEvent } from "@/features/bookings/bookings.dto";
 import { longDayLabel, timeLabel } from "@/lib/format";
+import { isOnlineSession } from "@/features/bookings/meeting";
 import { addToCalendarLinks } from "@/lib/ics";
 import { render, type TemplateVars } from "./templates";
 import {
@@ -34,7 +35,7 @@ const TIME_BASED: WorkflowTrigger[] = ["appointment_start", "appointment_end"];
 const FIRES_WITH_BOOKING: BookingEvent["type"][] = ["booked", "rescheduled"];
 
 export type Senders = Record<WorkflowChannel, Sender>;
-type Firm = { name: string; timezone: string; bookingPrefix: string; resumeUrl: string | null };
+type Firm = { name: string; timezone: string; bookingPrefix: string; resumeUrl: string | null; meetEnabled: boolean };
 
 /**
  * Workflows: "when X happens to a booking, send Y". Booking events queue messages (a message is a row, so it
@@ -55,8 +56,10 @@ export function createWorkflowsService(deps: {
   manageToken: (bookingId: string) => string | null;
   /** Address of the booking's downloadable calendar file (without the token), for the {{add_to_calendar}} link. */
   calendarFileUrl?: (bookingId: string) => string;
+  /** The app's own link that opens the online session (it redirects to Meet), signed for this booking. */
+  joinLink?: (bookingId: string) => string | null;
 }) {
-  const { workflowsRepo, catalogRepo, settingsRepo, senders, manageLink, manageToken, calendarFileUrl } = deps;
+  const { workflowsRepo, catalogRepo, settingsRepo, senders, manageLink, manageToken, calendarFileUrl, joinLink } = deps;
 
   async function get(id: string): Promise<WorkflowDTO> {
     const row = isUuid(id) ? await workflowsRepo.findById(id) : null;
@@ -83,6 +86,7 @@ export function createWorkflowsService(deps: {
   }
 
   async function onBookingEvent(event: BookingEvent) {
+    if (event.type === "meeting_changed") return; // nothing to tell the client; the calendar sync handles it
     const now = event.at;
     // Unsent messages for the old time (or a cancelled booking) must not go out.
     await workflowsRepo.cancelQueued([event.type === "rescheduled" ? event.previousBookingId : event.type === "cancelled" ? event.bookingId : undefined].filter((x): x is string => Boolean(x)));
@@ -110,13 +114,24 @@ export function createWorkflowsService(deps: {
 
   /** Where the calendar entry gets its title and notes; shared by the invite and the add-to-calendar links. */
   function eventText(ctx: BookingContextDTO, firm: Firm) {
-    return { title: `${ctx.serviceName} with ${ctx.staffName}`, description: `Booking ${bookingReference(firm.bookingPrefix, ctx.number)} at ${firm.name}` };
+    const join = meetingLink(ctx, firm);
+    return {
+      title: `${ctx.serviceName} with ${ctx.staffName}`,
+      description: `Booking ${bookingReference(firm.bookingPrefix, ctx.number)} at ${firm.name}${join ? `\nJoin online: ${join}` : ""}`,
+    };
+  }
+
+  /** The join link for an online session, valid from the moment of booking even if Google is still making the Meet link. */
+  function meetingLink(ctx: BookingContextDTO, firm: Firm): string {
+    const online = isOnlineSession(ctx, firm.meetEnabled) || Boolean(ctx.meetingUrl);
+    return online ? joinLink?.(ctx.bookingId) ?? "" : "";
   }
 
   function vars(ctx: BookingContextDTO, firm: Firm): TemplateVars {
     const links = addToCalendarLinks({ start: ctx.startsAt, end: ctx.endsAt, location: ctx.location, ...eventText(ctx, firm) });
     const token = manageToken(ctx.bookingId);
     return {
+      meeting_link: meetingLink(ctx, firm),
       add_to_google: links.google,
       add_to_outlook: links.outlook,
       add_to_calendar: token && calendarFileUrl ? `${calendarFileUrl(ctx.bookingId)}?t=${token}` : "",
@@ -161,6 +176,7 @@ export function createWorkflowsService(deps: {
               end: ctx.endsAt,
               ...eventText(ctx, firm),
               location: ctx.location,
+              url: meetingLink(ctx, firm) || null,
               attendee: { name: ctx.clientName, email: to },
             }
           : undefined;

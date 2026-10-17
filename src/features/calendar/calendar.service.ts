@@ -1,5 +1,6 @@
 import { DomainError } from "@/features/shared/errors";
 import type { BookingEvent } from "@/features/bookings/bookings.dto";
+import { isOnlineSession } from "@/features/bookings/meeting";
 import { BUSY_REFRESH_MIN, BUSY_WINDOW_DAYS, type CalendarStatusDTO, type CalendarTokens } from "./calendar.dto";
 import type { CalendarRepository, DueJob } from "./calendar.repository";
 import { decrypt, encrypt, readState, signState } from "./crypto";
@@ -116,7 +117,7 @@ export function createCalendarService(deps: {
     await calendarRepo.remove(staffId);
   }
 
-  async function setOptions(staffId: string, options: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean }, now = new Date()) {
+  async function setOptions(staffId: string, options: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean; createMeetLinks: boolean }, now = new Date()) {
     const conn = await connectionOf(staffId);
     await calendarRepo.setOptions(staffId, options);
     if (options.pushBookings && !conn.pushBookings) await backfill(staffId, now);
@@ -131,8 +132,17 @@ export function createCalendarService(deps: {
       case "booked":
       case "payment_success":
         return calendarRepo.enqueue([upsert(event.bookingId)], event.at);
-      case "rescheduled":
-        return calendarRepo.enqueue([upsert(event.bookingId), ...(event.previousBookingId ? [remove(event.previousBookingId)] : [])], event.at);
+      case "rescheduled": {
+        const prev = event.previousBookingId;
+        // Same therapist: the event (and its Meet link) moves with the booking. Another therapist: remove the old event, make a new one.
+        if (prev && (await calendarRepo.moveEvent(prev, event.bookingId))) {
+          await calendarRepo.dropJobs([prev]);
+          return calendarRepo.enqueue([upsert(event.bookingId)], event.at);
+        }
+        return calendarRepo.enqueue([upsert(event.bookingId), ...(prev ? [remove(prev)] : [])], event.at);
+      }
+      case "meeting_changed":
+        return calendarRepo.enqueue([upsert(event.bookingId)], event.at);
       case "cancelled":
       case "payment_failed": // the time is handed back, so it must not stay blocked in their diary
         return calendarRepo.enqueue([remove(event.bookingId)], event.at);
@@ -155,8 +165,22 @@ export function createCalendarService(deps: {
       return;
     }
     if (!conn.pushBookings) return;
-    const id = await provider.upsertEvent(await accessToken(conn, now), conn.calendarId, eventId, b, conn.inviteClients);
-    await calendarRepo.saveEventId(b.id, id);
+    // An online session gets a Google Meet link when the firm, the service (or this booking) and the therapist all want one.
+    // A link staff pasted by hand is left alone.
+    const online = isOnlineSession(b, b.meetEnabled);
+    const want = online && conn.createMeetLinks && b.meetingSource !== "manual";
+    const hasLink = b.meetingSource === "google" && Boolean(b.meetingUrl);
+    const result = await provider.upsertEvent(await accessToken(conn, now), conn.calendarId, eventId, b, conn.inviteClients, {
+      want,
+      hasLink,
+      // Switched off for this booking (or the service no longer wants one): take the link off the event.
+      remove: !want && hasLink,
+    });
+    await calendarRepo.saveEventId(b.id, result.eventId);
+    if (want && result.meetUrl) await calendarRepo.saveGoogleMeeting(b.id, result.meetUrl);
+    else if (!want && hasLink) await calendarRepo.clearGoogleMeeting(b.id);
+    // Google sometimes needs a moment to make the link: the event is saved, so the retry only asks for the link.
+    else if (want && !result.meetUrl) throw new Error("Google has not made the Meet link yet");
   }
 
   /** Writes queued bookings to calendars. Returns how many were handled (done or dropped). */

@@ -149,6 +149,7 @@ export default async function StaffDetail({
             )}
             <form action={calendarOptionsAction.bind(null, id)} className="grid gap-3">
               <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="pushBookings" defaultChecked={google.pushBookings} /> Add my bookings to this calendar</label>
+              <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="toggle mt-0.5" name="createMeetLinks" defaultChecked={google.createMeetLinks} /> <span>Create Google Meet links for my online sessions<span className="block text-zinc-600">Applies to services set to &ldquo;Online with Google Meet&rdquo; once Settings has online sessions switched on.</span></span></label>
               <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="inviteClients" defaultChecked={google.inviteClients} /> Email clients a calendar invite (needs their email; sent by Google from {google.accountEmail ?? "this calendar"})</label>
               <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="blockBusy" defaultChecked={google.blockBusy} /> Block times when I am busy in this calendar</label>
               <div><button className="btn-ghost" type="submit">Save</button></div>

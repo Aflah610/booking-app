@@ -42,6 +42,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div><label className="label" htmlFor="clientCutoffHours">Online cancel or move allowed until (hours before)</label><input className="input" id="clientCutoffHours" name="clientCutoffHours" type="number" min={0} step={0.5} defaultValue={s.clientCutoffMin / 60} /></div>
         </section>
         <section className="card grid gap-4 p-6">
+          <h2 className="font-semibold">Online sessions</h2>
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="toggle mt-0.5" name="meetEnabled" defaultChecked={s.meetEnabled} />
+            <span>Use Google Meet for online sessions<span className="block text-zinc-600">Services set to &ldquo;Online with Google Meet&rdquo; get a Meet link in the therapist&apos;s calendar event, and clients get a join link in their messages. Each therapist must have Google Calendar connected (Staff, their name, Google Calendar).</span></span>
+          </label>
+        </section>
+        <section className="card grid gap-4 p-6">
           <h2 className="font-semibold">Online payment</h2>
           <p className="text-sm text-zinc-600">
             Your website takes the payment with Razorpay and reports it here. When this is on, a website booking of a priced service is held for 15 minutes.

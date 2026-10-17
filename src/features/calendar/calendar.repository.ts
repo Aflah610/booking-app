@@ -1,6 +1,6 @@
 import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db";
-import { booking, bookingCalendarEvent, calendarBusy, calendarConnection, calendarJob, client, service, staff } from "@/db/schema";
+import { booking, bookingCalendarEvent, business, calendarBusy, calendarConnection, calendarJob, client, service, staff } from "@/db/schema";
 import type { CalendarBookingDTO, CalendarConnectionDTO, ExternalBusy } from "./calendar.dto";
 
 const PROVIDER = "google";
@@ -12,6 +12,7 @@ const connectionColumns = {
   pushBookings: calendarConnection.pushBookings,
   blockBusy: calendarConnection.blockBusy,
   inviteClients: calendarConnection.inviteClients,
+  createMeetLinks: calendarConnection.createMeetLinks,
   lastSyncedAt: calendarConnection.lastSyncedAt,
   errorCount: calendarConnection.errorCount,
   lastError: calendarConnection.lastError,
@@ -47,7 +48,7 @@ export function createCalendarRepository(db: Db) {
       await db.update(calendarConnection).set({ encryptedTokens, updatedAt: new Date() }).where(eq(calendarConnection.staffId, staffId));
     },
 
-    async setOptions(staffId: string, v: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean }) {
+    async setOptions(staffId: string, v: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean; createMeetLinks: boolean }) {
       await db.update(calendarConnection).set({ ...v, updatedAt: new Date() }).where(eq(calendarConnection.staffId, staffId));
       if (!v.blockBusy) await db.delete(calendarBusy).where(eq(calendarBusy.staffId, staffId));
     },
@@ -129,6 +130,11 @@ export function createCalendarRepository(db: Db) {
           clientEmail: client.email,
           notes: booking.notes,
           timezone: staff.timezone,
+          meetEnabled: sql<boolean>`coalesce((select ${business.meetEnabled} from ${business} where ${business.id} = 1), false)`,
+          meetingType: service.meetingType,
+          meetingOverride: sql<"on" | "off" | null>`${booking.meetingOverride}`,
+          meetingUrl: booking.meetingUrl,
+          meetingSource: sql<"google" | "manual" | null>`${booking.meetingSource}`,
         })
         .from(booking)
         .innerJoin(service, eq(service.id, booking.serviceId))
@@ -172,6 +178,38 @@ export function createCalendarRepository(db: Db) {
 
     async removeEventId(bookingId: string) {
       await db.delete(bookingCalendarEvent).where(and(eq(bookingCalendarEvent.bookingId, bookingId), eq(bookingCalendarEvent.provider, PROVIDER)));
+    },
+
+    /** The Google-made link for a booking, once Google has it. A pasted link is never touched. */
+    async saveGoogleMeeting(bookingId: string, url: string) {
+      await db
+        .update(booking)
+        .set({ meetingUrl: url, meetingSource: "google" })
+        .where(and(eq(booking.id, bookingId), sql`${booking.meetingSource} is distinct from 'manual'`));
+    },
+
+    async clearGoogleMeeting(bookingId: string) {
+      await db
+        .update(booking)
+        .set({ meetingUrl: null, meetingSource: null })
+        .where(and(eq(booking.id, bookingId), eq(booking.meetingSource, "google")));
+    },
+
+    /**
+     * A booking moved to another time with the same therapist keeps its Google event (and so its Meet link): the event
+     * and the meeting details follow it to the new booking. Returns false when the therapist changed, where the old
+     * event has to be removed from their calendar and a new one made.
+     */
+    async moveEvent(fromBookingId: string, toBookingId: string): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select({ id: booking.id, staffId: booking.staffId, url: booking.meetingUrl, source: booking.meetingSource, override: booking.meetingOverride }).from(booking).where(inArray(booking.id, [fromBookingId, toBookingId]));
+        const from = rows.find((r) => r.id === fromBookingId);
+        const to = rows.find((r) => r.id === toBookingId);
+        if (!from || !to || from.staffId !== to.staffId) return false;
+        await tx.update(bookingCalendarEvent).set({ bookingId: toBookingId }).where(and(eq(bookingCalendarEvent.bookingId, fromBookingId), eq(bookingCalendarEvent.provider, PROVIDER)));
+        await tx.update(booking).set({ meetingUrl: from.url, meetingSource: from.source, meetingOverride: from.override }).where(eq(booking.id, toBookingId));
+        return true;
+      });
     },
 
     /** Queues a calendar write; a newer request for the same booking replaces the pending one. */

@@ -57,6 +57,7 @@ export function createContainer(db: Db, opts: { senders?: Senders; manageSecret?
     // The client's page for moving or cancelling a booking, for use in messages.
     manageToken: (id) => (manageSecret ? manageToken(id, manageSecret) : null),
     calendarFileUrl: (id) => `${appUrl}/manage/${id}/calendar.ics`,
+    joinLink: (id) => (manageSecret ? `${appUrl}/join/${id}?t=${manageToken(id, manageSecret)}` : null),
     manageLink: (id) => (manageSecret ? `${appUrl}/manage/${id}?t=${manageToken(id, manageSecret)}` : null),
     workflowsRepo: createWorkflowsRepository(db),
     catalogRepo,

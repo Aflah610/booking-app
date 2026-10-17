@@ -18,6 +18,14 @@ export function ServiceFields({ s }: { s?: ServiceDTO }) {
       <div><label className="label" htmlFor="bufferBeforeMin">Buffer before (minutes)</label><input className="input" id="bufferBeforeMin" name="bufferBeforeMin" type="number" min={0} defaultValue={s?.bufferBeforeMin ?? 0} /></div>
       <div><label className="label" htmlFor="bufferAfterMin">Buffer after (minutes)</label><input className="input" id="bufferAfterMin" name="bufferAfterMin" type="number" min={0} defaultValue={s?.bufferAfterMin ?? 0} /></div>
       <div className="sm:col-span-2">
+        <label className="label" htmlFor="meetingType">How it happens</label>
+        <select className="input" id="meetingType" name="meetingType" defaultValue={s?.meetingType ?? "in_person"}>
+          <option value="in_person">In person</option>
+          <option value="google_meet">Online with Google Meet</option>
+        </select>
+        <p className="mt-1 text-xs text-zinc-600">Online sessions get a Meet link in the therapist&apos;s calendar event. It needs &ldquo;Online sessions&rdquo; switched on in Settings and the therapist&apos;s Google Calendar connected.</p>
+      </div>
+      <div className="sm:col-span-2">
         <label className="label" htmlFor="location">Where it happens</label>
         <input className="input" id="location" name="location" defaultValue={s?.location ?? ""} placeholder="Clinic address, or a meeting link like https://meet.google.com/…" />
         <p className="mt-1 text-xs text-zinc-600">Shown to the client and added to their calendar invite.</p>

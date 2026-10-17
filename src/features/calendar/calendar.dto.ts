@@ -7,6 +7,8 @@ export interface CalendarConnectionDTO {
   pushBookings: boolean;
   blockBusy: boolean;
   inviteClients: boolean;
+  /** Create a Google Meet link on events for online sessions. */
+  createMeetLinks: boolean;
   lastSyncedAt: Date | null;
   /** Failures since the last success; the worker stops retrying a connection that Google has rejected. */
   errorCount: number;
@@ -42,6 +44,12 @@ export interface CalendarBookingDTO {
   notes: string | null;
   /** Staff time zone, for the event's own zone field. */
   timezone: string;
+  /** Online session settings: the firm's switch, the service's type, this booking's override and the link so far. */
+  meetEnabled: boolean;
+  meetingType: "in_person" | "google_meet";
+  meetingOverride: "on" | "off" | null;
+  meetingUrl: string | null;
+  meetingSource: "google" | "manual" | null;
 }
 
 export interface ExternalBusy {

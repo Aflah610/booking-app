@@ -1,5 +1,7 @@
 import type { Question } from "./questions";
 
+export type MeetingType = "in_person" | "google_meet";
+
 export type ServiceDTO = {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export type ServiceDTO = {
   maxNoticeDays: number | null;
   maxPerDay: number | null;
   location: string | null;
+  /** "google_meet" sessions get a Meet link (when the firm and the therapist have it on); "in_person" never do. */
+  meetingType: MeetingType;
   questions: Question[];
   active: boolean;
 };

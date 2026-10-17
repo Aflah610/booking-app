@@ -68,6 +68,8 @@ export const business = pgTable("business", {
   resumeUrl: text("resume_url"),
   /** When on, website bookings of priced services are held for 15 minutes until the website reports a payment. */
   onlinePayment: boolean("online_payment").notNull().default(false),
+  /** Online sessions: services marked "Google Meet" get a Meet link in the therapist's calendar event. */
+  meetEnabled: boolean("meet_enabled").notNull().default(false),
   updatedAt: updatedAt(),
 }, (t) => [check("business_single_row", sql`${t.id} = 1`)]);
 
@@ -100,6 +102,8 @@ export const service = pgTable("service", {
   maxPerDay: integer("max_per_day"),
   /** Where it happens: an address or a meeting link. Shown to the client and in calendar invites. */
   location: text("location"),
+  /** Where the session happens. "google_meet" gets a Meet link (if the firm and the therapist have it switched on). */
+  meetingType: text("meeting_type").$type<"in_person" | "google_meet">().notNull().default("in_person"),
   /** Extra questions on the booking form: [{ id, label, type, required, options? }]. */
   questions: jsonb("questions").$type<{ id: string; label: string; type: "text" | "longtext" | "choice"; required: boolean; options?: string[] }[]>().notNull().default(sql`'[]'::jsonb`),
   active: boolean("active").notNull().default(true),
@@ -174,6 +178,8 @@ export const calendarConnection = pgTable("calendar_connection", {
   inviteClients: boolean("invite_clients").notNull().default(false),
   /** Treat events in their calendar as busy time, so clients can't book over them. */
   blockBusy: boolean("block_busy").notNull().default(true),
+  /** Create a Google Meet link on events for online sessions. */
+  createMeetLinks: boolean("create_meet_links").notNull().default(true),
   /** The calendar we read busy times from and write bookings to. */
   calendarId: text("calendar_id").notNull().default("primary"),
   /** Provider's incremental sync token, so each sync only fetches changes. */
@@ -291,6 +297,11 @@ export const booking = pgTable("booking", {
   amountPaise: integer("amount_paise"),
   /** Paid with this many package credits (thousandths) and/or this much wallet money; both zero once returned. */
   creditMilli: integer("credit_milli").notNull().default(0),
+  /** The video link clients join: made by Google, or pasted by staff. */
+  meetingUrl: text("meeting_url"),
+  meetingSource: text("meeting_source"),
+  /** Staff override for this booking only: "on" gives it a Meet link even if the service is in person, "off" takes it away. Null follows the service. */
+  meetingOverride: text("meeting_override"),
   creditPaise: integer("credit_paise").notNull().default(0),
   /** Who missed a no-show appointment. Empty for older no-shows and for every other status. */
   noShowBy: noShowBy("no_show_by"),

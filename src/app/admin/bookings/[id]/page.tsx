@@ -4,13 +4,14 @@ import { app } from "@/features/container";
 import { bookingReference } from "@/features/bookings/bookings.dto";
 import { addDays } from "@/features/availability/slots";
 import { DomainError } from "@/features/shared/errors";
+import { isOnlineSession } from "@/features/bookings/meeting";
 import { requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, NO_SHOW_BY_LABEL, PAYMENT_LABEL, timeLabel } from "@/lib/format";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { PaymentBadge, StatusBadge } from "@/components/StatusBadge";
-import { cancelBookingAction, markBookingAction, recordPaymentAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction, useCreditAction } from "../actions";
+import { cancelBookingAction, markBookingAction, recordPaymentAction, manualMeetingAction, meetingAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction, useCreditAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function BookingPage({
     throw err;
   });
   const s = await settings.get();
-  const [paymentRows, creditUses, credit] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId)]);
+  const [paymentRows, creditUses, credit, calendar] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId), app().calendar.status(b.staffId)]);
   const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const tz = s.timezone;
   const now = new Date();
@@ -82,6 +83,62 @@ export default async function BookingPage({
               <div className="sm:col-span-2 text-sm text-zinc-600">Moved from <Link className="underline" href={`/admin/bookings/${b.rescheduledFromId}`}>an earlier booking</Link>.</div>
             )}
           </dl>
+          <div className="grid gap-3 p-6">
+            <h2 className="font-medium">Online session</h2>
+            {(() => {
+              const online = isOnlineSession(b, s.meetEnabled);
+              const conn = calendar.connection;
+              const live = b.status === "upcoming";
+              if (b.meetingUrl) {
+                return (
+                  <div className="grid gap-3 text-sm">
+                    <p className="flex flex-wrap items-center gap-3">
+                      <a className="btn" href={b.meetingUrl} target="_blank" rel="noreferrer">Join</a>
+                      <span className="min-w-0 break-all text-zinc-600">{b.meetingUrl}</span>
+                      <span className="badge">{b.meetingSource === "manual" ? "Pasted link" : "Google Meet"}</span>
+                    </p>
+                    {live && (
+                      <div className="flex flex-wrap gap-2">
+                        {b.meetingSource === "manual" && s.meetEnabled && <form action={meetingAction.bind(null, b.id, "add")}><button className="btn-ghost" type="submit">Use Google Meet instead</button></form>}
+                        <form action={meetingAction.bind(null, b.id, "remove")}><button className="btn-ghost" type="submit">Remove link</button></form>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              if (online) {
+                const blocked = !conn ? "The therapist has not connected Google Calendar, so Google can't make a link." : !conn.createMeetLinks ? "The therapist has switched off Meet links in their Google Calendar settings." : !conn.pushBookings ? "The therapist's calendar isn't receiving bookings (turned off in their settings)." : conn.errorCount >= 5 ? `Google Calendar sync has stopped: ${conn.lastError ?? "reconnect needed"}.` : null;
+                return (
+                  <div className="grid gap-3 text-sm">
+                    <p className={blocked ? "font-medium text-red-700" : "text-zinc-600"}>{blocked ?? "The link is being prepared and appears here within about a minute."}</p>
+                    {live && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <form action={manualMeetingAction.bind(null, b.id)} className="flex flex-wrap gap-2">
+                          <input className="input w-64" name="url" placeholder="Or paste a link (Zoom, Meet …)" aria-label="Meeting link" />
+                          <button className="btn-ghost" type="submit">Save link</button>
+                        </form>
+                        <form action={meetingAction.bind(null, b.id, "remove")}><button className="btn-ghost" type="submit">Make it in person</button></form>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <div className="grid gap-3 text-sm">
+                  <p className="text-zinc-600">In person.{!s.meetEnabled && " Online sessions are switched off in Settings."}</p>
+                  {live && s.meetEnabled && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <form action={meetingAction.bind(null, b.id, "add")}><button className="btn-ghost" type="submit">Make it online (Google Meet)</button></form>
+                      <form action={manualMeetingAction.bind(null, b.id)} className="flex flex-wrap gap-2">
+                        <input className="input w-64" name="url" placeholder="Or paste a link" aria-label="Meeting link" />
+                        <button className="btn-ghost" type="submit">Save link</button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
           <div className="grid gap-3 p-6">
             <h2 className="font-medium">Payment</h2>
             <dl className="grid gap-3 text-sm sm:grid-cols-3">

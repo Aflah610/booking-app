@@ -51,12 +51,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <h2 className="mb-3 font-semibold">My day</h2>
       <div className="card mb-10 divide-y divide-zinc-100 overflow-hidden">
         {live(mine).length === 0 && <p className="p-8 text-center text-sm text-zinc-600">Nothing booked for you today.</p>}
-        {live(mine).map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showStaff={false} />)}
+        {live(mine).map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showStaff={false} showJoin />)}
       </div>
       <h2 className="mb-3 font-semibold">Coming up</h2>
       <div className="card divide-y divide-zinc-100 overflow-hidden">
         {next.length === 0 && <p className="p-8 text-center text-sm text-zinc-600">No upcoming bookings.</p>}
-        {next.map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showStaff={false} />)}
+        {next.map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showStaff={false} showJoin />)}
       </div>
     </Shell>
   );

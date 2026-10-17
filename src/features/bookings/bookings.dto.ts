@@ -28,6 +28,13 @@ export type BookingDTO = {
   /** Paid for with this many package credits (in thousandths: 1,500 = 1.5) and this much wallet money; both zero if given back. */
   creditMilli: number;
   creditPaise: number;
+  /** From the service: where it happens. */
+  meetingType: "in_person" | "google_meet";
+  /** The video link clients join, made by Google or pasted by staff. */
+  meetingUrl: string | null;
+  meetingSource: "google" | "manual" | null;
+  /** Staff override for this booking only; null follows the service. */
+  meetingOverride: "on" | "off" | null;
   /** Who missed the appointment, when it was marked a no-show. */
   noShowBy: NoShowBy | null;
   source: BookingSource;
@@ -105,7 +112,7 @@ export type HoldDTO = { token: string; staffId: string; start: Date; end: Date; 
 
 /** What the bookings slice tells the rest of the app happened. */
 export type BookingEvent = {
-  type: "booked" | "rescheduled" | "cancelled" | "completed" | "no_show" | "payment_success" | "payment_failed";
+  type: "meeting_changed" | "booked" | "rescheduled" | "cancelled" | "completed" | "no_show" | "payment_success" | "payment_failed";
   bookingId: string;
   /** When it happened, so delays are counted from the same clock the booking used. */
   at: Date;

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { app } from "@/features/container";
 import { addDays } from "@/features/availability/slots";
 import { bookingReference } from "@/features/bookings/bookings.dto";
+import { isOnlineSession } from "@/features/bookings/meeting";
 import { Notice } from "@/components/Notice";
 import { PublicShell } from "@/components/PublicShell";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -68,6 +69,12 @@ export default async function ManagePage({
           <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Booking ID</dt><dd className="mt-1">{bookingReference(firm.bookingPrefix, b.number)}</dd></div>
           {svc.location && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wider text-zinc-600">Where</dt><dd className="mt-1 break-words">{svc.location}</dd></div>}
         </dl>
+        {b.status === "upcoming" && (b.meetingUrl || isOnlineSession(b, firm.meetEnabled)) && (
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            <a className="btn" href={`/join/${id}?t=${encodeURIComponent(token)}`}>Join your online session</a>
+            <span className="text-sm text-zinc-600">{b.meetingUrl ? "Opens your video call." : "Your link is being prepared."}</span>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 p-4">
           <a className="btn-ghost" href={`/manage/${id}/calendar.ics?t=${encodeURIComponent(token)}`}>Add to calendar</a>
           {canChange && !moving && <Link className="btn-ghost" href={here({ move: "1" })}>Reschedule</Link>}

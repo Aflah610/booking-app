@@ -90,6 +90,10 @@ export type BookingContextDTO = {
   amountPaise: number | null;
   resumeUntil: Date | null;
   /** Same for a booking and every reschedule of it, so the client's calendar updates one entry instead of piling up. */
+  /** Where it happens, and the video link so far (for the {{meeting_link}} variable). */
+  meetingType: "in_person" | "google_meet";
+  meetingOverride: "on" | "off" | null;
+  meetingUrl: string | null;
   calendarUid: string;
   /** How many times it has been moved; rises with each change so calendars take the newest. */
   calendarSequence: number;
@@ -105,6 +109,8 @@ export type InviteDTO = {
   title: string;
   description: string;
   location: string | null;
+  /** The join link for an online session. */
+  url: string | null;
   attendee: { name: string; email: string };
 };
 

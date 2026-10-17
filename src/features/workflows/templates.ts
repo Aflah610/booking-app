@@ -9,6 +9,7 @@ export const PLACEHOLDERS = [
   ["booking_id", "Booking number, e.g. BK-00012"],
   ["location", "Where it happens (address or meeting link)"],
   ["manage_link", "Link for the client to reschedule or cancel"],
+  ["meeting_link", "Link to join the online session (empty for in-person)"],
   ["add_to_google", "Link that adds the appointment to Google Calendar"],
   ["add_to_outlook", "Link that adds the appointment to Outlook Calendar"],
   ["add_to_calendar", "Link to download the appointment for any calendar (Apple, Outlook app)"],

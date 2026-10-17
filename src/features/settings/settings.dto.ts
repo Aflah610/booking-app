@@ -17,4 +17,6 @@ export type BusinessSettingsDTO = {
   resumeUrl: string | null;
   /** Website bookings of priced services must be paid online: held 15 minutes, then failed. */
   onlinePayment: boolean;
+  /** Services set to "Google Meet" get a Meet link for their sessions. */
+  meetEnabled: boolean;
 };

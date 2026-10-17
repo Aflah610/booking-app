@@ -155,6 +155,9 @@ export function createWorkflowsRepository(db: Db) {
           cancellationReason: booking.cancellationReason,
           amountPaise: booking.amountPaise,
           resumeUntil: booking.resumeUntil,
+          meetingType: service.meetingType,
+          meetingOverride: sql<"on" | "off" | null>`${booking.meetingOverride}`,
+          meetingUrl: booking.meetingUrl,
         })
         .from(booking)
         .innerJoin(service, eq(service.id, booking.serviceId))

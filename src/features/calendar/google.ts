@@ -20,7 +20,13 @@ interface GoogleEvent {
   start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string; timeZone?: string };
   extendedProperties?: { private?: Record<string, string> };
+  hangoutLink?: string;
+  conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[]; createRequest?: { status?: { statusCode?: string } } };
 }
+
+/** The video link Google made for an event, if it has finished making one. */
+const meetLinkOf = (e: GoogleEvent): string | null =>
+  e.hangoutLink ?? e.conferenceData?.entryPoints?.find((p) => p.entryPointType === "video")?.uri ?? null;
 
 async function failure(res: Response, what: string): Promise<never> {
   const text = await res.text().catch(() => "");
@@ -143,18 +149,28 @@ export function createGoogleProvider(env: Env = process.env): CalendarProvider {
       return out;
     },
 
-    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient) {
-      const body = JSON.stringify(eventBody(booking, inviteClient));
+    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient, meet) {
+      const base = eventBody(booking, inviteClient);
       const notify = inviteClient && booking.clientEmail ? "all" : "none";
+      // conferenceDataVersion=1 is what lets the request create or remove a Meet link; without it Google ignores that part.
+      const version = meet.want || meet.remove ? "&conferenceDataVersion=1" : "";
+      // The request id makes asking twice for the same booking's link return the same link, not two.
+      const createRequest = { createRequest: { requestId: `booking-${booking.id}`, conferenceSolutionKey: { type: "hangoutsMeet" } } };
+      const read = async (res: Response, what: string) => {
+        if (!res.ok) return failure(res, what);
+        const ev = (await res.json()) as GoogleEvent;
+        return { eventId: ev.id, meetUrl: meetLinkOf(ev) };
+      };
       if (eventId) {
-        const res = await fetch(`${eventUrl(calendarId, eventId)}?sendUpdates=${notify}`, { method: "PATCH", headers: authed(accessToken), body });
-        if (res.ok) return ((await res.json()) as GoogleEvent).id;
+        // An event that already has a link keeps it (leaving conferenceData out of the patch preserves it).
+        const body = JSON.stringify({ ...base, ...(meet.want && !meet.hasLink ? { conferenceData: createRequest } : {}), ...(meet.remove ? { conferenceData: null } : {}) });
+        const res = await fetch(`${eventUrl(calendarId, eventId)}?sendUpdates=${notify}${version}`, { method: "PATCH", headers: authed(accessToken), body });
+        if (res.ok) return read(res, "Google event update");
         // The person deleted the event by hand (or connected a different calendar): write a fresh one.
         if (res.status !== 404 && res.status !== 410) return failure(res, "Google event update");
       }
-      const res = await fetch(`${eventUrl(calendarId)}?sendUpdates=${notify}`, { method: "POST", headers: authed(accessToken), body });
-      if (!res.ok) return failure(res, "Google event create");
-      return ((await res.json()) as GoogleEvent).id;
+      const body = JSON.stringify({ ...base, ...(meet.want ? { conferenceData: createRequest } : {}) });
+      return read(await fetch(`${eventUrl(calendarId)}?sendUpdates=${notify}${version}`, { method: "POST", headers: authed(accessToken), body }), "Google event create");
     },
 
     async deleteEvent(accessToken, calendarId, eventId, notifyGuests) {

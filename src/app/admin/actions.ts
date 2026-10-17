@@ -104,6 +104,7 @@ function serviceFields(form: FormData) {
     maxNoticeDays: optionalNumber(form, "maxNoticeDays"),
     maxPerDay: optionalNumber(form, "maxPerDay"),
     location: optional(form, "location"),
+    meetingType: str(form, "meetingType") === "google_meet" ? ("google_meet" as const) : ("in_person" as const),
     questions: parseQuestions(str(form, "questions")),
   };
 }
@@ -158,6 +159,7 @@ export async function updateSettingsAction(form: FormData) {
       welcomeText: str(form, "welcomeText"),
       resumeUrl: str(form, "resumeUrl"),
       onlinePayment: form.get("onlinePayment") === "on",
+      meetEnabled: form.get("meetEnabled") === "on",
     }),
   );
 }
@@ -213,7 +215,7 @@ export async function disconnectCalendarAction(staffId: string) {
 export async function calendarOptionsAction(staffId: string, form: FormData) {
   await requireSelfOrManager(staffId);
   await act(`/admin/staff/${staffId}`, "Calendar settings saved", () =>
-    app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on", inviteClients: form.get("inviteClients") === "on" }),
+    app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on", inviteClients: form.get("inviteClients") === "on", createMeetLinks: form.get("createMeetLinks") === "on" }),
   );
 }
 

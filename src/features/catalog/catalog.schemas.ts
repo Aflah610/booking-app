@@ -15,6 +15,7 @@ export const serviceInput = z.object({
   maxNoticeDays: z.coerce.number().int().min(1).max(730).nullish(),
   maxPerDay: z.coerce.number().int().min(1).max(1000).nullish(),
   location: z.string().trim().max(300).nullish(),
+  meetingType: z.enum(["in_person", "google_meet"]).default("in_person"),
   questions: z.array(z.object({
     id: z.string().min(1).max(60),
     label: z.string().min(1).max(120),
