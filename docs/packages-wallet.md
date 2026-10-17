@@ -16,13 +16,20 @@ package is set to cover).
 A package is **credits for a price**, plus **how much service price one credit covers** (₹1,000 by default).
 
 > 4 credits for ₹3,600, one credit covers ₹1,000. The client has 4 credits and ₹3,600 in the wallet total.
-> Each credit stands for ₹900 of money (3,600 ÷ 4) and covers ₹1,000 of service price.
-> An 8-credit package for ₹6,400 stands for ₹800 a credit.
+> At the ₹1,000 tier each credit is ₹900 of money (3,600 ÷ 4). An 8-credit package for ₹6,400 is ₹800 a credit.
 
-**A booking uses credits in proportion to its price.** A ₹1,500 service takes **1.5 credits**; a ₹5,000 therapist takes 5.
-Credits can be fractions. The wallet total falls by the money those credits stand for: 1.5 credits of the ₹3,600 package takes
-**₹1,350** off it, and cancelling puts back exactly the credits and the rupees. A price that doesn't divide evenly is split so
-the credits add up to exactly what was paid.
+**A booking uses credits in proportion to its price.** A ₹1,000 service takes 1 credit, a ₹1,500 service **1.5 credits**, a
+₹5,000 therapist 5. Credits can be fractions. The money taken off the package depends on the tier:
+
+| Booking | Credits | Money off the package |
+|---|---|---|
+| At the tier the package was bought for (₹1,000) | 1 | **₹900**, the package rate |
+| A dearer therapist (₹1,500) | 1.5 | **₹1,500**, the full price, no discount |
+
+Credits and money therefore move separately, which is why both are tracked. Cancelling puts back exactly the credits and the
+money that booking took. A money value never goes below zero; if a client keeps moving up, the money can run out before the
+credits (the credits still work, but the package then has no money value left). A price that doesn't divide evenly is split so
+the package rate adds up to exactly what was paid, and using the last credit closes the package.
 
 Set up under **Packages** (managers): name, credits, price, what one credit covers, the services it can pay for (none ticked =
 any), and days valid (default 365; blank = never expires). Editing a package affects new sales only.

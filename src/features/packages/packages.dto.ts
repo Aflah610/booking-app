@@ -33,7 +33,7 @@ export type ClientPackageDTO = {
   creditsLeft: number;
   creditValuePaise: number;
   pricePaise: number;
-  /** The part of the price these remaining credits stand for. */
+  /** The money still unspent from what the client paid. */
   valueLeftPaise: number;
   expiresAt: Date | null;
   paymentNote: string | null;
@@ -81,11 +81,16 @@ export type CreditUseDTO = {
 /** What a booking took when it was made. `credits` are package credits, `walletPaise` is top-up money. */
 export type CreditTaken = { credits: number; walletPaise: number };
 
-/** What is left of a package's price when `leftMilli` of its `totalMilli` credits remain. Steps add up to the price exactly. */
-export const valueLeftPaise = (pricePaise: number, totalMilli: number, leftMilli: number) =>
-  totalMilli === 0 ? 0 : Math.round((pricePaise * leftMilli) / totalMilli);
-
-export type PackageBalance = { id: string; leftMilli: number; totalMilli: number; creditValuePaise: number; pricePaise: number };
+export type PackageBalance = {
+  id: string;
+  leftMilli: number;
+  totalMilli: number;
+  creditValuePaise: number;
+  /** What the client paid for the whole package. */
+  pricePaise: number;
+  /** Money still unspent from that. */
+  valueLeftPaise: number;
+};
 export type LotBalance = { id: string; remainingPaise: number };
 
 /** How a booking's price would be paid. */
@@ -100,11 +105,24 @@ export type Allocation = {
   covered: boolean;
 };
 
+/** The money a use takes off a package's value: the package rate at its own tier or below, the full price above it. */
+function packageValue(p: PackageBalance, milli: number, coveredPaise: number, servicePricePaise: number): number {
+  if (servicePricePaise > p.creditValuePaise) return Math.min(coveredPaise, p.valueLeftPaise);
+  // Using the last of the credits closes the package, so rounding never strands a few paise.
+  if (milli === p.leftMilli) return p.valueLeftPaise;
+  return Math.min(p.valueLeftPaise, Math.round((p.pricePaise * milli) / p.totalMilli));
+}
+
 /**
  * Works out how a price is paid from a client's credit, without writing anything (so a quote and a real booking
  * always agree). Package credits come first, in the order given, each covering its `creditValuePaise` per credit; a
  * ₹1,500 service takes 1.5 credits of a ₹1,000-credit package. Wallet money pays what packages don't, and whatever
  * is left is paid in the normal way. A service with no known price counts as one credit, with nothing to charge.
+ *
+ * The money a package use takes off the client's package value depends on the tier. At or below the tier the package
+ * was bought for (price within one credit's value) the client keeps the package rate: 1 credit takes ₹900 of a
+ * ₹3,600 four-credit package. Above it there is no discount: a ₹1,500 service takes 1.5 credits and the full ₹1,500.
+ * Credits and money therefore move separately, which is why both are stored.
  */
 export function allocate(pricePaise: number | null, packages: PackageBalance[], lots: LotBalance[]): Allocation {
   const out: Allocation = { packages: [], lots: [], creditsMilli: 0, walletPaise: 0, duePaise: pricePaise, covered: false };
@@ -115,7 +133,7 @@ export function allocate(pricePaise: number | null, packages: PackageBalance[], 
         id: p.id,
         milli: MILLI,
         coveredPaise: p.creditValuePaise,
-        valuePaise: valueLeftPaise(p.pricePaise, p.totalMilli, p.leftMilli) - valueLeftPaise(p.pricePaise, p.totalMilli, p.leftMilli - MILLI),
+        valuePaise: packageValue(p, MILLI, p.creditValuePaise, p.creditValuePaise),
       });
       out.creditsMilli = MILLI;
       out.covered = true;
@@ -130,12 +148,7 @@ export function allocate(pricePaise: number | null, packages: PackageBalance[], 
     const take = Math.min(remaining, coverable);
     // Using up the last of a package takes exactly what is left, so rounding never strands a sliver of a credit.
     const milli = take === coverable ? p.leftMilli : Math.min(p.leftMilli, Math.max(1, Math.round((take * MILLI) / p.creditValuePaise)));
-    out.packages.push({
-      id: p.id,
-      milli,
-      coveredPaise: take,
-      valuePaise: valueLeftPaise(p.pricePaise, p.totalMilli, p.leftMilli) - valueLeftPaise(p.pricePaise, p.totalMilli, p.leftMilli - milli),
-    });
+    out.packages.push({ id: p.id, milli, coveredPaise: take, valuePaise: packageValue(p, milli, take, pricePaise) });
     out.creditsMilli += milli;
     remaining -= take;
   }

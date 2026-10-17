@@ -6,7 +6,6 @@ import type { AuditEntry } from "@/features/audit/audit.types";
 import {
   allocate,
   toCredits,
-  valueLeftPaise,
   MILLI,
   type Allocation,
   type ClientPackageDTO,
@@ -39,6 +38,7 @@ const clientPackageColumns = {
   leftMilli: clientPackage.creditsLeftMilli,
   creditValuePaise: clientPackage.creditValuePaise,
   pricePaise: clientPackage.pricePaise,
+  valueLeftPaise: clientPackage.valueLeftPaise,
   expiresAt: clientPackage.expiresAt,
   paymentNote: clientPackage.paymentNote,
   createdAt: clientPackage.createdAt,
@@ -54,6 +54,7 @@ type PackageRow = {
   leftMilli: number;
   creditValuePaise: number;
   pricePaise: number;
+  valueLeftPaise: number;
   expiresAt: Date | null;
   paymentNote: string | null;
   createdAt: Date;
@@ -63,7 +64,6 @@ const toPackageDto = ({ totalMilli, leftMilli, ...r }: PackageRow): ClientPackag
   ...r,
   creditsTotal: toCredits(totalMilli),
   creditsLeft: toCredits(leftMilli),
-  valueLeftPaise: valueLeftPaise(r.pricePaise, totalMilli, leftMilli),
 });
 
 const lotColumns = {
@@ -112,7 +112,7 @@ export async function quoteCredits(db: DbOrTx, t: { clientId: string; serviceId:
   return allocate(t.owes ? t.pricePaise : 0, t.owes ? packages.map(toBalance) : [], t.owes ? lots : []);
 }
 
-const toBalance = (p: PackageRow) => ({ id: p.id, leftMilli: p.leftMilli, totalMilli: p.totalMilli, creditValuePaise: p.creditValuePaise, pricePaise: p.pricePaise });
+const toBalance = (p: PackageRow) => ({ id: p.id, leftMilli: p.leftMilli, totalMilli: p.totalMilli, creditValuePaise: p.creditValuePaise, pricePaise: p.pricePaise, valueLeftPaise: p.valueLeftPaise });
 
 /**
  * Spends credit for a booking, inside the booking's own transaction so the booking and what paid for it succeed
@@ -126,7 +126,10 @@ export async function applyCredits(
   const { packages, lots } = await balances(tx, t.clientId, t.serviceId, t.now, true);
   const plan = allocate(t.pricePaise, packages.map(toBalance), lots);
   for (const p of plan.packages) {
-    await tx.update(clientPackage).set({ creditsLeftMilli: sql`${clientPackage.creditsLeftMilli} - ${p.milli}` }).where(eq(clientPackage.id, p.id));
+    await tx
+      .update(clientPackage)
+      .set({ creditsLeftMilli: sql`${clientPackage.creditsLeftMilli} - ${p.milli}`, valueLeftPaise: sql`${clientPackage.valueLeftPaise} - ${p.valuePaise}` })
+      .where(eq(clientPackage.id, p.id));
     await tx.insert(creditUse).values({ bookingId: t.bookingId, clientPackageId: p.id, creditsMilli: p.milli, coveredPaise: p.coveredPaise, valuePaise: p.valuePaise });
   }
   for (const l of plan.lots) {
@@ -145,7 +148,7 @@ export async function applyCredits(
  */
 export async function returnCredits(tx: Tx, bookingId: string, now: Date): Promise<CreditTaken> {
   const uses = await tx
-    .select({ id: creditUse.id, packageId: creditUse.clientPackageId, lotId: creditUse.walletLotId, milli: creditUse.creditsMilli, amount: creditUse.amountPaise })
+    .select({ id: creditUse.id, packageId: creditUse.clientPackageId, lotId: creditUse.walletLotId, milli: creditUse.creditsMilli, amount: creditUse.amountPaise, value: creditUse.valuePaise })
     .from(creditUse)
     .where(and(eq(creditUse.bookingId, bookingId), isNull(creditUse.returnedAt)))
     .for("update");
@@ -154,7 +157,7 @@ export async function returnCredits(tx: Tx, bookingId: string, now: Date): Promi
     if (u.packageId) {
       const restored = await tx
         .update(clientPackage)
-        .set({ creditsLeftMilli: sql`${clientPackage.creditsLeftMilli} + ${u.milli}` })
+        .set({ creditsLeftMilli: sql`${clientPackage.creditsLeftMilli} + ${u.milli}`, valueLeftPaise: sql`${clientPackage.valueLeftPaise} + ${u.value}` })
         .where(and(eq(clientPackage.id, u.packageId), or(isNull(clientPackage.expiresAt), gt(clientPackage.expiresAt, now))))
         .returning({ id: clientPackage.id });
       if (restored.length) back.credits += toCredits(u.milli);
@@ -225,6 +228,7 @@ export function createPackagesRepository(db: Db) {
             creditsLeftMilli: pkg.sessions * MILLI,
             creditValuePaise: pkg.creditValuePaise,
             pricePaise: pkg.pricePaise,
+            valueLeftPaise: pkg.pricePaise,
             expiresAt: v.expiresAt,
             paymentNote: v.paymentNote,
           })

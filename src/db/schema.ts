@@ -240,6 +240,8 @@ export const clientPackage = pgTable("client_package", {
   creditsTotalMilli: integer("credits_total_milli").notNull().default(0),
   creditsLeftMilli: integer("credits_left_milli").notNull().default(0),
   creditValuePaise: integer("credit_value_paise").notNull().default(100000),
+  /** Money still unspent from what the client paid. It falls separately from credits: a dearer tier takes its full price. */
+  valueLeftPaise: integer("value_left_paise").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   paymentNote: text("payment_note"),
   createdAt: createdAt(),
@@ -247,6 +249,7 @@ export const clientPackage = pgTable("client_package", {
   index("client_package_client_idx").on(t.clientId),
   check("client_package_credits_within_total", sql`${t.creditsLeftMilli} >= 0 and ${t.creditsLeftMilli} <= ${t.creditsTotalMilli}`),
   check("client_package_credit_value_positive", sql`${t.creditValuePaise} > 0`),
+  check("client_package_value_within_price", sql`${t.valueLeftPaise} >= 0 and ${t.valueLeftPaise} <= ${t.pricePaise}`),
 ]);
 
 /** Money a client has paid in advance. Each top-up is its own lot so it can expire on its own date (one year). */
