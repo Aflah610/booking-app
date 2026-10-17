@@ -49,14 +49,18 @@ export function createClientsRepository(db: Db) {
 
     /** Newest first, with how many bookings each has; `q` matches name, phone or email. */
     list({ q, limit = 100 }: { q?: string; limit?: number } = {}) {
-      const pattern = q ? `%${q.replace(/[%_\\]/g, "\\$&")}%` : null;
+      const like = (s: string) => `%${s.replace(/[%_\\]/g, "\\$&")}%`;
+      const pattern = q ? like(q) : null;
+      // "98765 43210" or "+91 98765" should find +919876543210, so a phone search also tries the digits alone.
+      const digits = q?.replace(/\D/g, "") ?? "";
       return db
         .select({
           ...clientColumns,
-          bookings: sql<number>`(select count(*)::int from ${booking} where ${booking.clientId} = ${client.id})`,
+          bookings: // Written out in full: inside a subquery the short column names would resolve to the booking table and always count zero.
+          sql<number>`(select count(*)::int from booking b where b.client_id = client.id)`,
         })
         .from(client)
-        .where(pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.email, pattern)) : undefined)
+        .where(pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined)
         .orderBy(desc(client.createdAt), asc(client.name))
         .limit(limit);
     },
