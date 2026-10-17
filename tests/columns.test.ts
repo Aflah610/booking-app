@@ -10,6 +10,8 @@ describe("choosing columns", () => {
     expect(resolveColumns(null, "bookings")).toEqual(DEFAULT_COLUMNS.bookings);
     expect(resolveColumns("nope", "today")).toEqual(DEFAULT_COLUMNS.today);
     expect(resolveColumns(["bogus"], "bookings")).toEqual(DEFAULT_COLUMNS.bookings);
+    // A column that no longer exists (the old separate phone column) is quietly dropped from a saved choice.
+    expect(resolveColumns(["time", "client", "phone"], "bookings")).toEqual(["time", "client"]);
   });
 
   it("keeps the order chosen, drops unknown and repeated columns, and always keeps Time", () => {
@@ -21,7 +23,7 @@ describe("choosing columns", () => {
     expect(() => checkColumns([], "bookings")).toThrow("Select at least two fields");
     expect(() => checkColumns(["time"], "bookings")).toThrow("Select at least two fields");
     expect(() => checkColumns("x", "bookings")).toThrow();
-    expect(checkColumns(["phone"], "bookings")).toEqual(["time", "phone"]);
+    expect(checkColumns(["email"], "bookings")).toEqual(["time", "email"]);
   });
 
   it("lists shown columns first in their order, then the hidden ones, with Time locked", () => {
@@ -42,8 +44,8 @@ describe("remembering the choice", () => {
     expect(await c.preferences.get(a.id, columnPrefKey("bookings"))).toEqual(["time", "email"]);
     expect(await c.preferences.get(b.id, columnPrefKey("bookings"))).toBeNull();
     expect(await c.preferences.get(a.id, columnPrefKey("today"))).toBeNull();
-    await c.preferences.set(a.id, columnPrefKey("bookings"), ["time", "phone"]); // saving again replaces it
-    expect(await c.preferences.get(a.id, columnPrefKey("bookings"))).toEqual(["time", "phone"]);
+    await c.preferences.set(a.id, columnPrefKey("bookings"), ["time", "client"]); // saving again replaces it
+    expect(await c.preferences.get(a.id, columnPrefKey("bookings"))).toEqual(["time", "client"]);
     await c.preferences.reset(a.id, columnPrefKey("bookings"));
     expect(await c.preferences.get(a.id, columnPrefKey("bookings"))).toBeNull();
   });

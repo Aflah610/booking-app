@@ -19,8 +19,12 @@ const CELLS: Record<BookingColumnId, (b: BookingDTO, c: Ctx) => React.ReactNode>
   ),
   service: (b) => <span className="font-medium">{b.serviceName}</span>,
   staff: (b) => b.staffName,
-  client: (b) => b.clientName,
-  phone: (b) => b.clientPhone,
+  client: (b) => (
+    <>
+      <span className="block">{b.clientName}</span>
+      <span className="block text-zinc-600">{b.clientPhone}</span>
+    </>
+  ),
   email: (b) => b.clientEmail ?? <span className="text-zinc-400">–</span>,
   payment: (b) => <PaymentBadge status={b.paymentStatus} />,
   price: (b) => (b.pricePaise !== null ? rupees(b.pricePaise) : <span className="text-zinc-400">–</span>),

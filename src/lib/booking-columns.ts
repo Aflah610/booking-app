@@ -7,8 +7,8 @@ export const BOOKING_COLUMNS = [
   { id: "time", label: "Time", locked: true },
   { id: "service", label: "Service" },
   { id: "staff", label: "Therapist" },
-  { id: "client", label: "Customer" },
-  { id: "phone", label: "Customer phone" },
+  // Name and phone share one cell: two columns for the same person used up too much width.
+  { id: "client", label: "Customer (name and phone)" },
   { id: "email", label: "Customer email" },
   { id: "payment", label: "Payment status" },
   { id: "price", label: "Price" },
@@ -23,9 +23,9 @@ export type BookingColumnId = (typeof BOOKING_COLUMNS)[number]["id"];
 export type BookingListKey = "bookings" | "today";
 
 export const DEFAULT_COLUMNS: Record<BookingListKey, BookingColumnId[]> = {
-  bookings: ["booking_id", "time", "service", "staff", "client", "phone", "payment", "status"],
+  bookings: ["booking_id", "time", "service", "staff", "client", "payment", "status"],
   // Today is the person's own diary, so the therapist column would only repeat their name.
-  today: ["booking_id", "time", "service", "client", "phone", "payment", "status"],
+  today: ["booking_id", "time", "service", "client", "payment", "status"],
 };
 
 export const columnPrefKey = (list: BookingListKey) => `columns.${list}`;
