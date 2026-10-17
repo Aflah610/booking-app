@@ -62,6 +62,11 @@ export async function setPaymentAction(id: string, status: PaymentStatus) {
   await act(`/admin/bookings/${id}`, "Payment updated", () => app().bookings.setPayment({ staffId: me.id }, id, status));
 }
 
+export async function useCreditAction(id: string) {
+  const me = await requireStaff();
+  await act(`/admin/bookings/${id}`, "Paid with the client's credit", () => app().bookings.useCredit({ staffId: me.id }, id));
+}
+
 export async function updateBookingNotesAction(id: string, form: FormData) {
   const me = await requireStaff();
   await act(`/admin/bookings/${id}`, "Notes saved", () => app().bookings.updateNotes({ staffId: me.id }, id, optional(form, "notes")));

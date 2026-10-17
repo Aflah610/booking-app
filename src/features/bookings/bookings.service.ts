@@ -367,6 +367,28 @@ export function createBookingsService(deps: {
       return get(id);
     },
 
+    /**
+     * Staff press "Use client's credit" on an unpaid booking, e.g. after the client bought a package. Spends a package
+     * session or wallet money exactly as a new booking would.
+     */
+    async useCredit(actor: Actor, id: string, opts: { now?: Date } = {}) {
+      const now = opts.now ?? new Date();
+      const b = await get(id);
+      if (b.status !== "upcoming") throw new DomainError("conflict", `Booking ${id} is ${b.status}; credit can only pay an upcoming booking`, { reason: "not_upcoming" });
+      if (b.paymentStatus === "paid" || b.paymentStatus === "not_required") throw new DomainError("conflict", "This booking doesn't need paying", { reason: "already_paid" });
+      if (b.creditSession || b.creditPaise > 0) throw new DomainError("conflict", "Credit has already been used on this booking", { reason: "credit_used" });
+      if (b.slotReleased) throw new DomainError("conflict", "The time for this booking was given back. The client needs to resume it first", { reason: "slot_released" });
+      const result = await bookingsRepo.useCredit(id, { now, audit: { actor, action: "use_credit", entity: "booking", entityId: id } });
+      if (!result.ok) fail(result);
+      const { covered, taken, wasOnline } = result.value;
+      if (!taken.session && taken.walletPaise === 0) {
+        throw new DomainError("invalid", "This client has no package session or wallet money that applies to this booking", { reason: "no_credit" });
+      }
+      // An online booking was never confirmed to the client; paying it off by credit is what confirms it.
+      if (covered && wasOnline) await announce({ type: "booked", bookingId: id, at: now });
+      return get(id);
+    },
+
     /** What the next booking's number will roughly be; gaps from failed attempts can make it a little higher. */
     async nextNumber() {
       return (await bookingsRepo.latestNumber()) + 1;

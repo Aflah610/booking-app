@@ -10,7 +10,7 @@ import { isoDay, longDayLabel, NO_SHOW_BY_LABEL, PAYMENT_LABEL, timeLabel } from
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { PaymentBadge, StatusBadge } from "@/components/StatusBadge";
-import { cancelBookingAction, markBookingAction, recordPaymentAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction } from "../actions";
+import { cancelBookingAction, markBookingAction, recordPaymentAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction, useCreditAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function BookingPage({
     throw err;
   });
   const s = await settings.get();
-  const [paymentRows, creditUses] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id)]);
+  const [paymentRows, creditUses, credit] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId)]);
   const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const tz = s.timezone;
   const now = new Date();
@@ -93,6 +93,14 @@ export default async function BookingPage({
                 <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client can resume until</dt><dd className="mt-1">{timeLabel(b.resumeUntil, tz)}, {longDayLabel(b.resumeUntil, tz)}</dd></div>
               )}
             </dl>
+            {b.status === "upcoming" && !b.slotReleased && (b.paymentStatus === "pending" || b.paymentStatus === "failed") && !b.creditSession && b.creditPaise === 0 && (credit.packages.length > 0 || credit.walletPaise > 0) && (
+              <form action={useCreditAction.bind(null, b.id)} className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-3 text-sm">
+                <span className="flex-1">
+                  This client has {credit.packages.reduce((n, p) => n + p.sessionsLeft, 0)} package sessions and {rupees(credit.walletPaise)} in their wallet.
+                </span>
+                <button className="btn-ghost" type="submit">Pay with their credit</button>
+              </form>
+            )}
             {creditUses.length > 0 && (
               <div className="rounded-lg border border-zinc-200 p-3 text-sm">
                 <p className="mb-1 font-medium">Paid with credit</p>

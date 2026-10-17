@@ -320,3 +320,60 @@ describe("on the website", () => {
     expect(toPublicBooking(b, "BK-", t0).payment.credit).toEqual({ session: false, walletPaise: 40000 });
   });
 });
+
+describe("paying an existing booking with credit", () => {
+  it("uses a package bought after the booking was made", async () => {
+    const { counselling, asha, clientId } = await setup();
+    const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
+    expect(b).toMatchObject({ paymentStatus: "pending", creditSession: false });
+    await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
+    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditSession: true, amountPaise: null });
+    expect((await left(clientId)).packages[0].sessionsLeft).toBe(3);
+  });
+
+  it("uses wallet money added later, leaving the difference to pay", async () => {
+    const { counselling, asha, clientId } = await setup();
+    const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
+    await c.packages.topUp({}, clientId, { amountPaise: 40000 }, t0);
+    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "pending", creditPaise: 40000, amountPaise: 60000 });
+  });
+
+  it("works for a service whose price was typed as plain text only when there is a session to use", async () => {
+    const { asha, clientId } = await setup();
+    const vague = await c.catalog.create({}, { name: "Consult", durationMin: 60, priceDisplay: "From ₹500" });
+    await c.staff.setServices({}, asha.id, [vague.id]);
+    const b = await book(vague.id, asha.id, "2026-10-19T10:00");
+    await c.packages.topUp({}, clientId, { amountPaise: 500000 }, t0);
+    await expect(c.bookings.useCredit({}, b.id, { now: t0 })).rejects.toMatchObject({ code: "invalid" }); // no amount, so the wallet can't pay it
+    await c.packages.sell({}, clientId, { packageId: (await pack([vague.id])).id }, t0);
+    expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditSession: true });
+  });
+
+  it("refuses when nothing applies, when already paid, when credit was used, or when cancelled", async () => {
+    const { counselling, asha, clientId } = await setup();
+    const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
+    await expect(c.bookings.useCredit({}, b.id, { now: t0 })).rejects.toMatchObject({ code: "invalid" });
+    await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
+    await c.bookings.useCredit({}, b.id, { now: t0 });
+    await expect(c.bookings.useCredit({}, b.id, { now: t0 })).rejects.toMatchObject({ code: "conflict" });
+    const other = await book(counselling.id, asha.id, "2026-10-20T10:00", { useCredits: false });
+    await c.bookings.cancel(desk, other.id, {}, { now: t0 });
+    await expect(c.bookings.useCredit({}, other.id, { now: t0 })).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("confirms an online booking that was waiting for payment once credit pays it all", async () => {
+    await c.settings.update({}, { ...(await c.settings.get()), onlinePayment: true, resumeUrl: "https://yourfirm.com/my-bookings" });
+    try {
+      const { counselling, asha, clientId } = await setup();
+      await c.workflows.processDue({ now: t0 });
+      const b = (await c.bookings.create(website, { serviceId: counselling.id, staffId: asha.id, start: at("2026-10-19T10:00"), client: ravi }, { now: t0, idempotencyKey: "web-key-12345678" })).booking;
+      expect(await c.workflows.processDue({ now: t0 })).toBe(0);
+      await c.packages.topUp({}, clientId, { amountPaise: 100000 }, t0);
+      await c.bookings.useCredit({}, b.id, { now: t0 });
+      expect(await c.workflows.processDue({ now: t0 })).toBeGreaterThan(0);
+      expect(await c.bookings.get(b.id)).toMatchObject({ paymentStatus: "paid", resumeUntil: null });
+    } finally {
+      await c.settings.update({}, { ...(await c.settings.get()), onlinePayment: false });
+    }
+  });
+});
