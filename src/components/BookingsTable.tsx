@@ -13,16 +13,16 @@ const CELLS: Record<BookingColumnId, (b: BookingDTO, c: Ctx) => React.ReactNode>
   booking_id: (b, c) => <span className="font-medium tabular-nums text-zinc-700">{bookingReference(c.prefix, b.number)}</span>,
   time: (b, c) => (
     <>
-      <span className="block font-medium">{dayLabel(b.startsAt, c.tz)}</span>
-      <span className="block text-zinc-600">{timeLabel(b.startsAt, c.tz)} – {timeLabel(b.endsAt, c.tz)}</span>
+      <span className="block font-medium leading-tight">{dayLabel(b.startsAt, c.tz)}</span>
+      <span className="block text-xs leading-tight text-zinc-500">{timeLabel(b.startsAt, c.tz)} – {timeLabel(b.endsAt, c.tz)}</span>
     </>
   ),
   service: (b) => <span className="font-medium">{b.serviceName}</span>,
   staff: (b) => b.staffName,
   client: (b) => (
     <>
-      <span className="block">{b.clientName}</span>
-      <span className="block text-zinc-600">{b.clientPhone}</span>
+      <span className="block leading-tight">{b.clientName}</span>
+      <span className="block text-xs leading-tight text-zinc-500">{b.clientPhone}</span>
     </>
   ),
   email: (b) => b.clientEmail ?? <span className="text-zinc-400">–</span>,
@@ -32,7 +32,7 @@ const CELLS: Record<BookingColumnId, (b: BookingDTO, c: Ctx) => React.ReactNode>
   session: (b) => (b.meetingUrl || b.meetingOverride === "on" || b.meetingType === "google_meet" ? "Online" : "In person"),
   source: (b) => (b.source === "web" ? "Online booking" : "Staff"),
 };
-const LABELS = new Map<string, string>(BOOKING_COLUMNS.map((c) => [c.id, c.label]));
+const HEADS = new Map<string, { label: string; caption?: string }>(BOOKING_COLUMNS.map((c) => [c.id, { label: c.label, caption: "caption" in c ? c.caption : undefined }]));
 
 /**
  * Bookings as a table whose columns each person chooses (see ColumnsManager). Every cell links to the booking; an upcoming
@@ -47,7 +47,15 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
       <table className="table min-w-full">
         <thead>
           <tr>
-            {columns.map((id) => <th key={id} className="whitespace-nowrap">{LABELS.get(id)}</th>)}
+            {columns.map((id) => {
+              const h = HEADS.get(id)!;
+              return (
+                <th key={id} className="whitespace-nowrap">
+                  {h.label}
+                  {h.caption && <span className="block text-[10px] font-normal normal-case leading-tight tracking-normal text-zinc-500">{h.caption}</span>}
+                </th>
+              );
+            })}
             {joins && <th aria-label="Join" />}
           </tr>
         </thead>
@@ -56,7 +64,7 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
             <tr key={b.id} className="relative transition-colors hover:bg-zinc-50">
               {columns.map((id) => (
                 <td key={id} className="p-0">
-                  <Link href={`/admin/bookings/${b.id}`} className="block whitespace-nowrap px-4 py-3">{CELLS[id](b, ctx)}</Link>
+                  <Link href={`/admin/bookings/${b.id}`} className="block whitespace-nowrap px-4 py-2.5">{CELLS[id](b, ctx)}</Link>
                 </td>
               ))}
               {joins && (

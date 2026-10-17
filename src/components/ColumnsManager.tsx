@@ -85,7 +85,7 @@ export function ColumnsManager({ list, choices }: { list: BookingListKey; choice
                     <span className="cursor-grab select-none text-zinc-400" aria-hidden="true">⠿</span>
                     <label className="flex flex-1 items-center gap-3 text-sm">
                       <input type="checkbox" checked={c.checked} disabled={c.locked} onChange={() => toggle(c.id)} />
-                      <span className={c.locked ? "text-zinc-500" : undefined}>{c.label}{c.locked && " (always shown)"}</span>
+                      <span className={c.locked ? "text-zinc-500" : undefined}>{c.label}{c.caption && <span className="ml-1.5 text-xs text-zinc-500">{c.caption}</span>}{c.locked && " (always shown)"}</span>
                     </label>
                     <button type="button" className="icon-btn" aria-label={`Move ${c.label} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>↑</button>
                     <button type="button" className="icon-btn" aria-label={`Move ${c.label} down`} disabled={i === items.length - 1} onClick={() => move(i, i + 1)}>↓</button>

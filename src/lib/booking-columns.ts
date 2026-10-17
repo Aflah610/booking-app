@@ -8,14 +8,14 @@ export const BOOKING_COLUMNS = [
   { id: "service", label: "Service" },
   { id: "staff", label: "Therapist" },
   // Name and phone share one cell: two columns for the same person used up too much width.
-  { id: "client", label: "Customer (name and phone)" },
+  { id: "client", label: "Customer", caption: "name and phone" },
   { id: "email", label: "Customer email" },
   { id: "payment", label: "Payment status" },
   { id: "price", label: "Price" },
   { id: "status", label: "Status" },
   { id: "session", label: "Online or in person" },
   { id: "source", label: "Booked by" },
-] as const satisfies readonly { id: string; label: string; locked?: boolean }[];
+] as const satisfies readonly { id: string; label: string; locked?: boolean; caption?: string }[];
 
 export type BookingColumnId = (typeof BOOKING_COLUMNS)[number]["id"];
 
@@ -52,13 +52,13 @@ export function checkColumns(input: unknown, list: BookingListKey): BookingColum
   return ids;
 }
 
-export type ColumnChoice = { id: string; label: string; locked: boolean; checked: boolean };
+export type ColumnChoice = { id: string; label: string; caption?: string; locked: boolean; checked: boolean };
 
 /** All columns for the panel: the shown ones in their order first, then the hidden ones. */
 export function columnChoices(shown: BookingColumnId[]): ColumnChoice[] {
-  const all: { id: string; label: string; locked?: boolean }[] = [...BOOKING_COLUMNS];
+  const all: { id: string; label: string; locked?: boolean; caption?: string }[] = [...BOOKING_COLUMNS];
   const byId = new Map(all.map((c) => [c.id, c]));
   const picked = shown.map((id) => byId.get(id)!);
   const rest = all.filter((c) => !shown.includes(c.id as BookingColumnId));
-  return [...picked, ...rest].map((c) => ({ id: c.id, label: c.label, locked: Boolean(c.locked), checked: shown.includes(c.id as BookingColumnId) }));
+  return [...picked, ...rest].map((c) => ({ id: c.id, label: c.label, caption: c.caption, locked: Boolean(c.locked), checked: shown.includes(c.id as BookingColumnId) }));
 }
