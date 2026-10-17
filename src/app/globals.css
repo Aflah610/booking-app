@@ -34,6 +34,10 @@ body {
   @apply w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black placeholder:text-zinc-400 focus:border-black focus:outline-none;
   color-scheme: light;
 }
+/* Room on the left for a symbol (like ₹) drawn over the box. Defined after .input so its padding wins; a Tailwind pl-* class would lose to .input. */
+.input-prefixed {
+  padding-left: 1.75rem;
+}
 .btn {
   @apply inline-flex items-center gap-2 rounded-md bg-black px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50;
 }

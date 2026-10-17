@@ -11,7 +11,7 @@ export function ServiceFields({ s }: { s?: ServiceDTO }) {
         <label className="label" htmlFor="priceDisplay">Price</label>
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-sm text-zinc-600">₹</span>
-          <input className="input pl-7" id="priceDisplay" name="priceDisplay" placeholder="1500" defaultValue={s?.priceDisplay?.replace(/^₹/, "") ?? ""} />
+          <input className="input input-prefixed" id="priceDisplay" name="priceDisplay" placeholder="1500" defaultValue={s?.priceDisplay?.replace(/^₹/, "") ?? ""} />
         </div>
         <p className="mt-1 text-xs text-zinc-600">A plain amount like 1500 is what your website charges online{s?.pricePaise ? ` (now ${s.pricePaise} paise)` : ""}. Text like “From ₹500” is only shown.</p>
       </div>
