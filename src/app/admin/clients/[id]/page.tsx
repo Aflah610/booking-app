@@ -48,7 +48,8 @@ export default async function ClientPage({
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs uppercase tracking-wider text-zinc-600">Wallet</p>
-                <p className="mt-1 text-2xl font-semibold">{rupees(credit.walletPaise)}</p>
+                <p className="mt-1 text-2xl font-semibold">{rupees(credit.totalPaise)}</p>
+                <p className="text-xs text-zinc-600">{rupees(credit.packageValuePaise)} in packages · {rupees(credit.walletPaise)} added as wallet money</p>
                 {credit.lots.map((l) => (
                   <p key={l.id} className="text-xs text-zinc-600">{rupees(l.remainingPaise)} of {rupees(l.amountPaise)}, expires {longDayLabel(l.expiresAt, s.timezone)}</p>
                 ))}
@@ -57,7 +58,7 @@ export default async function ClientPage({
                 <p className="text-xs uppercase tracking-wider text-zinc-600">Package sessions</p>
                 <p className="mt-1 text-2xl font-semibold">{credit.packages.reduce((n, p) => n + p.sessionsLeft, 0)}</p>
                 {credit.packages.map((p) => (
-                  <p key={p.id} className="text-xs text-zinc-600">{p.packageName}: {p.sessionsLeft} of {p.sessionsTotal} left{p.expiresAt ? `, expires ${longDayLabel(p.expiresAt, s.timezone)}` : ""}</p>
+                  <p key={p.id} className="text-xs text-zinc-600">{p.packageName}: {p.sessionsLeft} of {p.sessionsTotal} left ({rupees(p.valueLeftPaise)}){p.expiresAt ? `, expires ${longDayLabel(p.expiresAt, s.timezone)}` : ""}</p>
                 ))}
                 {credit.packages.length === 0 && <p className="text-xs text-zinc-600">None left.</p>}
               </div>
@@ -85,7 +86,7 @@ export default async function ClientPage({
                 <ul className="divide-y divide-zinc-100 text-sm">
                   {uses.map((u) => (
                     <li key={u.id} className="flex flex-wrap items-center gap-x-4 py-1.5">
-                      <span className="flex-1">Booking {s.bookingPrefix}{String(u.bookingNumber).padStart(5, "0")} · {u.kind === "package" ? `1 session of ${u.label}` : `${rupees(u.amountPaise)} from wallet`}</span>
+                      <span className="flex-1">Booking {s.bookingPrefix}{String(u.bookingNumber).padStart(5, "0")} · {u.kind === "package" ? `1 session of ${u.label} (${rupees(u.valuePaise)})` : `${rupees(u.amountPaise)} from wallet`}</span>
                       {u.returnedAt ? <span className="font-medium text-green-700">Given back</span> : <span className="text-zinc-600">Used</span>}
                     </li>
                   ))}

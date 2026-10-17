@@ -4,7 +4,7 @@ import { booking, client, clientPackage, creditUse, service, servicePackage, wal
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import {
-  sessionValuePaise,
+  valueLeftPaise,
   type ClientPackageDTO,
   type CreditSummaryDTO,
   type CreditTaken,
@@ -23,6 +23,9 @@ const packageColumns = {
   pricePaise: servicePackage.pricePaise,
   active: servicePackage.active,
 };
+
+type PackageRow = Omit<ClientPackageDTO, "valueLeftPaise">;
+const withValue = (r: PackageRow): ClientPackageDTO => ({ ...r, valueLeftPaise: valueLeftPaise(r.pricePaise, r.sessionsTotal, r.sessionsLeft) });
 
 const clientPackageColumns = {
   id: clientPackage.id,
@@ -59,7 +62,7 @@ export async function applyCredits(
 ): Promise<CreditTaken> {
   if (t.owes) {
     const [pkg] = await tx
-      .select({ id: clientPackage.id, total: clientPackage.sessionsTotal, price: clientPackage.pricePaise })
+      .select({ id: clientPackage.id, total: clientPackage.sessionsTotal, left: clientPackage.sessionsLeft, price: clientPackage.pricePaise })
       .from(clientPackage)
       .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
       .where(
@@ -79,7 +82,8 @@ export async function applyCredits(
         bookingId: t.bookingId,
         clientPackageId: pkg.id,
         sessions: 1,
-        valuePaise: sessionValuePaise(pkg.price, pkg.total),
+        // The money this session stands for: the package's remaining value before it, minus the value after.
+        valuePaise: valueLeftPaise(pkg.price, pkg.total, pkg.left) - valueLeftPaise(pkg.price, pkg.total, pkg.left - 1),
       });
       await tx.update(booking).set({ creditSession: true }).where(eq(booking.id, t.bookingId));
       return { session: true, walletPaise: 0 };
@@ -233,17 +237,20 @@ export function createPackagesRepository(db: Db) {
           .where(and(eq(walletLot.clientId, clientId), gt(walletLot.remainingPaise, 0), gt(walletLot.expiresAt, now)))
           .orderBy(asc(walletLot.expiresAt), asc(walletLot.createdAt)),
       ]);
-      return { packages, lots, walletPaise: lots.reduce((n, l) => n + l.remainingPaise, 0) };
+      const withValues = packages.map(withValue);
+      const walletPaise = lots.reduce((n, l) => n + l.remainingPaise, 0);
+      const packageValuePaise = withValues.reduce((n, p) => n + p.valueLeftPaise, 0);
+      return { packages: withValues, lots, walletPaise, packageValuePaise, totalPaise: walletPaise + packageValuePaise };
     },
 
     /** Every package the client has bought, including used-up and expired ones. */
-    allPackages(clientId: string): Promise<ClientPackageDTO[]> {
-      return db
+    async allPackages(clientId: string): Promise<ClientPackageDTO[]> {
+      return (await db
         .select(clientPackageColumns)
         .from(clientPackage)
         .innerJoin(servicePackage, eq(servicePackage.id, clientPackage.packageId))
         .where(eq(clientPackage.clientId, clientId))
-        .orderBy(desc(clientPackage.createdAt));
+        .orderBy(desc(clientPackage.createdAt))).map(withValue);
     },
 
     allLots(clientId: string): Promise<WalletLotDTO[]> {

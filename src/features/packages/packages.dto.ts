@@ -25,6 +25,8 @@ export type ClientPackageDTO = {
   sessionsTotal: number;
   sessionsLeft: number;
   pricePaise: number;
+  /** The part of the price these remaining sessions stand for. */
+  valueLeftPaise: number;
   expiresAt: Date | null;
   paymentNote: string | null;
   createdAt: Date;
@@ -44,7 +46,12 @@ export type WalletLotDTO = {
 export type CreditSummaryDTO = {
   packages: ClientPackageDTO[];
   lots: WalletLotDTO[];
+  /** Money from top-ups: the only money that can pay for a booking directly. */
   walletPaise: number;
+  /** What the unused package sessions are worth. It falls by each session's share as sessions are used. */
+  packageValuePaise: number;
+  /** Everything the client has paid for and not yet used: top-ups plus package value. */
+  totalPaise: number;
 };
 
 /** One line of what a booking was paid with. */
@@ -64,5 +71,9 @@ export type CreditUseDTO = {
 /** What a booking took when it was made. */
 export type CreditTaken = { session: boolean; walletPaise: number };
 
-/** The value of one session of a package, rounded to the nearest paisa. */
-export const sessionValuePaise = (pricePaise: number, sessions: number) => Math.round(pricePaise / sessions);
+/**
+ * What is left of a package's price when `left` of its `total` sessions remain. Used sessions are worth the
+ * difference between two steps, so the value of all sessions adds up to the price exactly, even when it
+ * doesn't divide evenly (₹1,000 over 3 sessions is 333 + 334 + 333).
+ */
+export const valueLeftPaise = (pricePaise: number, total: number, left: number) => Math.round((pricePaise * left) / total);

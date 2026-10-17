@@ -9,6 +9,15 @@ Two kinds of prepaid credit, tracked separately for each client.
 | A booking takes | 1 session | The session's price |
 | Expires | After the package's "valid for" days (default 365; blank = never) | 365 days after each top-up |
 
+A package purchase counts in **both**. A client who pays ₹3,600 for 4 sessions has 4 package sessions and ₹3,600 in their
+wallet total. Each session used takes 1 session and that session's share of the money (₹900) together, and cancelling gives
+both back. A price that doesn't divide evenly is split so the sessions add up to exactly what was paid (₹1,000 over 3 sessions
+is ₹333 + ₹334 + ₹333).
+
+The wallet total on the client page is made of two parts: **package value** (falls only as package sessions are used) and
+**wallet money** from top-ups (the only money that can pay for a booking directly). Package money can't be spent on a service the
+package doesn't cover, otherwise the same payment would be counted twice.
+
 Money is never paid back in cash, from either.
 
 ## Setting up
@@ -47,7 +56,7 @@ Undoing a "staff no-show" later (setting the booking back to completed) does not
 
 ## Website API
 
-- `GET /api/v1/credits?phone=+919876543210` returns `{ packages: [{ id, name, sessionsLeft, sessionsTotal, serviceIds, expiresAt }], walletPaise, wallet: [...] }`.
+- `GET /api/v1/credits?phone=+919876543210` returns `{ packages: [{ id, name, sessionsLeft, sessionsTotal, valueLeftPaise, serviceIds, expiresAt }], walletPaise, packageValuePaise, totalPaise, wallet: [...] }`. `totalPaise` is what the client sees as their wallet (top-ups plus package value).
   Use it to show "You have 3 sessions left" before booking.
 - `POST /api/v1/bookings` uses credit automatically. Send `"useCredits": false` to leave the client's balance alone.
 - The booking's `payment.credit` is `{ session, walletPaise }`: what was paid from credit. `payment.amountPaise` is what is left to pay.
