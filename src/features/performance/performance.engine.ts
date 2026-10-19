@@ -62,7 +62,7 @@ export function describeJourney(journey: Journey, window: Window, now: Date, gra
   const heldSessions = sessions.filter((s) => s.held);
   const ahead = sessions.find((s) => !s.held);
   const last = heldSessions.at(-1);
-  const status: ClientRow["status"] = !last ? "new" : ahead ? "ongoing" : olderThan(last.fact.startsAt, graceDays, now) ? "terminated" : "recent";
+  const status: ClientRow["status"] = !last ? "new" : ahead ? "ongoing" : olderThan(last.fact.startsAt, graceDays, now) ? "concluded" : "recent";
   return {
     sessions,
     client: {

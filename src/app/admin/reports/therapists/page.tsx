@@ -40,7 +40,7 @@ function Row({ t, period }: { t: TherapistReport; period: string }) {
       {t.retention.steps.map((s) => (
         <td key={s.after}><Rate rate={s.rate} caption={stepCaption(s)} /></td>
       ))}
-      <td><Rate rate={t.termination.rate} caption={t.termination.activeClients === 0 ? "none" : `${t.termination.terminated} of ${t.termination.activeClients}`} /></td>
+      <td><Rate rate={t.conclusion.rate} caption={t.conclusion.activeClients === 0 ? "none" : `${t.conclusion.concluded} of ${t.conclusion.activeClients}`} /></td>
       <td className="whitespace-nowrap">
         {t.punctuality.status === "ok" ? (
           <>
@@ -80,7 +80,7 @@ export default async function TherapistPerformancePage({ searchParams }: { searc
               {Array.from({ length: RETENTION_STEPS }, (_, i) => (
                 <th key={i} className="whitespace-nowrap">After {ordinal(i + 1)}</th>
               ))}
-              <th>Terminated</th>
+              <th>Concluded</th>
               <th>Punctuality</th>
             </tr>
           </thead>
@@ -99,7 +99,7 @@ export default async function TherapistPerformancePage({ searchParams }: { searc
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li><b>Sessions</b>: sessions held in the period, and with how many clients. A session counts once it is over; cancelled bookings and no-shows do not.</li>
           <li><b>After 1st … 6th</b>: of the clients whose 1st (2nd, 3rd …) session with this therapist fell in the period, the share who came back for another, counting one already booked. A client who has not booked yet is shown as &ldquo;waiting&rdquo; for {report.graceDays} days and left out of the rate until then.</li>
-          <li><b>Terminated</b>: of the clients seen in the period, the share whose treatment has ended: nothing booked and the last session more than {report.graceDays} days ago. It covers successful completion and early termination alike; the app does not yet record which.</li>
+          <li><b>Concluded</b>: of the clients seen in the period, the share whose treatment has ended: nothing booked and the last session more than {report.graceDays} days ago. It covers successful completion and early exit alike; the app does not yet record which.</li>
           <li><b>Punctuality</b>: how soon after the scheduled start the therapist joined the video call. It needs Google Meet to be connected, so it shows as not connected for now.</li>
           <li>A client who moves to another therapist counts as not coming back to the first one.</li>
         </ul>

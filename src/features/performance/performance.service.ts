@@ -2,14 +2,14 @@ import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
 import { buildJourneys, describeJourney, inWindow, isHeld } from "./performance.engine";
 import { noAttendanceSource } from "./attendance";
-import { punctualityKpi, retentionKpi, terminationKpi, volumeKpi } from "./kpis";
+import { punctualityKpi, retentionKpi, conclusionKpi, volumeKpi } from "./kpis";
 import type { AttendanceSource, ClientRow, Journey, PerformanceReport, PeriodKey, SessionRow, TherapistDetail, TherapistReport } from "./performance.dto";
 import { DEFAULT_PERIOD } from "./performance.dto";
 import { isPeriodKey, periodWindow } from "./performance.periods";
 import type { KpiContext } from "./kpis/kpi";
 import type { PerformanceRepository, TherapistRow } from "./performance.repository";
 
-/** A client who has not booked again this many days after a session is counted as lost (or terminated). */
+/** A client who has not booked again this many days after a session is counted as lost (or concluded). */
 export const DEFAULT_GRACE_DAYS = 30;
 
 /**
@@ -33,7 +33,7 @@ export function createPerformanceService({
       designation: p.designation,
       volume: volumeKpi.compute(ctx),
       retention: retentionKpi.compute(ctx),
-      termination: terminationKpi.compute(ctx),
+      conclusion: conclusionKpi.compute(ctx),
       punctuality: punctualityKpi.compute(ctx),
     };
   }

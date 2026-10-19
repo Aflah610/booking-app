@@ -32,7 +32,7 @@ async function setup(attendance?: AttendanceSource) {
 }
 
 describe("therapist performance report", () => {
-  it("builds the volume, retention and termination numbers per therapist from real bookings", async () => {
+  it("builds the volume, retention and concluded-treatment numbers per therapist from real bookings", async () => {
     const { c, asha, dev, book } = await setup();
     // Ravi: three sessions with Asha and then one with Dr Dev. Meera: one with Asha, never back. Kiran: one recent session.
     await book(asha.id, "2026-08-03T10:00", "ravi");
@@ -53,7 +53,7 @@ describe("therapist performance report", () => {
     expect(a.retention.steps[1]).toMatchObject({ after: 2, cohort: 1, returned: 1, lost: 0, rate: 1 });
     // After the 3rd with Asha: Ravi went to Dr Dev and not back to Asha, so Asha lost him.
     expect(a.retention.steps[2]).toMatchObject({ after: 3, cohort: 1, returned: 0, lost: 1, rate: 0 });
-    expect(a.termination).toMatchObject({ activeClients: 3, terminated: 2, ongoing: 1 });
+    expect(a.conclusion).toMatchObject({ activeClients: 3, concluded: 2, ongoing: 1 });
     expect(a.punctuality).toEqual({ kind: "punctuality", status: "no_data" });
 
     const d = report.therapists[1];
@@ -127,7 +127,7 @@ describe("one therapist's own page", () => {
     expect(d.therapist).toMatchObject({ name: "Asha", volume: { sessions: 3, clients: 2 } });
     expect(d.clients.map((x) => x.name).sort()).toEqual(["Meera", "Ravi"]);
     expect(d.clients.find((x) => x.name === "Ravi")).toMatchObject({ sessionsInPeriod: 2, sessionsTotal: 2, status: "ongoing", phone: "+919876543210" });
-    expect(d.clients.find((x) => x.name === "Meera")).toMatchObject({ status: "terminated" });
+    expect(d.clients.find((x) => x.name === "Meera")).toMatchObject({ status: "concluded" });
     // Newest first, the booked-ahead one on top, and only Asha's.
     expect(d.sessions.map((s) => [s.clientName, s.ordinal, s.outcome])).toEqual([
       ["Ravi", null, null],

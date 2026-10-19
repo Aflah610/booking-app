@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildJourneys, describeJourney } from "@/features/performance/performance.engine";
 import type { Attendance, SessionFact } from "@/features/performance/performance.dto";
-import { punctualityKpi, retentionKpi, terminationKpi, volumeKpi } from "@/features/performance/kpis";
+import { punctualityKpi, retentionKpi, conclusionKpi, volumeKpi } from "@/features/performance/kpis";
 import type { KpiContext } from "@/features/performance/kpis/kpi";
 import { periodWindow } from "@/features/performance/performance.periods";
 
@@ -93,14 +93,14 @@ describe("retention after the Nth session", () => {
   });
 });
 
-describe("terminated (treatment ended)", () => {
+describe("concluded (treatment ended)", () => {
   it("counts active clients whose treatment has ended: nothing booked and a last session older than the grace period", () => {
     const facts = [session("a", "ended", 50), session("a", "going", 5), session("a", "booked", 45), session("a", "booked", -7)];
-    expect(terminationKpi.compute(ctx(facts))).toEqual({ kind: "termination", activeClients: 3, terminated: 1, ongoing: 2, rate: 1 / 3 });
+    expect(conclusionKpi.compute(ctx(facts))).toEqual({ kind: "conclusion", activeClients: 3, concluded: 1, ongoing: 2, rate: 1 / 3 });
   });
 
   it("ignores clients with no session in the window", () => {
-    expect(terminationKpi.compute(ctx([session("a", "old", 200)], { period: "30d" })).activeClients).toBe(0);
+    expect(conclusionKpi.compute(ctx([session("a", "old", 200)], { period: "30d" })).activeClients).toBe(0);
   });
 });
 
@@ -126,7 +126,7 @@ describe("one client's story with a therapist", () => {
   it("numbers each held session and says what came after it", () => {
     const d = describe1([session("a", "x", 80), session("a", "x", 70), session("a", "x", 40)]);
     expect(d.sessions.map((s) => [s.ordinal, s.outcome])).toEqual([[1, "came_back"], [2, "came_back"], [3, "not_back"]]);
-    expect(d.client).toMatchObject({ sessionsInPeriod: 3, sessionsTotal: 3, status: "terminated", nextAt: null });
+    expect(d.client).toMatchObject({ sessionsInPeriod: 3, sessionsTotal: 3, status: "concluded", nextAt: null });
   });
 
   it("marks a client with something booked ahead as ongoing, and leaves the booked session unnumbered", () => {

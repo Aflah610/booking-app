@@ -34,7 +34,7 @@ export interface AttendanceSource {
   forBookings(bookingIds: string[]): Promise<Map<string, Attendance>>;
 }
 
-export type KpiId = "volume" | "retention" | "termination" | "punctuality";
+export type KpiId = "volume" | "retention" | "conclusion" | "punctuality";
 
 export type VolumeResult = { kind: "volume"; sessions: number; clients: number };
 export type RetentionStep = {
@@ -51,12 +51,12 @@ export type RetentionStep = {
   rate: number | null;
 };
 export type RetentionResult = { kind: "retention"; steps: RetentionStep[] };
-export type TerminationResult = {
-  kind: "termination";
+export type ConclusionResult = {
+  kind: "conclusion";
   /** Clients with at least one session in the window. */
   activeClients: number;
-  /** Treatment has ended: nothing booked and the last session is past the grace period (a successful completion or an early termination). */
-  terminated: number;
+  /** Treatment has ended: nothing booked and the last session is past the grace period (a successful completion or an early exit). */
+  concluded: number;
   ongoing: number;
   rate: number | null;
 };
@@ -64,7 +64,7 @@ export type PunctualityResult =
   | { kind: "punctuality"; status: "no_data" }
   | { kind: "punctuality"; status: "ok"; measured: number; sessions: number; onTimeRate: number; avgMinutesLate: number };
 
-export type KpiResult = VolumeResult | RetentionResult | TerminationResult | PunctualityResult;
+export type KpiResult = VolumeResult | RetentionResult | ConclusionResult | PunctualityResult;
 
 export type TherapistReport = {
   staffId: string;
@@ -72,7 +72,7 @@ export type TherapistReport = {
   designation: string | null;
   volume: VolumeResult;
   retention: RetentionResult;
-  termination: TerminationResult;
+  conclusion: ConclusionResult;
   punctuality: PunctualityResult;
 };
 
@@ -81,7 +81,7 @@ export type PerformanceReport = {
   label: string;
   from: Date;
   to: Date;
-  /** Days after a session without a next booking before a client counts as lost or terminated. */
+  /** Days after a session without a next booking before a client counts as lost or concluded. */
   graceDays: number;
   therapists: TherapistReport[];
 };
@@ -119,8 +119,8 @@ export type ClientRow = {
   firstAt: Date;
   lastAt: Date | null;
   nextAt: Date | null;
-  /** "new": nothing held yet; "ongoing": something booked ahead; "recent": last session within the grace period; "terminated": treatment has ended. */
-  status: "new" | "ongoing" | "recent" | "terminated";
+  /** "new": nothing held yet; "ongoing": something booked ahead; "recent": last session within the grace period; "concluded": treatment has ended. */
+  status: "new" | "ongoing" | "recent" | "concluded";
 };
 
 /** Everything on one therapist's own page. */
