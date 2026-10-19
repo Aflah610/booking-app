@@ -144,3 +144,28 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .login-smile, .login-smile-eyes, .login-smile-mouth { animation: none; }
 }
+
+/* Welcome screen after sign-in: text rises in, a thin gold bar fills while the app loads. */
+.welcome-rise {
+  opacity: 0;
+  animation: welcome-rise 0.7s ease-out 0.1s forwards;
+}
+.welcome-bar {
+  @apply h-1 w-40 overflow-hidden rounded-full bg-[#e6e0db];
+}
+.welcome-bar span {
+  @apply block h-full w-full origin-left rounded-full bg-[#e9be65];
+  animation: welcome-fill 2.4s ease-in-out forwards;
+}
+@keyframes welcome-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes welcome-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-rise { animation: none; opacity: 1; }
+  .welcome-bar span { animation: none; }
+}

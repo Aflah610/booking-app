@@ -42,7 +42,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               await signIn("password", {
                 email: String(form.get("email") ?? ""),
                 password: String(form.get("password") ?? ""),
-                redirectTo: "/",
+                redirectTo: "/welcome",
               });
             } catch (err) {
               // signIn redirects by throwing on success, so only Auth.js errors are failures.
@@ -65,7 +65,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 key={id}
                 action={async () => {
                   "use server";
-                  await signIn(id, { redirectTo: "/" });
+                  await signIn(id, { redirectTo: "/welcome" });
                 }}
               >
                 <button className="login-secondary" type="submit">
@@ -84,7 +84,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 await signIn("local", {
                   email: String(form.get("email") ?? ""),
                   password: String(form.get("password") ?? ""),
-                  redirectTo: "/",
+                  redirectTo: "/welcome",
                 });
               } catch (err) {
                 if (err instanceof AuthError) redirect(`/login?error=${err.type}`);
