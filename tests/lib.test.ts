@@ -44,6 +44,12 @@ describe("database pool config", () => {
     expect(cfg.connectionString).not.toContain("sslmode");
   });
 
+  it("keeps idle connections for minutes on a long-running server, and lets them go in seconds on serverless", () => {
+    expect(poolConfig(neon, 5, {}).idleTimeoutMillis).toBe(10_000);
+    expect(poolConfig(neon, 5, { X_ZOHO_CATALYST_LISTEN_PORT: "9000" }).idleTimeoutMillis).toBe(300_000);
+    expect(poolConfig(neon, 5, { DATABASE_KEEP_ALIVE: "true" }).idleTimeoutMillis).toBe(300_000);
+  });
+
   it("leaves TLS to the URL when sslmode is given", () => {
     expect(poolConfig(`${neon}?sslmode=require`, 5, {}).ssl).toBeUndefined();
     expect(poolConfig(`${neon}?sslmode=require`, 5, {}).connectionString).toContain("sslmode=verify-full");

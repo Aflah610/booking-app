@@ -20,7 +20,10 @@ export function poolConfig(connectionString: string, max: number, env: Record<st
   }
   const wantsTls =
     !url.searchParams.has("sslmode") && (url.hostname.endsWith(".neon.tech") || env.DATABASE_SSL === "true");
-  // Idle connections are let go quickly (a serverless function may be frozen for minutes) and a slow database fails fast.
-  const common = { connectionString, max, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000, keepAlive: true };
+  // Idle connections are let go quickly where a serverless function may be frozen for minutes, and a slow database fails fast.
+  // On a server that keeps running (AppSail, or DATABASE_KEEP_ALIVE=true) they are kept for minutes instead: opening one across
+  // a distant region costs several round trips, which is most of the delay the first click after a pause would otherwise feel.
+  const longLived = Boolean(env.X_ZOHO_CATALYST_LISTEN_PORT) || env.DATABASE_KEEP_ALIVE === "true";
+  const common = { connectionString, max, idleTimeoutMillis: longLived ? 300_000 : 10_000, connectionTimeoutMillis: 10_000, keepAlive: true };
   return wantsTls ? { ...common, ssl: { rejectUnauthorized: true } } : common;
 }

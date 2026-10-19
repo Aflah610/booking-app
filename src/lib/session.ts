@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { app } from "@/features/container";
@@ -8,9 +9,10 @@ const RANK = { staff: 0, manager: 1, admin: 2 } as const;
 
 /**
  * The signed-in staff member, re-read from the database on every request so that
- * deactivating someone or changing their role takes effect immediately.
+ * deactivating someone or changing their role takes effect immediately. Memoised per request, so the layout and the page that
+ * both ask cost one database round trip, not two.
  */
-export async function currentStaff(): Promise<StaffDTO | null> {
+export const currentStaff = cache(async function currentStaff(): Promise<StaffDTO | null> {
   const session = await auth();
   const id = session?.user?.staffId;
   if (!id) return null;
@@ -22,7 +24,7 @@ export async function currentStaff(): Promise<StaffDTO | null> {
     if (err instanceof Error && err.name === "DomainError" && (err as DomainError).code === "not_found") return null;
     throw err;
   }
-}
+});
 
 export function hasRole(member: Pick<StaffDTO, "role">, min: keyof typeof RANK) {
   return RANK[member.role] >= RANK[min];
