@@ -38,6 +38,12 @@ describe("database pool config", () => {
     expect(poolConfig(neon, 5, {}).ssl).toEqual({ rejectUnauthorized: true });
   });
 
+  it("treats a bare ?sslmode (value cut off by the host console) as no sslmode, so Neon still gets TLS", () => {
+    const cfg = poolConfig(`${neon}?sslmode`, 5, {});
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: true });
+    expect(cfg.connectionString).not.toContain("sslmode");
+  });
+
   it("leaves TLS to the URL when sslmode is given", () => {
     expect(poolConfig(`${neon}?sslmode=require`, 5, {}).ssl).toBeUndefined();
     expect(poolConfig(`${neon}?sslmode=require`, 5, {}).connectionString).toContain("sslmode=verify-full");

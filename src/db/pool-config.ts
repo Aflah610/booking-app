@@ -7,6 +7,11 @@ import type { PoolConfig } from "pg";
  */
 export function poolConfig(connectionString: string, max: number, env: Record<string, string | undefined> = process.env): PoolConfig {
   const url = new URL(connectionString);
+  // A value cut off at "=" arrives as a bare `?sslmode`; that means "not chosen", not "no TLS".
+  if (url.searchParams.get("sslmode") === "") {
+    url.searchParams.delete("sslmode");
+    connectionString = url.toString();
+  }
   // node-postgres already treats these modes as verify-full and warns on every connection. Saying so keeps
   // the same checks and silences the warning (and stays safe if a later version changes what they mean).
   if (["prefer", "require", "verify-ca"].includes(url.searchParams.get("sslmode") ?? "")) {
