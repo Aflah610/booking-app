@@ -31,6 +31,9 @@ import { createPaymentsRepository } from "./payments/payments.repository";
 import { createPaymentsService } from "./payments/payments.service";
 import { createPreferencesRepository } from "./preferences/preferences.repository";
 import { createPreferencesService } from "./preferences/preferences.service";
+import { createPerformanceRepository } from "./performance/performance.repository";
+import { createPerformanceService } from "./performance/performance.service";
+import type { AttendanceSource } from "./performance/performance.dto";
 import { createReportsRepository } from "./reports/reports.repository";
 import { createReportsService } from "./reports/reports.service";
 import { createSchedulesRepository } from "./schedules/schedules.repository";
@@ -56,6 +59,8 @@ export function createContainer(db: Db, opts: {
     manageSecret?: string;
     appUrl?: string;
     calendarProvider?: CalendarProvider;
+    /** Where therapist join times come from (Google Meet once connected). Without one the punctuality KPI reports "no data". */
+    attendance?: AttendanceSource;
     /** Runs follow-up work after the current request has answered. Without it, queued work waits for the scheduler. */
     defer?: (task: () => Promise<unknown>) => void;
   } = {}) {
@@ -154,6 +159,7 @@ export function createContainer(db: Db, opts: {
       onEvent,
     }),
     reports: createReportsService({ reportsRepo: createReportsRepository(db), settingsRepo }),
+    performance: createPerformanceService({ performanceRepo: createPerformanceRepository(db), attendance: opts.attendance }),
     holidays: createHolidaysService({ holidaysRepo: createHolidaysRepository(db) }),
     apiKeys: createApiKeysService({ apiKeysRepo: createApiKeysRepository(db) }),
     otp: createOtpService({ otpRepo: createOtpRepository(db), send: opts.otpSender ?? createOtpSender(), secret: manageSecret }),

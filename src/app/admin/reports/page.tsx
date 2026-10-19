@@ -3,6 +3,7 @@ import { isReportRangeKey, presetRange, REPORT_RANGES } from "@/features/reports
 import { requireStaff } from "@/lib/session";
 import { dayLabel } from "@/lib/format";
 import { PageHeader } from "@/components/Shell";
+import { ReportsNav } from "@/components/ReportsNav";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </span>
         }
       />
+      <ReportsNav active="overview" />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <nav className="tabs !mb-0" aria-label="Date range">
           {REPORT_RANGES.map(([key, label]) => (
