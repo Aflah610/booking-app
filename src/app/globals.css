@@ -104,3 +104,43 @@ body {
 .tab-active {
   @apply bg-zinc-200 text-black;
 }
+
+/* Login page: cream backdrop, green button, and a smiley in the top-right corner that bobs, blinks and grins. */
+.login-smile {
+  animation: smile-bob 3.4s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+.login-smile-eyes {
+  animation: smile-blink 5s infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.login-smile-mouth {
+  animation: smile-grin 5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+}
+@keyframes smile-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-6px) rotate(4deg); }
+}
+@keyframes smile-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes smile-grin {
+  0%, 70%, 100% { transform: scale(1, 1); }
+  80%, 90% { transform: scale(1.12, 1.35); }
+}
+.login-field {
+  @apply w-full rounded-xl border border-[#e6e0db] bg-white px-4 py-3 text-[15px] text-[#1c1c1c] placeholder:text-[#9aa19d] transition focus:border-[#253d34] focus:outline-none focus:ring-4 focus:ring-[#253d34]/10;
+}
+.login-primary {
+  @apply w-full rounded-xl bg-[#253d34] px-4 py-3 text-[15px] font-medium text-white transition hover:bg-[#1c2f28] active:scale-[0.99];
+}
+.login-secondary {
+  @apply w-full rounded-xl border border-[#e6e0db] bg-white px-4 py-3 text-[15px] font-medium text-[#1c1c1c] transition hover:bg-[#f8f4f2];
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-smile, .login-smile-eyes, .login-smile-mouth { animation: none; }
+}

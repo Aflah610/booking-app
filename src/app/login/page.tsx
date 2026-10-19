@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { enabledLoginProviders, localLoginEnabled } from "@/lib/login-providers";
 import { currentStaff } from "@/lib/session";
+import { LoginSmile } from "@/components/LoginSmile";
 import { Notice } from "@/components/Notice";
 
 export const dynamic = "force-dynamic";
@@ -13,33 +14,26 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const providers = enabledLoginProviders();
   const local = localLoginEnabled();
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <span className="mb-8 grid h-10 w-10 place-items-center rounded-lg bg-black text-lg font-bold text-white">W</span>
-      <h1 className="mb-2 text-2xl font-semibold tracking-tight">Staff sign in</h1>
-      <p className="mb-8 text-sm text-zinc-600">Use your work account.</p>
-      <Notice
-        error={
-          error === "CredentialsSignin"
-            ? "Wrong email or password, or that email isn't set up as staff yet."
-            : error
-              ? "That account isn't set up as staff yet. Ask an admin to add you."
-              : undefined
-        }
-      />
-      <div className="flex flex-col gap-3">
-        {providers.map(({ id, name }) => (
-          <form
-            key={id}
-            action={async () => {
-              "use server";
-              await signIn(id, { redirectTo: "/" });
-            }}
-          >
-            <button className="btn w-full justify-center py-2.5" type="submit">
-              Continue with {name}
-            </button>
-          </form>
-        ))}
+    <main className="relative flex min-h-screen items-center justify-center bg-[#f8f4f2] px-4">
+      <div className="absolute right-5 top-5 sm:right-8 sm:top-7">
+        <LoginSmile />
+      </div>
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#253d34] text-lg font-semibold text-[#e9be65]">W</span>
+          <span className="text-sm font-medium tracking-tight text-[#5f6663]">Waky Booking</span>
+        </div>
+        <h1 className="text-[28px] font-semibold tracking-tight text-[#1c1c1c]">Welcome back</h1>
+        <p className="mb-8 mt-1.5 text-[15px] text-[#5f6663]">Sign in to your workspace.</p>
+        <Notice
+          error={
+            error === "CredentialsSignin"
+              ? "That email and password don't match. Please try again."
+              : error
+                ? "That account isn't set up as staff yet. Ask an admin to add you."
+                : undefined
+          }
+        />
         <form
           className="flex flex-col gap-3"
           action={async (form: FormData) => {
@@ -57,16 +51,33 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             }
           }}
         >
-          {providers.length > 0 && <p className="text-center text-xs text-zinc-500">or with your email</p>}
-          <input className="input" type="email" name="email" placeholder="Email" required autoComplete="email" />
-          <input className="input" type="password" name="password" placeholder="Password" required autoComplete="current-password" />
-          <button className="btn w-full justify-center py-2.5" type="submit">
+          <input className="login-field" type="email" name="email" placeholder="Email" required autoComplete="email" />
+          <input className="login-field" type="password" name="password" placeholder="Password" required autoComplete="current-password" />
+          <button className="login-primary mt-1" type="submit">
             Sign in
           </button>
         </form>
+        {providers.length > 0 && (
+          <div className="mt-6 flex flex-col gap-3">
+            <p className="text-center text-xs uppercase tracking-widest text-[#9aa19d]">or</p>
+            {providers.map(({ id, name }) => (
+              <form
+                key={id}
+                action={async () => {
+                  "use server";
+                  await signIn(id, { redirectTo: "/" });
+                }}
+              >
+                <button className="login-secondary" type="submit">
+                  Continue with {name}
+                </button>
+              </form>
+            ))}
+          </div>
+        )}
         {local && (
           <form
-            className="flex flex-col gap-3"
+            className="mt-6 flex flex-col gap-3"
             action={async (form: FormData) => {
               "use server";
               try {
@@ -76,18 +87,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                   redirectTo: "/",
                 });
               } catch (err) {
-                // signIn redirects by throwing on success, so only Auth.js errors are failures.
                 if (err instanceof AuthError) redirect(`/login?error=${err.type}`);
                 throw err;
               }
             }}
           >
-            <input className="input" type="email" name="email" placeholder="Email" required autoComplete="email" />
-            <input className="input" type="password" name="password" placeholder="Password" required autoComplete="current-password" />
-            <button className="btn w-full justify-center py-2.5" type="submit">
-              Sign in
-            </button>
-            <p className="text-xs text-zinc-600">Local testing only. Not available on the live site.</p>
+            <input className="login-field" type="email" name="email" placeholder="Local test email" required autoComplete="email" />
+            <input className="login-field" type="password" name="password" placeholder="Local test password" required autoComplete="current-password" />
+            <button className="login-secondary" type="submit">Local sign in</button>
+            <p className="text-xs text-[#5f6663]">Local testing only. Not available on the live site.</p>
           </form>
         )}
       </div>
