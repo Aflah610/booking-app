@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, gte, ilike, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, ilike, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db";
 import { otpRequest } from "@/db/schema";
 import { OTP_STATUSES, type OtpCounts, type OtpListFilter, type OtpRecord, type OtpRequestDTO, type OtpStatus } from "./otp.dto";
@@ -70,7 +70,7 @@ export function createOtpRepository(db: Db) {
       await db.update(otpRequest).set({ status: "send_failed", failureReason: reason.slice(0, 500) }).where(eq(otpRequest.id, id));
     },
 
-    /** When this number was last sent a code that is still waiting, and how many codes it was sent since `since`. */
+    /** When this number was last sent a code, and how many codes it was sent since `since`. */
     async recentForPhone(phone: string, since: Date): Promise<{ sentLast: Date | null; sentSince: number }> {
       const [row] = await db
         .select({ sentLast: sql<Date | null>`max(${otpRequest.createdAt})`, sentSince: count() })
@@ -163,5 +163,3 @@ function listWhere(filter: Pick<OtpListFilter, "status" | "search">): SQL | unde
 }
 
 export type OtpRepository = ReturnType<typeof createOtpRepository>;
-// lte is only used through statusWhere's SQL; imported types keep the file honest about what it reads.
-void lte;

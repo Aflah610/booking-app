@@ -1,5 +1,5 @@
-/** website: what the firm's website may call. staff: full staff-level API access. */
-export const API_SCOPES = ["website", "staff"] as const;
+/** website: what the firm's website may call. otp: send and verify WhatsApp codes only. staff: full staff-level API access. */
+export const API_SCOPES = ["website", "otp", "staff"] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
 export type ApiKeyDTO = { id: string; name: string; keyPrefix: string; scopes: string[] };

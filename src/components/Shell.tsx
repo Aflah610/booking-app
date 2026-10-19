@@ -28,6 +28,7 @@ export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNod
               {manager && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}
               {manager && <NavLink href="/admin/reports" icon="chart">Reports</NavLink>}
               {manager && <NavLink href="/admin/workflows" icon="bolt">Workflows</NavLink>}
+              {hasRole(me, "admin") && <NavLink href="/admin/otp" icon="shield">OTP Authentication</NavLink>}
               {hasRole(me, "admin") && <NavLink href="/admin/settings" icon="settings">Settings</NavLink>}
             </nav>
             {/* Closed by default: Sign out only appears after clicking the profile. Plain <details>, no script needed. */}

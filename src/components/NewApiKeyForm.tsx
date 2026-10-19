@@ -3,14 +3,15 @@
 import { useActionState } from "react";
 import { createApiKeyAction, type NewApiKeyState } from "@/app/admin/actions";
 
-export function NewApiKeyForm() {
+export function NewApiKeyForm({ scope = "website", placeholder = "e.g. Main website" }: { scope?: "website" | "otp"; placeholder?: string }) {
   const [state, action, pending] = useActionState<NewApiKeyState, FormData>(createApiKeyAction, null);
   return (
     <div className="grid gap-4">
       <form action={action} className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="scope" value={scope} />
         <div className="min-w-56 flex-1">
           <label className="label" htmlFor="name">Name</label>
-          <input className="input" id="name" name="name" placeholder="e.g. Main website" required />
+          <input className="input" id="name" name="name" placeholder={placeholder} required />
         </div>
         <button className="btn" type="submit" disabled={pending}>Create key</button>
       </form>

@@ -34,7 +34,7 @@ export default async function ApiSettingsPage({ searchParams }: { searchParams: 
               <li key={k.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
                 <span className="min-w-0">
                   <span className="block font-medium">{k.name}</span>
-                  <span className="block text-xs text-zinc-600">{k.keyPrefix}… · created {when(k.createdAt)} · last used {when(k.lastUsedAt)}</span>
+                  <span className="block text-xs text-zinc-600">{k.keyPrefix}… · {k.scopes.join(", ")} · created {when(k.createdAt)} · last used {when(k.lastUsedAt)}</span>
                 </span>
                 <form action={revokeApiKeyAction.bind(null, k.id)}>
                   <button className="btn-ghost" type="submit">Revoke</button>

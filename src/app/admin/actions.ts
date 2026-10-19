@@ -201,8 +201,11 @@ export type NewApiKeyState = { key?: string; name?: string; error?: string } | n
 export async function createApiKeyAction(_prev: NewApiKeyState, form: FormData): Promise<NewApiKeyState> {
   await requireStaff("admin");
   try {
-    const { key, record } = await app().apiKeys.create({ name: str(form, "name"), scopes: ["website"] });
+    // Only these two can be issued from the screen; "staff" keys stay a command-line job.
+    const scope = str(form, "scope") === "otp" ? "otp" : "website";
+    const { key, record } = await app().apiKeys.create({ name: str(form, "name"), scopes: [scope] });
     revalidatePath("/admin/settings/api");
+    revalidatePath("/admin/otp");
     return { key, name: record.name };
   } catch (err) {
     if (err instanceof DomainError) return { error: err.message };

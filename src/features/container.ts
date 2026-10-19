@@ -21,6 +21,10 @@ import { createClientsService } from "./clients/clients.service";
 import { createHolidaysRepository } from "./holidays/holidays.repository";
 import { createHolidaysService } from "./holidays/holidays.service";
 import { createHealthRepository } from "./health/health.repository";
+import type { OtpSender } from "./otp/otp.dto";
+import { createOtpRepository } from "./otp/otp.repository";
+import { createOtpSender } from "./otp/otp.sender";
+import { createOtpService } from "./otp/otp.service";
 import { createPackagesRepository } from "./packages/packages.repository";
 import { createPackagesService } from "./packages/packages.service";
 import { createPaymentsRepository } from "./payments/payments.repository";
@@ -48,6 +52,7 @@ import { createWorkflowsService, type Senders } from "./workflows/workflows.serv
  */
 export function createContainer(db: Db, opts: {
     senders?: Senders;
+    otpSender?: OtpSender;
     manageSecret?: string;
     appUrl?: string;
     calendarProvider?: CalendarProvider;
@@ -151,6 +156,7 @@ export function createContainer(db: Db, opts: {
     reports: createReportsService({ reportsRepo: createReportsRepository(db), settingsRepo }),
     holidays: createHolidaysService({ holidaysRepo: createHolidaysRepository(db) }),
     apiKeys: createApiKeysService({ apiKeysRepo: createApiKeysRepository(db) }),
+    otp: createOtpService({ otpRepo: createOtpRepository(db), send: opts.otpSender ?? createOtpSender(), secret: manageSecret }),
     health: createHealthRepository(db),
   };
 }
