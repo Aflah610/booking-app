@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { app } from "@/features/container";
 import { DomainError } from "@/features/shared/errors";
+import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { act, optional, optionalNumber, str } from "@/lib/form-actions";
 import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
@@ -17,6 +18,9 @@ async function requireSelfOrManager(staffId: string) {
   return me;
 }
 
+/** The chosen designation, or null when none (or something that is not on the list) was sent. */
+const designationOf = (form: FormData) => DESIGNATIONS.find((d) => d === str(form, "designation")) ?? null;
+
 export async function createStaffAction(form: FormData) {
   const me = await requireStaff("manager");
   const role = str(form, "role") as "admin" | "manager" | "staff";
@@ -26,6 +30,7 @@ export async function createStaffAction(form: FormData) {
       name: str(form, "name"),
       email: str(form, "email"),
       role,
+      designation: designationOf(form),
       timezone: str(form, "timezone") || "Asia/Kolkata",
     });
   });
@@ -46,6 +51,7 @@ export async function updateStaffAction(staffId: string, form: FormData) {
       name: str(form, "name"),
       email: str(form, "email"),
       role,
+      designation: designationOf(form),
       timezone: str(form, "timezone"),
       active: form.get("active") === "on",
     });

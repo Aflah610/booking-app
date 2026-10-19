@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { app } from "@/features/container";
+import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { DomainError } from "@/features/shared/errors";
 import { addDays, localDate } from "@/features/availability/slots";
 import { requireStaff, hasRole } from "@/lib/session";
@@ -168,6 +169,13 @@ export default async function StaffDetail({
           <form action={updateStaffAction.bind(null, id)} className="card grid max-w-3xl gap-4 p-6 sm:grid-cols-2">
             <div><label className="label" htmlFor="name">Name</label><input className="input" id="name" name="name" defaultValue={member.name} required /></div>
             <div><label className="label" htmlFor="email">Email</label><input className="input" id="email" name="email" type="email" defaultValue={member.email} required /></div>
+            <div>
+              <label className="label" htmlFor="designation">Designation</label>
+              <select className="input" id="designation" name="designation" defaultValue={member.designation ?? ""}>
+                <option value="">Not set</option>
+                {DESIGNATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
             <div>
               <label className="label" htmlFor="role">Role</label>
               <select className="input" id="role" name="role" defaultValue={member.role}>

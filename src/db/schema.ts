@@ -80,6 +80,8 @@ export const staff = pgTable("staff", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   role: staffRole("role").notNull().default("staff"),
+  /** Profession shown beside their name; null = not set. The allowed values live in DESIGNATIONS (staff.dto.ts). */
+  designation: text("designation").$type<"Psychiatrist" | "Psychologist" | "Nutritionist" | "Sales Executive">(),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
   active: boolean("active").notNull().default(true),
   /** scrypt hash for email-and-password sign-in; null = this person signs in with Google or Zoho only. */

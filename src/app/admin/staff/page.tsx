@@ -4,6 +4,7 @@ import { requireStaff, hasRole } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
+import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { createStaffAction } from "../actions";
 
 export default async function StaffPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
@@ -17,13 +18,14 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
       <div className="card mb-10 overflow-x-auto">
         <table className="table">
           <thead>
-            <tr><th>Name</th><th>Email</th><th>Role</th><th>Time zone</th><th>Status</th></tr>
+            <tr><th>Name</th><th>Email</th><th>Designation</th><th>Role</th><th>Time zone</th><th>Status</th></tr>
           </thead>
           <tbody>
             {rows.map((s) => (
               <tr key={s.id}>
                 <td><Link className="font-medium hover:underline" href={`/admin/staff/${s.id}`}>{s.name}</Link></td>
                 <td className="text-zinc-600">{s.email}</td>
+                <td className="text-zinc-600">{s.designation ?? "–"}</td>
                 <td className="capitalize">{s.role}</td>
                 <td className="text-zinc-600">{s.timezone}</td>
                 <td><span className="badge">{s.active ? "Active" : "Inactive"}</span></td>
@@ -38,6 +40,13 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         <form action={createStaffAction} className="grid gap-4 sm:grid-cols-2">
           <div><label className="label" htmlFor="name">Name</label><input className="input" id="name" name="name" required /></div>
           <div><label className="label" htmlFor="email">Email</label><input className="input" id="email" name="email" type="email" required /></div>
+          <div>
+            <label className="label" htmlFor="designation">Designation</label>
+            <select className="input" id="designation" name="designation" defaultValue="">
+              <option value="">Not set</option>
+              {DESIGNATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
           <div>
             <label className="label" htmlFor="role">Role</label>
             <select className="input" id="role" name="role" defaultValue="staff">
