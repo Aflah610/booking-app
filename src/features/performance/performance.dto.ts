@@ -34,7 +34,7 @@ export interface AttendanceSource {
   forBookings(bookingIds: string[]): Promise<Map<string, Attendance>>;
 }
 
-export type KpiId = "volume" | "retention" | "stopped" | "punctuality";
+export type KpiId = "volume" | "retention" | "termination" | "punctuality";
 
 export type VolumeResult = { kind: "volume"; sessions: number; clients: number };
 export type RetentionStep = {
@@ -51,11 +51,12 @@ export type RetentionStep = {
   rate: number | null;
 };
 export type RetentionResult = { kind: "retention"; steps: RetentionStep[] };
-export type StoppedResult = {
-  kind: "stopped";
+export type TerminationResult = {
+  kind: "termination";
   /** Clients with at least one session in the window. */
   activeClients: number;
-  stopped: number;
+  /** Treatment has ended: nothing booked and the last session is past the grace period (a successful completion or an early termination). */
+  terminated: number;
   ongoing: number;
   rate: number | null;
 };
@@ -63,7 +64,7 @@ export type PunctualityResult =
   | { kind: "punctuality"; status: "no_data" }
   | { kind: "punctuality"; status: "ok"; measured: number; sessions: number; onTimeRate: number; avgMinutesLate: number };
 
-export type KpiResult = VolumeResult | RetentionResult | StoppedResult | PunctualityResult;
+export type KpiResult = VolumeResult | RetentionResult | TerminationResult | PunctualityResult;
 
 export type TherapistReport = {
   staffId: string;
@@ -71,7 +72,7 @@ export type TherapistReport = {
   designation: string | null;
   volume: VolumeResult;
   retention: RetentionResult;
-  stopped: StoppedResult;
+  termination: TerminationResult;
   punctuality: PunctualityResult;
 };
 
@@ -80,7 +81,59 @@ export type PerformanceReport = {
   label: string;
   from: Date;
   to: Date;
-  /** Days after a session without a next booking before a client counts as lost or stopped. */
+  /** Days after a session without a next booking before a client counts as lost or terminated. */
   graceDays: number;
   therapists: TherapistReport[];
 };
+
+/** What happened to a client after a session: came back (or is booked), is still within the grace period, or did not return. */
+export type SessionOutcome = "came_back" | "waiting" | "not_back";
+
+/** One session on a therapist's own page. */
+export type SessionRow = {
+  id: string;
+  /** The booking's number, for its reference such as BK-00012. */
+  number: number;
+  startsAt: Date;
+  endsAt: Date;
+  clientId: string;
+  clientName: string;
+  clientPhone: string;
+  serviceName: string;
+  /** False for a session still booked ahead. */
+  held: boolean;
+  /** Which session this is with this therapist (1st, 2nd ...); null while booked ahead. */
+  ordinal: number | null;
+  /** Only for sessions that have happened. */
+  outcome: SessionOutcome | null;
+};
+
+/** Where one client stands with this therapist. */
+export type ClientRow = {
+  clientId: string;
+  name: string;
+  phone: string;
+  /** Sessions held inside the period, and in all. */
+  sessionsInPeriod: number;
+  sessionsTotal: number;
+  firstAt: Date;
+  lastAt: Date | null;
+  nextAt: Date | null;
+  /** "new": nothing held yet; "ongoing": something booked ahead; "recent": last session within the grace period; "terminated": treatment has ended. */
+  status: "new" | "ongoing" | "recent" | "terminated";
+};
+
+/** Everything on one therapist's own page. */
+export type TherapistDetail = {
+  therapist: TherapistReport;
+  period: PeriodKey;
+  label: string;
+  from: Date;
+  to: Date;
+  graceDays: number;
+  clients: ClientRow[];
+  sessions: SessionRow[];
+};
+
+/** Names attached to a booking, looked up for the sessions on a therapist's page. */
+export type SessionLabel = { number: number; clientId: string; clientName: string; clientPhone: string; serviceName: string };

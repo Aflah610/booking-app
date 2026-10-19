@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildJourneys } from "@/features/performance/performance.engine";
+import { buildJourneys, describeJourney } from "@/features/performance/performance.engine";
 import type { Attendance, SessionFact } from "@/features/performance/performance.dto";
-import { punctualityKpi, retentionKpi, stoppedKpi, volumeKpi } from "@/features/performance/kpis";
+import { punctualityKpi, retentionKpi, terminationKpi, volumeKpi } from "@/features/performance/kpis";
 import type { KpiContext } from "@/features/performance/kpis/kpi";
 import { periodWindow } from "@/features/performance/performance.periods";
 
@@ -93,14 +93,14 @@ describe("retention after the Nth session", () => {
   });
 });
 
-describe("stopped coming", () => {
-  it("counts active clients with nothing booked and a last session older than the grace period", () => {
-    const facts = [session("a", "stopped", 50), session("a", "going", 5), session("a", "booked", 45), session("a", "booked", -7)];
-    expect(stoppedKpi.compute(ctx(facts))).toEqual({ kind: "stopped", activeClients: 3, stopped: 1, ongoing: 2, rate: 1 / 3 });
+describe("terminated (treatment ended)", () => {
+  it("counts active clients whose treatment has ended: nothing booked and a last session older than the grace period", () => {
+    const facts = [session("a", "ended", 50), session("a", "going", 5), session("a", "booked", 45), session("a", "booked", -7)];
+    expect(terminationKpi.compute(ctx(facts))).toEqual({ kind: "termination", activeClients: 3, terminated: 1, ongoing: 2, rate: 1 / 3 });
   });
 
   it("ignores clients with no session in the window", () => {
-    expect(stoppedKpi.compute(ctx([session("a", "old", 200)], { period: "30d" })).activeClients).toBe(0);
+    expect(terminationKpi.compute(ctx([session("a", "old", 200)], { period: "30d" })).activeClients).toBe(0);
   });
 });
 
@@ -117,5 +117,33 @@ describe("punctuality", () => {
     const attendance = new Map([joined(early, -2), joined(late, 10)]);
     const r = punctualityKpi.compute(ctx([early, late, unknown], { attendance }));
     expect(r).toMatchObject({ status: "ok", measured: 2, sessions: 3, onTimeRate: 0.5, avgMinutesLate: 5 });
+  });
+});
+
+describe("one client's story with a therapist", () => {
+  const describe1 = (facts: SessionFact[], period: "30d" | "90d" = "90d") => describeJourney(buildJourneys(facts)[0], periodWindow(period, now), now, 30);
+
+  it("numbers each held session and says what came after it", () => {
+    const d = describe1([session("a", "x", 80), session("a", "x", 70), session("a", "x", 40)]);
+    expect(d.sessions.map((s) => [s.ordinal, s.outcome])).toEqual([[1, "came_back"], [2, "came_back"], [3, "not_back"]]);
+    expect(d.client).toMatchObject({ sessionsInPeriod: 3, sessionsTotal: 3, status: "terminated", nextAt: null });
+  });
+
+  it("marks a client with something booked ahead as ongoing, and leaves the booked session unnumbered", () => {
+    const d = describe1([session("a", "x", 10), session("a", "x", -5)]);
+    expect(d.sessions.map((s) => [s.held, s.ordinal, s.outcome])).toEqual([[true, 1, "came_back"], [false, null, null]]);
+    expect(d.client.status).toBe("ongoing");
+    expect(d.client.nextAt).toEqual(daysAgo(-5));
+  });
+
+  it("calls a client seen recently with nothing booked recent, and one with nothing held yet new", () => {
+    expect(describe1([session("a", "x", 10)]).client.status).toBe("recent");
+    expect(describe1([session("a", "x", 10)]).sessions[0].outcome).toBe("waiting");
+    expect(describe1([session("a", "x", -3)]).client).toMatchObject({ status: "new", sessionsTotal: 0, lastAt: null });
+  });
+
+  it("counts sessions inside the period separately from all of them", () => {
+    const d = describe1([session("a", "x", 100), session("a", "x", 10)], "30d");
+    expect(d.client).toMatchObject({ sessionsInPeriod: 1, sessionsTotal: 2 });
   });
 });

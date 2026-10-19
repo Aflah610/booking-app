@@ -26,11 +26,11 @@ function Rate({ rate, caption }: { rate: number | null; caption: string }) {
 
 const stepCaption = (s: RetentionStep) => (s.cohort === 0 ? "none" : `${s.returned}/${s.returned + s.lost}${s.waiting ? ` · ${s.waiting} waiting` : ""}`);
 
-function Row({ t }: { t: TherapistReport }) {
+function Row({ t, period }: { t: TherapistReport; period: string }) {
   return (
     <tr>
       <td className="whitespace-nowrap">
-        <span className="font-medium">{t.name}</span>
+        <Link href={`/admin/reports/therapists/${t.staffId}?period=${period}`} className="font-medium hover:underline">{t.name}</Link>
         {t.designation && <span className="block text-xs text-zinc-500">{t.designation}</span>}
       </td>
       <td className="tabular-nums">
@@ -40,7 +40,7 @@ function Row({ t }: { t: TherapistReport }) {
       {t.retention.steps.map((s) => (
         <td key={s.after}><Rate rate={s.rate} caption={stepCaption(s)} /></td>
       ))}
-      <td><Rate rate={t.stopped.rate} caption={t.stopped.activeClients === 0 ? "none" : `${t.stopped.stopped} of ${t.stopped.activeClients}`} /></td>
+      <td><Rate rate={t.termination.rate} caption={t.termination.activeClients === 0 ? "none" : `${t.termination.terminated} of ${t.termination.activeClients}`} /></td>
       <td className="whitespace-nowrap">
         {t.punctuality.status === "ok" ? (
           <>
@@ -80,7 +80,7 @@ export default async function TherapistPerformancePage({ searchParams }: { searc
               {Array.from({ length: RETENTION_STEPS }, (_, i) => (
                 <th key={i} className="whitespace-nowrap">After {ordinal(i + 1)}</th>
               ))}
-              <th>Stopped</th>
+              <th>Terminated</th>
               <th>Punctuality</th>
             </tr>
           </thead>
@@ -88,7 +88,7 @@ export default async function TherapistPerformancePage({ searchParams }: { searc
             {report.therapists.length === 0 ? (
               <tr><td colSpan={RETENTION_STEPS + 4} className="p-10 text-center text-sm text-zinc-600">No sessions yet.</td></tr>
             ) : (
-              report.therapists.map((t) => <Row key={t.staffId} t={t} />)
+              report.therapists.map((t) => <Row key={t.staffId} t={t} period={active} />)
             )}
           </tbody>
         </table>
@@ -99,7 +99,7 @@ export default async function TherapistPerformancePage({ searchParams }: { searc
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li><b>Sessions</b>: sessions held in the period, and with how many clients. A session counts once it is over; cancelled bookings and no-shows do not.</li>
           <li><b>After 1st … 6th</b>: of the clients whose 1st (2nd, 3rd …) session with this therapist fell in the period, the share who came back for another, counting one already booked. A client who has not booked yet is shown as &ldquo;waiting&rdquo; for {report.graceDays} days and left out of the rate until then.</li>
-          <li><b>Stopped</b>: of the clients seen in the period, the share with nothing booked whose last session is more than {report.graceDays} days old. It covers both clients who finished treatment and those who dropped out; the app does not yet record which.</li>
+          <li><b>Terminated</b>: of the clients seen in the period, the share whose treatment has ended: nothing booked and the last session more than {report.graceDays} days ago. It covers successful completion and early termination alike; the app does not yet record which.</li>
           <li><b>Punctuality</b>: how soon after the scheduled start the therapist joined the video call. It needs Google Meet to be connected, so it shows as not connected for now.</li>
           <li>A client who moves to another therapist counts as not coming back to the first one.</li>
         </ul>

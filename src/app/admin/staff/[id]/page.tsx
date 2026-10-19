@@ -8,6 +8,7 @@ import { formatInZone } from "@/lib/time";
 import { longDayLabel } from "@/lib/format";
 import { HoursEditor } from "@/components/HoursEditor";
 import { Notice } from "@/components/Notice";
+import Link from "next/link";
 import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
 import {
@@ -55,7 +56,11 @@ export default async function StaffDetail({
 
   return (
     <>
-      <PageHeader title={me.id === id ? "Availability" : member.name} subtitle={`Times are in ${member.timezone}.`} />
+      <PageHeader
+        title={me.id === id ? "Availability" : member.name}
+        subtitle={`Times are in ${member.timezone}.`}
+        action={<Link href={`/admin/reports/therapists/${id}`} className="btn-ghost">Performance report</Link>}
+      />
       <Notice error={error} ok={ok} />
 
       <div className="grid gap-8 xl:grid-cols-[1fr_22rem]">

@@ -7,7 +7,7 @@ Reports > **Therapist performance** (managers and admins). It shows, per therapi
 |--------|---------|
 | Sessions | Sessions held in the period, and with how many clients |
 | After 1st ... 6th | Of the clients whose Nth session with this therapist fell in the period, the share who came back for another |
-| Stopped | Of the clients seen in the period, the share who have stopped coming |
+| Terminated | Of the clients seen in the period, the share whose treatment has ended |
 | Punctuality | How soon after the scheduled start the therapist joined the call (needs Google Meet, see below) |
 
 ## Definitions
@@ -19,8 +19,8 @@ Reports > **Therapist performance** (managers and admins). It shows, per therapi
 - **Came back after the Nth session** means a later session exists, held or already booked. If there is none yet and the Nth
   session is newer than the grace period (30 days), the client is *waiting*: shown, but left out of the rate. After that they are *lost*.
   `rate = returned / (returned + lost)`.
-- **Stopped**: a client with a session in the period, nothing booked ahead, and a last session older than the grace period.
-  This covers clients who finished treatment *and* those who dropped out. The app does not record which yet.
+- **Terminated**: a client with a session in the period, nothing booked ahead, and a last session older than the grace period.
+  This covers a successful completion *and* an early termination. The app does not record which yet.
 
 ## How it is built
 
@@ -56,6 +56,6 @@ Nothing else changes: the column switches from "Not connected yet" to the on-tim
 
 ## Ideas for later
 
-- Record an outcome per client (healed, dropped out, referred) so "Stopped" can be split.
+- Record an outcome per client (successfully completed, terminated early, referred) so "Terminated" can be split into successful completion and early termination.
 - A single weighted score per therapist, built from these KPIs (needs the firm to agree what matters most).
 - Punctuality of the client, and a lateness trend per therapist.

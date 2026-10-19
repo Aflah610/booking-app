@@ -1,4 +1,4 @@
-import type { Journey, SessionFact } from "./performance.dto";
+import type { ClientRow, Journey, SessionFact, SessionOutcome } from "./performance.dto";
 
 const DAY = 86_400_000;
 
@@ -44,3 +44,34 @@ export function lastHeld(journey: Journey, now: Date): { session: SessionFact; f
 
 export const olderThan = (d: Date, days: number, now: Date) => now.getTime() - d.getTime() > days * DAY;
 export const ratio = (part: number, whole: number) => (whole > 0 ? part / whole : null);
+
+export type JourneyDetail = {
+  sessions: { fact: SessionFact; held: boolean; ordinal: number | null; outcome: SessionOutcome | null }[];
+  client: Pick<ClientRow, "sessionsInPeriod" | "sessionsTotal" | "firstAt" | "lastAt" | "nextAt" | "status">;
+};
+
+/** One client's story with one therapist: each session numbered with what came after it, and where the client stands now. */
+export function describeJourney(journey: Journey, window: Window, now: Date, graceDays: number): JourneyDetail {
+  let held = 0;
+  const sessions = journey.sessions.map((fact, i) => {
+    if (!isHeld(fact, now)) return { fact, held: false, ordinal: null, outcome: null };
+    held += 1;
+    const outcome: SessionOutcome = i < journey.sessions.length - 1 ? "came_back" : olderThan(fact.startsAt, graceDays, now) ? "not_back" : "waiting";
+    return { fact, held: true, ordinal: held, outcome };
+  });
+  const heldSessions = sessions.filter((s) => s.held);
+  const ahead = sessions.find((s) => !s.held);
+  const last = heldSessions.at(-1);
+  const status: ClientRow["status"] = !last ? "new" : ahead ? "ongoing" : olderThan(last.fact.startsAt, graceDays, now) ? "terminated" : "recent";
+  return {
+    sessions,
+    client: {
+      sessionsInPeriod: heldSessions.filter((s) => inWindow(s.fact.startsAt, window)).length,
+      sessionsTotal: heldSessions.length,
+      firstAt: journey.sessions[0].startsAt,
+      lastAt: last?.fact.startsAt ?? null,
+      nextAt: ahead?.fact.startsAt ?? null,
+      status,
+    },
+  };
+}

@@ -7,7 +7,7 @@ export type KpiContext = {
   journeys: Journey[];
   window: Window;
   now: Date;
-  /** Days without a next booking before a client counts as lost or stopped. */
+  /** Days without a next booking before a client counts as lost or terminated. */
   graceDays: number;
   /** Join times known for bookings in the window (empty until an attendance source is connected). */
   attendance: Map<string, Attendance>;

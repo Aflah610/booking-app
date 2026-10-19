@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createContainer } from "@/features/container";
 import type { AttendanceSource } from "@/features/performance/performance.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
+import { therapistCsv } from "@/features/performance/performance.csv";
 import { zonedToUtc } from "@/lib/time";
 import { db, reset } from "./helpers";
 
@@ -31,7 +32,7 @@ async function setup(attendance?: AttendanceSource) {
 }
 
 describe("therapist performance report", () => {
-  it("builds the volume, retention and stopped numbers per therapist from real bookings", async () => {
+  it("builds the volume, retention and termination numbers per therapist from real bookings", async () => {
     const { c, asha, dev, book } = await setup();
     // Ravi: three sessions with Asha and then one with Dr Dev. Meera: one with Asha, never back. Kiran: one recent session.
     await book(asha.id, "2026-08-03T10:00", "ravi");
@@ -52,7 +53,7 @@ describe("therapist performance report", () => {
     expect(a.retention.steps[1]).toMatchObject({ after: 2, cohort: 1, returned: 1, lost: 0, rate: 1 });
     // After the 3rd with Asha: Ravi went to Dr Dev and not back to Asha, so Asha lost him.
     expect(a.retention.steps[2]).toMatchObject({ after: 3, cohort: 1, returned: 0, lost: 1, rate: 0 });
-    expect(a.stopped).toMatchObject({ activeClients: 3, stopped: 2, ongoing: 1 });
+    expect(a.termination).toMatchObject({ activeClients: 3, terminated: 2, ongoing: 1 });
     expect(a.punctuality).toEqual({ kind: "punctuality", status: "no_data" });
 
     const d = report.therapists[1];
@@ -110,5 +111,52 @@ describe("therapist performance report", () => {
     const { c } = await setup({ async forBookings() { asked += 1; return new Map(); } });
     expect((await c.performance.report({}, reportAt)).therapists).toEqual([]);
     expect(asked).toBe(0);
+  });
+});
+
+describe("one therapist's own page", () => {
+  it("lists only that therapist's clients and sessions, with names, numbers and what came after each", async () => {
+    const { c, asha, dev, book } = await setup();
+    await book(asha.id, "2026-08-03T10:00", "ravi");
+    await book(asha.id, "2026-08-10T10:00", "ravi");
+    await book(asha.id, "2026-08-05T10:00", "meera");
+    await book(dev.id, "2026-09-01T10:00", "kiran"); // someone else's client
+    await book(asha.id, "2026-10-27T10:00", "ravi", at("2026-10-01T08:00")); // booked ahead
+
+    const d = await c.performance.therapist({ staffId: asha.id, period: "90d" }, reportAt);
+    expect(d.therapist).toMatchObject({ name: "Asha", volume: { sessions: 3, clients: 2 } });
+    expect(d.clients.map((x) => x.name).sort()).toEqual(["Meera", "Ravi"]);
+    expect(d.clients.find((x) => x.name === "Ravi")).toMatchObject({ sessionsInPeriod: 2, sessionsTotal: 2, status: "ongoing", phone: "+919876543210" });
+    expect(d.clients.find((x) => x.name === "Meera")).toMatchObject({ status: "terminated" });
+    // Newest first, the booked-ahead one on top, and only Asha's.
+    expect(d.sessions.map((s) => [s.clientName, s.ordinal, s.outcome])).toEqual([
+      ["Ravi", null, null],
+      ["Ravi", 2, "came_back"],
+      ["Meera", 1, "not_back"],
+      ["Ravi", 1, "came_back"],
+    ]);
+    expect(d.sessions.every((s) => s.serviceName === "Therapy")).toBe(true);
+  });
+
+  it("answers not_found for someone who does not exist or an id that is not valid", async () => {
+    const { c } = await setup();
+    await expect(c.performance.therapist({ staffId: "00000000-0000-4000-8000-000000000000" }, reportAt)).rejects.toMatchObject({ code: "not_found" });
+    await expect(c.performance.therapist({ staffId: "nope" }, reportAt)).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("downloads as a spreadsheet: one row a session, in the firm's time, safe against formulas", async () => {
+    const { c, asha, book } = await setup();
+    await book(asha.id, "2026-08-03T10:00", "ravi");
+    await book(asha.id, "2026-10-27T10:00", "ravi", at("2026-10-01T08:00"));
+    const detail = await c.performance.therapist({ staffId: asha.id, period: "90d" }, reportAt);
+    const { csv, filename } = therapistCsv(detail, { timezone: IST, bookingPrefix: "BK-" }, reportAt);
+    const lines = csv.replace("\ufeff", "").trim().split("\r\n");
+    expect(lines[0]).toBe("Date,Time,Booking ID,Client,Phone,Service,Session with this therapist,Status,After this session");
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toContain("2026-10-27,10:00,");
+    expect(lines[1]).toContain("Booked ahead");
+    expect(lines[2]).toContain("2026-08-03,10:00,");
+    expect(lines[2]).toContain(",1,Held,Came back");
+    expect(filename).toBe("asha-90d-2026-10-20.csv");
   });
 });

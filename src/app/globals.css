@@ -173,3 +173,12 @@ body {
   .welcome-rise { animation: none; opacity: 1; }
   .welcome-bar span { animation: none; }
 }
+
+/* Printing a report page (or saving it as a PDF): just the page, without the sidebar and the buttons. */
+@media print {
+  .sidebar, .no-print { display: none !important; }
+  [data-collapsed] { padding-left: 0 !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  .card { break-inside: avoid; }
+  body { background: #fff; }
+}
