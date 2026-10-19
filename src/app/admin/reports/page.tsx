@@ -1,12 +1,10 @@
 import { app } from "@/features/container";
-import { addDays } from "@/features/availability/slots";
+import { isReportRangeKey, presetRange, REPORT_RANGES } from "@/features/reports/ranges";
 import { requireStaff } from "@/lib/session";
 import { dayLabel } from "@/lib/format";
 import { PageHeader } from "@/components/Shell";
 
 export const dynamic = "force-dynamic";
-
-const PRESETS = [["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"]] as const;
 
 function Stat({ label, value, tone = "text-black", note }: { label: string; value: number; tone?: string; note?: string }) {
   return (
@@ -18,17 +16,20 @@ function Stat({ label, value, tone = "text-black", note }: { label: string; valu
   );
 }
 
-export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; days?: string }> }) {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; days?: string; range?: string }> }) {
   await requireStaff("manager");
   const sp = await searchParams;
   const { reports, settings } = app();
   const tz = (await settings.get()).timezone;
-  // "Last N days" is worked out from today on the firm's clock.
+  // Quick ranges are worked out from today on the firm's clock. With nothing chosen the page opens on this month, so upcoming
+  // bookings show up too (`days` is the older name for the range parameter and still works in saved links).
   const today = (await reports.range({})).to;
-  const days = sp.days && PRESETS.some(([d]) => d === sp.days) ? Number(sp.days) : null;
-  const r = await reports.summary(days ? { from: addDays(today, -(days - 1)), to: today } : { from: sp.from, to: sp.to });
+  const asked = sp.range ?? sp.days;
+  const active = isReportRangeKey(asked) ? asked : sp.from || sp.to ? null : "month";
+  const r = await reports.summary(active ? presetRange(active, today) : { from: sp.from, to: sp.to });
   const t = r.totals;
-  const max = Math.max(1, ...r.perDay.map((d) => d.count));
+  const busiest = Math.max(0, ...r.perDay.map((d) => d.count));
+  const max = Math.max(1, busiest);
   const query = new URLSearchParams({ from: r.from, to: r.to });
   const crowded = r.perDay.length > 45;
 
@@ -46,8 +47,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <nav className="tabs !mb-0" aria-label="Date range">
-          {PRESETS.map(([d, label]) => (
-            <a key={d} href={`/admin/reports?days=${d}`} className={`tab ${days === Number(d) ? "tab-active" : ""}`}>{label}</a>
+          {REPORT_RANGES.map(([key, label]) => (
+            <a key={key} href={`/admin/reports?range=${key}`} className={`tab ${active === key ? "tab-active" : ""}`}>{label}</a>
           ))}
         </nav>
         <form className="flex flex-wrap items-end gap-2" action="/admin/reports">
@@ -77,7 +78,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="mt-2 flex justify-between text-xs text-zinc-600">
           <span>{dayLabel(new Date(`${r.from}T12:00:00Z`), "UTC")}</span>
-          {!crowded && <span>Busiest day: {max} booking{max === 1 ? "" : "s"}</span>}
+          {!crowded && busiest > 0 && <span>Busiest day: {busiest} booking{busiest === 1 ? "" : "s"}</span>}
           <span>{dayLabel(new Date(`${r.to}T12:00:00Z`), "UTC")}</span>
         </div>
       </section>
