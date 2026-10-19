@@ -25,7 +25,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const [mine, everyone, next, savedColumns] = await Promise.all([
     bookings.list({ view: "all", staffId: me.id, from, to, limit: 100 }),
     bookings.list({ view: "all", from, to, limit: 500 }),
-    bookings.list({ view: "upcoming", staffId: me.id, limit: 5 }),
+    // From tomorrow on: today's sessions are already shown under "My day".
+    bookings.list({ view: "upcoming", staffId: me.id, from: to, limit: 5 }),
     preferences.get(me.id, columnPrefKey("today")),
   ]);
   const columns = resolveColumns(savedColumns, "today");
