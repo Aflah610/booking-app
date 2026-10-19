@@ -71,3 +71,9 @@ Give the printed key to your web developer for the website's server environment.
 Push the same image to Amazon ECR and run it on App Runner, ECS or Lightsail. Either keep Neon or move the
 data to Amazon RDS for Postgres with `pg_dump` / `pg_restore`, then change `DATABASE_URL`. Nothing in the code
 changes. Use `PORT` instead of `X_ZOHO_CATALYST_LISTEN_PORT` (the app reads either).
+
+## Variable names without underscores
+
+The Catalyst console rejects underscores in variable names. Enter each setting without them (`DATABASEURL`,
+`AUTHSECRET`, `AUTHGOOGLEID`, `ADMINEMAILS`, `RUNMIGRATIONS` ...). The container's entrypoint maps them back to the
+real names on start. A variable that is set under its real name always wins.
