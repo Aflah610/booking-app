@@ -1,5 +1,6 @@
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
+import { decoyHash, hashPassword, verifyPassword } from "@/lib/password";
 import { isUuid } from "@/features/shared/validation";
 import type { StaffDTO } from "./staff.dto";
 import type { StaffRepository } from "./staff.repository";
@@ -68,6 +69,23 @@ export function createStaffService({ staffRepo }: { staffRepo: StaffRepository }
         }
       }
       await staffRepo.setServicePrices(staffId, prices, { actor, action: "set_service_prices", entity: "staff", entityId: staffId, details: { prices } });
+    },
+
+    /** Sets (or replaces) the password this person signs in with. The password itself is never stored or logged. */
+    async setPassword(actor: Actor, id: string, password: string) {
+      if (password.length < 8 || password.length > 200) {
+        throw new DomainError("invalid", "A password must be 8 to 200 characters long");
+      }
+      await get(id);
+      const ok = await staffRepo.setPasswordHash(id, await hashPassword(password), { actor, action: "set_password", entity: "staff", entityId: id });
+      if (!ok) throw new DomainError("not_found", `Staff member ${id} not found`);
+    },
+
+    /** The active staff member whose email and password match, else null. Does the same work either way so timing reveals nothing. */
+    async verifyPassword(email: string, password: string): Promise<StaffDTO | null> {
+      const [member, hash] = await Promise.all([staffRepo.findByEmail(email), staffRepo.passwordHashByEmail(email)]);
+      const matches = await verifyPassword(password, hash ?? (await decoyHash));
+      return member && member.active && hash && matches ? member : null;
     },
 
     /**

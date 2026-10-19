@@ -84,3 +84,18 @@ export function localLoginProvider(env: Record<string, string | undefined> = pro
     },
   });
 }
+
+/** Email + personal password for staff who have one set (see `npm run staff:set-password`). Works on the live site too. */
+export function passwordLoginProvider(verify: (email: string, password: string) => Promise<{ id: string; email: string; name: string } | null>): Provider {
+  return Credentials({
+    id: "password",
+    name: "Email and password",
+    credentials: { email: {}, password: {} },
+    async authorize(credentials) {
+      const email = typeof credentials?.email === "string" ? credentials.email.trim() : "";
+      const password = typeof credentials?.password === "string" ? credentials.password : "";
+      if (!email || !password) return null;
+      return verify(email, password);
+    },
+  });
+}

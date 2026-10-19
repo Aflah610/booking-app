@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { app } from "@/features/container";
 import { adminEmails } from "@/lib/env";
-import { enabledLoginProviders, localLoginEnabled, localLoginProvider } from "@/lib/login-providers";
+import { enabledLoginProviders, localLoginEnabled, localLoginProvider, passwordLoginProvider } from "@/lib/login-providers";
 
 // Staff sign in with their Google or Zoho accounts, whichever the settings turn on. Only people in the
 // staff table (or listed in ADMIN_EMAILS for the very first login) get in.
@@ -9,6 +9,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     ...enabledLoginProviders().map((p) => p.provider),
     ...(localLoginEnabled() ? [localLoginProvider()] : []),
+    passwordLoginProvider(async (email, password) => {
+      const member = await app().staff.verifyPassword(email, password);
+      return member && { id: member.id, email: member.email, name: member.name };
+    }),
   ],
   // The app always runs behind a host's proxy (AppSail, App Runner, a load balancer), which sets the Host header.
   trustHost: true,

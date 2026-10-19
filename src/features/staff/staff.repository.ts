@@ -30,6 +30,23 @@ export function createStaffRepository(db: Db) {
       return row ?? null;
     },
 
+    /** Only the sign-in check should ever see the hash, so it is not part of StaffDTO. */
+    async passwordHashByEmail(email: string): Promise<string | null> {
+      const [row] = await db
+        .select({ hash: staff.passwordHash })
+        .from(staff)
+        .where(sql`lower(${staff.email}) = ${email.trim().toLowerCase()}`);
+      return row?.hash ?? null;
+    },
+
+    setPasswordHash(id: string, hash: string, audit: AuditEntry): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const [row] = await tx.update(staff).set({ passwordHash: hash }).where(eq(staff.id, id)).returning({ id: staff.id });
+        if (row) await writeAudit(tx, audit);
+        return Boolean(row);
+      });
+    },
+
     list(): Promise<StaffDTO[]> {
       return db.select(columns).from(staff).orderBy(asc(staff.name));
     },

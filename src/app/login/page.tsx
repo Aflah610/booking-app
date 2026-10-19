@@ -40,6 +40,30 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </button>
           </form>
         ))}
+        <form
+          className="flex flex-col gap-3"
+          action={async (form: FormData) => {
+            "use server";
+            try {
+              await signIn("password", {
+                email: String(form.get("email") ?? ""),
+                password: String(form.get("password") ?? ""),
+                redirectTo: "/",
+              });
+            } catch (err) {
+              // signIn redirects by throwing on success, so only Auth.js errors are failures.
+              if (err instanceof AuthError) redirect(`/login?error=${err.type}`);
+              throw err;
+            }
+          }}
+        >
+          {providers.length > 0 && <p className="text-center text-xs text-zinc-500">or with your email</p>}
+          <input className="input" type="email" name="email" placeholder="Email" required autoComplete="email" />
+          <input className="input" type="password" name="password" placeholder="Password" required autoComplete="current-password" />
+          <button className="btn w-full justify-center py-2.5" type="submit">
+            Sign in
+          </button>
+        </form>
         {local && (
           <form
             className="flex flex-col gap-3"

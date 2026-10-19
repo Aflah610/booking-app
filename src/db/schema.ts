@@ -82,6 +82,8 @@ export const staff = pgTable("staff", {
   role: staffRole("role").notNull().default("staff"),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
   active: boolean("active").notNull().default(true),
+  /** scrypt hash for email-and-password sign-in; null = this person signs in with Google or Zoho only. */
+  passwordHash: text("password_hash"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex("staff_email_lower_idx").on(sql`lower(${t.email})`)]);
