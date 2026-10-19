@@ -70,8 +70,12 @@ body {
 .label {
   @apply mb-1.5 block text-sm font-medium text-black;
 }
-.badge {
-  @apply inline-flex items-center rounded-full border border-zinc-300 px-2 py-0.5 text-xs text-black;
+/* In the components layer, so a badge's own colour classes (green for Paid, red for Cancelled ...) can override these defaults.
+   Unlayered CSS always beats Tailwind's utilities, which left every badge black. */
+@layer components {
+  .badge {
+    @apply inline-flex items-center rounded-full border border-zinc-300 px-2 py-0.5 text-xs text-black;
+  }
 }
 .table {
   @apply w-full text-left text-sm;
