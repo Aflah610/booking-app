@@ -11,3 +11,17 @@ export class DomainError extends Error {
     this.name = "DomainError";
   }
 }
+
+/** A service we depend on (WhatsApp, an SMTP host) is not set up or refused us. API routes answer 503 or 502, not 500. */
+export class UpstreamError extends Error {
+  constructor(
+    public readonly code: "not_configured" | "delivery_failed",
+    message: string,
+  ) {
+    super(message);
+    this.name = "UpstreamError";
+  }
+  get status() {
+    return this.code === "not_configured" ? 503 : 502;
+  }
+}

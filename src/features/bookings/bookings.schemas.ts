@@ -39,6 +39,10 @@ export const bookingListQuery = z.object({
   includeCancelled: z.boolean().default(false),
   staffId: z.string().uuid().nullish(),
   clientId: z.string().uuid().nullish(),
+  serviceId: z.string().uuid().nullish(),
+  paymentStatus: z.enum(["pending", "paid", "failed", "not_required"]).nullish(),
+  /** "has": the client still has package sessions left (not expired); "none": they have none. */
+  packageBalance: z.enum(["has", "none"]).nullish(),
   from: z.coerce.date().nullish(),
   to: z.coerce.date().nullish(),
   limit: z.coerce.number().int().min(1).max(500).default(100),

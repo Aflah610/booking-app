@@ -225,6 +225,9 @@ export function createBookingsRepository(db: Db) {
       statuses?: BookingStatus[];
       staffId?: string | null;
       clientId?: string | null;
+      serviceId?: string | null;
+      paymentStatus?: PaymentStatus | null;
+      packageBalance?: "has" | "none" | null;
       phoneE164?: string | null;
       from?: Date | null;
       to?: Date | null;
@@ -235,6 +238,12 @@ export function createBookingsRepository(db: Db) {
         q.statuses?.length ? inArray(booking.status, q.statuses) : undefined,
         q.staffId ? eq(booking.staffId, q.staffId) : undefined,
         q.clientId ? eq(booking.clientId, q.clientId) : undefined,
+        q.serviceId ? eq(booking.serviceId, q.serviceId) : undefined,
+        q.paymentStatus ? eq(booking.paymentStatus, q.paymentStatus) : undefined,
+        // Package sessions the client can still use: some credit left on a package that has not run out.
+        q.packageBalance
+          ? sql`${q.packageBalance === "has" ? sql`exists` : sql`not exists`} (select 1 from client_package cp where cp.client_id = ${booking.clientId} and cp.credits_left_milli > 0 and (cp.expires_at is null or cp.expires_at > now()))`
+          : undefined,
         q.phoneE164 ? eq(client.phoneE164, q.phoneE164) : undefined,
         q.from ? gte(booking.endsAt, q.from) : undefined,
         q.to ? lte(booking.startsAt, q.to) : undefined,

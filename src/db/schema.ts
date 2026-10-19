@@ -550,3 +550,32 @@ export const auditLog = pgTable("audit_log", {
   details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
   createdAt: createdAt(),
 }, (t) => [index("audit_log_entity_idx").on(t.entity, t.entityId)]);
+
+/**
+ * One row per one-time code sent to a client's WhatsApp. The code itself is never stored, only an HMAC of it.
+ * "Timed out" is not a stored status: a row still `created` whose `expires_at` has passed is timed out, so nothing
+ * has to sweep the table.
+ */
+export const otpRequest = pgTable("otp_request", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // The short running number admins quote ("Request 188").
+  requestNo: integer("request_no").notNull().generatedAlwaysAsIdentity().unique(),
+  reference: text("reference").notNull().unique(),
+  phoneE164: text("phone_e164").notNull(),
+  countryCode: text("country_code"),
+  codeHash: text("code_hash").notNull(),
+  status: text("status").notNull().default("created"),
+  attempts: integer("attempts").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(5),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  providerMessageId: text("provider_message_id"),
+  failureReason: text("failure_reason"),
+  apiKeyId: uuid("api_key_id").references(() => apiKey.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+}, (t) => [
+  check("otp_request_status", sql`${t.status} in ('created','verified','not_verified','replaced','send_failed')`),
+  index("otp_request_phone_idx").on(t.phoneE164, t.createdAt),
+  index("otp_request_created_idx").on(t.createdAt),
+]);
