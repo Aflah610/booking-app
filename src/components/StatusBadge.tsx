@@ -8,7 +8,9 @@ const tone: Record<BookingStatus, string> = {
   no_show: "border-red-600/40 text-red-700",
 };
 
-export function StatusBadge({ status }: { status: BookingStatus }) {
+/** `moved`: the booking was rescheduled, so it is kept but is not a cancellation; soft yellow tells the two apart. */
+export function StatusBadge({ status, moved = false }: { status: BookingStatus; moved?: boolean }) {
+  if (moved) return <span className="badge border-amber-400/60 bg-amber-50 text-amber-700">Rescheduled</span>;
   return <span className={`badge ${tone[status]}`}>{STATUS_LABEL[status]}</span>;
 }
 

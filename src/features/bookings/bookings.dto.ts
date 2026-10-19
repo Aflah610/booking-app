@@ -47,6 +47,8 @@ export type BookingDTO = {
   cancellationReason: string | null;
   cancelledBy: string | null;
   rescheduledFromId: string | null;
+  /** The newer booking this one was moved to. A moved booking is kept (status "cancelled", reason "Rescheduled") and points to its replacement here. */
+  movedToId: string | null;
   idempotencyKey: string | null;
   createdAt: Date;
 };

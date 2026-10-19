@@ -179,6 +179,21 @@ describe("rescheduling and cancelling", () => {
     await expect(c.bookings.reschedule(desk, old.id, { start: at("2026-10-19T12:00") }, { now })).rejects.toMatchObject({ code: "conflict" });
   });
 
+  it("keeps a moved booking and tells it apart from a cancelled one: it points to its replacement, which points back", async () => {
+    const { svc } = await setup();
+    const { booking: first } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-12-01T10:00"), client: asha }, { now });
+    const { booking: plain } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-12-02T10:00"), client: asha }, { now });
+    const second = await c.bookings.reschedule(desk, first.id, { start: at("2026-12-03T10:00") }, { now });
+    const third = await c.bookings.reschedule(desk, second.id, { start: at("2026-12-04T10:00") }, { now });
+    await c.bookings.cancel(desk, plain.id, {}, { now });
+    const byId = new Map((await c.bookings.list({ view: "upcoming", includeCancelled: true })).map((b) => [b.id, b]));
+    expect(byId.get(first.id)).toMatchObject({ status: "cancelled", movedToId: second.id, rescheduledFromId: null });
+    expect(byId.get(second.id)).toMatchObject({ status: "cancelled", movedToId: third.id, rescheduledFromId: first.id });
+    expect(byId.get(third.id)).toMatchObject({ status: "upcoming", movedToId: null, rescheduledFromId: second.id });
+    // A real cancellation is not marked as moved.
+    expect(byId.get(plain.id)).toMatchObject({ status: "cancelled", movedToId: null });
+  });
+
   it("refuses to move onto a taken time and leaves the original untouched", async () => {
     const { svc } = await setup();
     const { booking: a } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-10-19T10:00"), client: asha }, { now });

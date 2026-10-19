@@ -43,6 +43,7 @@ const columns = {
   cancellationReason: booking.cancellationReason,
   cancelledBy: booking.cancelledBy,
   rescheduledFromId: booking.rescheduledFromId,
+  movedToId: sql<string | null>`(select n.id from booking n where n.rescheduled_from_id = ${booking.id} limit 1)`,
   idempotencyKey: booking.idempotencyKey,
   createdAt: booking.createdAt,
 };
