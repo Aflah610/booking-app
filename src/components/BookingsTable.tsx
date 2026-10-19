@@ -12,10 +12,10 @@ type Ctx = { tz: string; prefix: string };
 const CELLS: Record<BookingColumnId, (b: BookingDTO, c: Ctx) => React.ReactNode> = {
   booking_id: (b, c) => <span className="font-medium tabular-nums text-zinc-700">{bookingReference(c.prefix, b.number)}</span>,
   time: (b, c) => (
-    <>
+    <span className={b.status === "cancelled" ? "line-through decoration-red-600/60" : undefined}>
       <span className="block font-medium leading-tight">{dayLabel(b.startsAt, c.tz)}</span>
       <span className="block text-xs leading-tight text-zinc-500">{timeLabel(b.startsAt, c.tz)} – {timeLabel(b.endsAt, c.tz)}</span>
-    </>
+    </span>
   ),
   service: (b) => <span className="font-medium">{b.serviceName}</span>,
   staff: (b) => b.staffName,
@@ -61,10 +61,16 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
         </thead>
         <tbody>
           {rows.map((b) => (
-            <tr key={b.id} className="relative transition-colors hover:bg-zinc-50">
+            <tr key={b.id} className={`relative transition-colors hover:bg-zinc-50 ${b.status === "cancelled" ? "text-zinc-400" : ""}`}>
               {columns.map((id) => (
                 <td key={id} className="p-0">
-                  <Link href={`/admin/bookings/${b.id}`} className="block whitespace-nowrap px-4 py-2.5">{CELLS[id](b, ctx)}</Link>
+                  <Link href={`/admin/bookings/${b.id}`} className="block whitespace-nowrap px-4 py-2.5">
+                    {CELLS[id](b, ctx)}
+                    {/* Without the Status column a cancelled booking would look like any other, so say it once, in red, beside the first cell. */}
+                    {b.status === "cancelled" && id === columns[0] && !columns.includes("status") && (
+                      <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wider text-red-600">Cancelled</span>
+                    )}
+                  </Link>
                 </td>
               ))}
               {joins && (

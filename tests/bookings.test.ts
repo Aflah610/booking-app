@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { c, db, reset } from "./helpers";
 import { booking, client } from "@/db/schema";
 import type { BookingActor } from "@/features/bookings/bookings.service";
@@ -237,6 +237,20 @@ describe("rescheduling and cancelling", () => {
     await expect(c.bookings.setPayment({}, b.id, "refunded" as never)).rejects.toMatchObject({ code: "invalid" });
     await c.bookings.cancel(desk, b.id, {}, { now });
     expect((await c.bookings.setPayment({}, b.id, "paid")).status).toBe("cancelled");
+  });
+
+  it("can list cancelled bookings among the upcoming and past ones, and does so only when asked", async () => {
+    const { svc } = await setup();
+    await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-12-01T10:00"), client: asha }, { now });
+    const { booking: x } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-12-02T10:00"), client: asha }, { now });
+    await c.bookings.cancel(desk, x.id, {}, { now });
+    expect(await c.bookings.list({ view: "upcoming" })).toHaveLength(1);
+    const withCancelled = await c.bookings.list({ view: "upcoming", includeCancelled: true });
+    expect(withCancelled.map((b) => b.status)).toEqual(["upcoming", "cancelled"]);
+    // Once it is in the past, the cancelled booking shows under Past (only when asked) and the default is unchanged.
+    await db.execute(sql`update booking set starts_at = '2020-01-01 10:00+00', ends_at = '2020-01-01 11:00+00' where id = ${x.id}`);
+    expect(await c.bookings.list({ view: "past" })).toHaveLength(0);
+    expect((await c.bookings.list({ view: "past", includeCancelled: true })).map((b) => b.id)).toEqual([x.id]);
   });
 
   it("lists upcoming, past and cancelled views", async () => {

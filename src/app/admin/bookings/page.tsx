@@ -29,7 +29,8 @@ export default async function BookingsPage({
   const staffFilter = sp.staff === "all" ? null : sp.staff || (hasRole(me, "manager") ? null : me.id);
   const { bookings, staff, settings, preferences } = app();
   const [rows, people, s, savedColumns] = await Promise.all([
-    bookings.list({ view, staffId: staffFilter, limit: 200 }),
+    // Cancelled ones stay in the Upcoming and Past lists, marked in red, so nothing seems to vanish.
+    bookings.list({ view, staffId: staffFilter, includeCancelled: true, limit: 200 }),
     staff.list(),
     settings.get(),
     preferences.get(me.id, columnPrefKey("bookings")),
