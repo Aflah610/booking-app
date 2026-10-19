@@ -66,7 +66,12 @@ export function SidebarFrame({ sidebar, children }: { sidebar: React.ReactNode; 
   );
   const stopDrag = useCallback(() => setDragging(false), []);
 
-  const style = { "--sidebar-w": collapsed ? "0px" : `${width}px` } as React.CSSProperties;
+  // --sidebar-w is the space the page reserves (0 when hidden); --sidebar-open-w is the sidebar's own width, which must stay
+  // non-zero so sliding it off-screen by 100% actually clears it.
+  const style = {
+    "--sidebar-w": collapsed ? "0px" : `${width}px`,
+    "--sidebar-open-w": `${width}px`,
+  } as React.CSSProperties;
 
   return (
     <div
@@ -74,7 +79,7 @@ export function SidebarFrame({ sidebar, children }: { sidebar: React.ReactNode; 
       style={style}
       data-collapsed={collapsed}
     >
-      <aside className={`sidebar ${collapsed ? "md:-translate-x-full" : ""} ${dragging ? "" : "md:transition-transform"}`}>
+      <aside className={`sidebar ${collapsed ? "md:-translate-x-full md:invisible" : ""} ${dragging ? "" : "md:transition-transform"}`}>
         {sidebar}
         <button
           type="button"
