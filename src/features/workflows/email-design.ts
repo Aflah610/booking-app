@@ -95,7 +95,7 @@ type Block = { html: string; text: string };
  *   `[Label](address)`     a link; alone on its own line it becomes a button, and `[~Label](…)` a quieter button
  * Values from variables are escaped, and only http(s) addresses become links.
  */
-export function renderBrandedEmail(opts: { template: string; vars: TemplateVars; subject: string; firmName: string; logoUrl: string | null; footer?: string | null }): { html: string; text: string } {
+export function renderBrandedEmail(opts: { template: string; vars: TemplateVars; subject: string; firmName: string; logoUrl: string | null; footer?: string | null; /** Why the person is getting this; the default suits booking messages. */ reason?: string }): { html: string; text: string } {
   const { vars } = opts;
   const blocks: Block[] = [];
   let para: Inline[] = [];
@@ -155,7 +155,7 @@ export function renderBrandedEmail(opts: { template: string; vars: TemplateVars;
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid ${BRAND.line};border-radius:12px;">
 <tr><td style="background:${BRAND.cream};padding:18px 28px;border-bottom:3px solid ${BRAND.gold};border-radius:12px 12px 0 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${logo}<td style="vertical-align:middle;${logo ? "padding-left:12px;" : ""}font:600 18px/1.2 ${FONT};color:${BRAND.green};">${escapeHtml(opts.firmName)}</td></tr></table></td></tr>
 <tr><td style="padding:28px;font:16px/1.55 ${FONT};color:${BRAND.ink};">${blocks.map((b) => b.html).join("\n")}</td></tr>
-<tr><td style="background:${BRAND.cream};padding:16px 28px;font:12px/1.5 ${FONT};color:${BRAND.muted};border-radius:0 0 12px 12px;">${escapeHtml(opts.firmName)}<br>You received this email because of a booking made with us.${footerNote}</td></tr>
+<tr><td style="background:${BRAND.cream};padding:16px 28px;font:12px/1.5 ${FONT};color:${BRAND.muted};border-radius:0 0 12px 12px;">${escapeHtml(opts.firmName)}<br>${escapeHtml(opts.reason ?? "You received this email because of a booking made with us.")}${footerNote}</td></tr>
 </table></td></tr></table></body></html>`;
   const text = `${opts.firmName}\n\n${blocks.map((b) => b.text).join("\n\n")}\n\n--\n${opts.firmName}${opts.footer ? `\n${opts.footer}` : ""}`;
   return { html, text };

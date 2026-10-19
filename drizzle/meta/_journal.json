@@ -148,6 +148,13 @@
       "when": 1792425904117,
       "tag": "0020_staff_password_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792429201938,
+      "tag": "0021_staff_password_reset",
+      "breakpoints": true
     }
   ]
 }

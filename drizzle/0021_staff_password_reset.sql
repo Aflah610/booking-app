@@ -1,0 +1,2 @@
+ALTER TABLE "staff" ADD COLUMN "reset_token_hash" text;--> statement-breakpoint
+ALTER TABLE "staff" ADD COLUMN "reset_expires_at" timestamp with time zone;

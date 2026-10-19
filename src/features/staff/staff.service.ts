@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { decoyHash, hashPassword, verifyPassword } from "@/lib/password";
@@ -6,7 +7,17 @@ import type { StaffDTO } from "./staff.dto";
 import type { StaffRepository } from "./staff.repository";
 import { staffInput, type StaffInput } from "./staff.schemas";
 
-export function createStaffService({ staffRepo }: { staffRepo: StaffRepository }) {
+const RESET_LINK_LIFETIME_MS = 60 * 60 * 1000;
+const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+
+export function createStaffService({
+  staffRepo,
+  sendResetLink,
+}: {
+  staffRepo: StaffRepository;
+  /** Emails the "choose a new password" link. Left out where no mail is set up (the request then does nothing visible). */
+  sendResetLink?: (to: { name: string; email: string }, token: string) => Promise<void>;
+}) {
   async function get(id: string): Promise<StaffDTO> {
     const row = isUuid(id) ? await staffRepo.findById(id) : null;
     if (!row) throw new DomainError("not_found", `Staff member ${id} not found`);
@@ -79,6 +90,29 @@ export function createStaffService({ staffRepo }: { staffRepo: StaffRepository }
       await get(id);
       const ok = await staffRepo.setPasswordHash(id, await hashPassword(password), { actor, action: "set_password", entity: "staff", entityId: id });
       if (!ok) throw new DomainError("not_found", `Staff member ${id} not found`);
+    },
+
+    /**
+     * Emails a one-time link to choose a new password. Says nothing about whether the address belongs to anyone, so it can't be used
+     * to find out who works here; a mail failure is logged and equally invisible to the caller.
+     */
+    async requestPasswordReset(email: string): Promise<void> {
+      const member = await staffRepo.findByEmail(email);
+      if (!member || !member.active) return;
+      const token = randomBytes(32).toString("base64url");
+      if (!(await staffRepo.setResetToken(member.id, sha256(token), new Date(Date.now() + RESET_LINK_LIFETIME_MS)))) return;
+      try {
+        await sendResetLink?.(member, token);
+      } catch (err) {
+        console.error("[password-reset] could not send the email:", err instanceof Error ? err.message : err);
+      }
+    },
+
+    /** Sets a new password from the emailed link. The link works once and for an hour. */
+    async resetPassword(token: string, password: string): Promise<void> {
+      if (password.length < 8 || password.length > 200) throw new DomainError("invalid", "A password must be 8 to 200 characters long");
+      const ok = await staffRepo.resetPasswordWithToken(sha256(token), await hashPassword(password), { actor: {}, action: "reset_password", entity: "staff" });
+      if (!ok) throw new DomainError("invalid", "This reset link is not valid any more. Ask for a new one.");
     },
 
     /** The active staff member whose email and password match, else null. Does the same work either way so timing reveals nothing. */

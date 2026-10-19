@@ -1,4 +1,5 @@
 import { AuthError } from "next-auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { enabledLoginProviders, localLoginEnabled } from "@/lib/login-providers";
@@ -8,9 +9,9 @@ import { Notice } from "@/components/Notice";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string }> }) {
   if (await currentStaff()) redirect("/");
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
   const providers = enabledLoginProviders();
   const local = localLoginEnabled();
   return (
@@ -26,6 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1 className="text-[28px] font-semibold tracking-tight text-[#1c1c1c]">Welcome back</h1>
         <p className="mb-8 mt-1.5 text-[15px] text-[#5f6663]">Sign in to your workspace.</p>
         <Notice
+          ok={reset ? "Your password is changed. Sign in with the new one." : undefined}
           error={
             error === "CredentialsSignin"
               ? "That email and password don't match. Please try again."
@@ -56,6 +58,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <button className="login-primary mt-1" type="submit">
             Sign in
           </button>
+          <Link href="/forgot-password" className="text-center text-sm text-[#5f6663] underline-offset-4 hover:text-[#253d34] hover:underline">
+            Forgot password?
+          </Link>
         </form>
         {providers.length > 0 && (
           <div className="mt-6 flex flex-col gap-3">

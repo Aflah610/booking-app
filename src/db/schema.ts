@@ -84,6 +84,9 @@ export const staff = pgTable("staff", {
   active: boolean("active").notNull().default(true),
   /** scrypt hash for email-and-password sign-in; null = this person signs in with Google or Zoho only. */
   passwordHash: text("password_hash"),
+  /** SHA-256 of the one-time "forgot password" link's token (the token itself is only ever in the email), and when the link stops working. */
+  resetTokenHash: text("reset_token_hash"),
+  resetExpiresAt: timestamp("reset_expires_at", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex("staff_email_lower_idx").on(sql`lower(${t.email})`)]);

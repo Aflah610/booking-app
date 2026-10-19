@@ -34,6 +34,7 @@ import { createSchedulesService } from "./schedules/schedules.service";
 import { createSettingsRepository } from "./settings/settings.repository";
 import { createSettingsService } from "./settings/settings.service";
 import { createStaffRepository } from "./staff/staff.repository";
+import { passwordResetEmail } from "./staff/password-reset-email";
 import { createStaffService } from "./staff/staff.service";
 import { mailStatus, sendSampleEmail, sendTestEmail } from "./workflows/mail";
 import { PRESETS } from "./workflows/presets";
@@ -96,7 +97,15 @@ export function createContainer(db: Db, opts: {
     });
   };
   return {
-    staff: createStaffService({ staffRepo }),
+    staff: createStaffService({
+      staffRepo,
+      async sendResetLink(to, token) {
+        const firm = await settingsRepo.get();
+        const link = `${appUrl}/reset-password?token=${token}`;
+        const mail = passwordResetEmail({ name: to.name, link, firmName: firm.name, logoUrl: firm.logoUrl ?? `${appUrl}/brand/waky-logo.png` });
+        await senders.email({ channel: "email", to: to.email, subject: mail.subject, body: mail.text, html: mail.html });
+      },
+    }),
     catalog: createCatalogService({ catalogRepo }),
     schedules: createSchedulesService({ schedulesRepo: createSchedulesRepository(db) }),
     settings: createSettingsService({ settingsRepo }),

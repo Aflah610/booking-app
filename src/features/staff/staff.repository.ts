@@ -47,6 +47,33 @@ export function createStaffRepository(db: Db) {
       });
     },
 
+    /**
+     * Stores a reset token's hash, unless one was issued in the last minute (an email a minute is plenty, and it stops anyone
+     * flooding a person's inbox). A token issued less than a minute ago still has more than (lifetime - 1 minute) left, which is
+     * what the comparison with the new expiry checks. True when the new token was stored.
+     */
+    async setResetToken(id: string, hash: string, expiresAt: Date): Promise<boolean> {
+      const rows = await db
+        .update(staff)
+        .set({ resetTokenHash: hash, resetExpiresAt: expiresAt })
+        .where(sql`${staff.id} = ${id} and (${staff.resetExpiresAt} is null or ${staff.resetExpiresAt} < ${new Date(expiresAt.getTime() - 60 * 1000)})`)
+        .returning({ id: staff.id });
+      return rows.length > 0;
+    },
+
+    /** Sets the new password for whoever holds this unexpired token and uses the token up, in one step so a link works once. */
+    resetPasswordWithToken(hash: string, passwordHash: string, audit: Omit<AuditEntry, "entityId">): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(staff)
+          .set({ passwordHash, resetTokenHash: null, resetExpiresAt: null })
+          .where(sql`${staff.resetTokenHash} = ${hash} and ${staff.resetExpiresAt} > now() and ${staff.active}`)
+          .returning({ id: staff.id });
+        if (row) await writeAudit(tx, { ...audit, entityId: row.id });
+        return Boolean(row);
+      });
+    },
+
     list(): Promise<StaffDTO[]> {
       return db.select(columns).from(staff).orderBy(asc(staff.name));
     },
