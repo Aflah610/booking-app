@@ -62,8 +62,6 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     packageBalance,
     from,
     to,
-    // Cancelled ones stay in the Upcoming and Past lists, marked in red, so nothing seems to vanish.
-    includeCancelled: true,
     limit: 200,
   });
   const columns = resolveColumns(savedColumns, "bookings");
@@ -79,53 +77,62 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
         action={<Link href="/admin/bookings/new" className="btn"><Icon name="plus" /> New booking</Link>}
       />
       <Notice error={sp.error} ok={sp.ok} />
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-        <nav className="tabs !mb-0" aria-label="Booking views">
-          {VIEWS.map(([v, label]) => (
-            <Link key={v} href={link(v)} className={`tab ${v === view ? "tab-active" : ""}`}>{label}</Link>
-          ))}
-        </nav>
-        <ColumnsManager list="bookings" choices={columnChoices(columns)} />
-      </div>
+      {/* The Filters button is a label for a hidden checkbox, so the panel opens and closes without any script. It stays open while filters are on. */}
+      <div>
+        <input type="checkbox" id="show-filters" className="peer sr-only" defaultChecked={active > 0} />
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+          <nav className="tabs !mb-0" aria-label="Booking views">
+            {VIEWS.map(([v, label]) => (
+              <Link key={v} href={link(v)} className={`tab ${v === view ? "tab-active" : ""}`}>{label}</Link>
+            ))}
+          </nav>
+          <div className="flex gap-2">
+            <label htmlFor="show-filters" className={`btn-ghost cursor-pointer ${active > 0 ? "!border-black" : ""}`}>
+              Filters{active > 0 ? ` · ${active}` : ""}
+            </label>
+            <ColumnsManager list="bookings" choices={columnChoices(columns)} />
+          </div>
+        </div>
 
-      <form className="card mb-4 grid items-end gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7" action="/admin/bookings">
-        <input type="hidden" name="view" value={view} />
-        <div><label className="label !text-xs" htmlFor="from">From</label><input className="input" id="from" name="from" type="date" defaultValue={fromDay} /></div>
-        <div><label className="label !text-xs" htmlFor="to">To</label><input className="input" id="to" name="to" type="date" defaultValue={toDay} /></div>
-        <div>
-          <label className="label !text-xs" htmlFor="staff">Therapist</label>
-          <select className="input" id="staff" name="staff" defaultValue={staffFilter ?? "all"}>
-            <option value="all">Everyone</option>
-            {people.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.id === me.id ? `${p.name} (me)` : p.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label !text-xs" htmlFor="service">Service</label>
-          <select className="input" id="service" name="service" defaultValue={serviceId ?? ""}>
-            <option value="">Any service</option>
-            {services.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label !text-xs" htmlFor="package">Client&apos;s package</label>
-          <select className="input" id="package" name="package" defaultValue={packageBalance ?? ""}>
-            <option value="">Any</option>
-            {PACKAGES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label !text-xs" htmlFor="payment">Payment</label>
-          <select className="input" id="payment" name="payment" defaultValue={payment ?? ""}>
-            <option value="">Any</option>
-            {PAYMENTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <button className="btn" type="submit">Apply</button>
-          {active > 0 && <Link className="btn-ghost" href={`/admin/bookings?view=${view}`}>Clear</Link>}
-        </div>
-      </form>
-      <p className="mb-3 text-xs text-zinc-500">
+        <form className="card mb-4 hidden items-end gap-3 p-4 peer-checked:grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7" action="/admin/bookings">
+          <input type="hidden" name="view" value={view} />
+          <div><label className="label !text-xs" htmlFor="from">From</label><input className="input" id="from" name="from" type="date" defaultValue={fromDay} /></div>
+          <div><label className="label !text-xs" htmlFor="to">To</label><input className="input" id="to" name="to" type="date" defaultValue={toDay} /></div>
+          <div>
+            <label className="label !text-xs" htmlFor="staff">Therapist</label>
+            <select className="input" id="staff" name="staff" defaultValue={staffFilter ?? "all"}>
+              <option value="all">Everyone</option>
+              {people.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.id === me.id ? `${p.name} (me)` : p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label !text-xs" htmlFor="service">Service</label>
+            <select className="input" id="service" name="service" defaultValue={serviceId ?? ""}>
+              <option value="">Any service</option>
+              {services.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label !text-xs" htmlFor="package">Client&apos;s package</label>
+            <select className="input" id="package" name="package" defaultValue={packageBalance ?? ""}>
+              <option value="">Any</option>
+              {PACKAGES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label !text-xs" htmlFor="payment">Payment</label>
+            <select className="input" id="payment" name="payment" defaultValue={payment ?? ""}>
+              <option value="">Any</option>
+              {PAYMENTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button className="btn" type="submit">Apply</button>
+            {active > 0 && <Link className="btn-ghost" href={`/admin/bookings?view=${view}`}>Clear</Link>}
+          </div>
+        </form>
+      </div>
+      <p className="mb-2 text-xs text-zinc-400">
         {rows.length} booking{rows.length === 1 ? "" : "s"}{active > 0 ? ` · ${active} filter${active === 1 ? "" : "s"} on` : ""}
         {rows.length === 200 ? " · showing the first 200, narrow the filters to see others" : ""}
       </p>

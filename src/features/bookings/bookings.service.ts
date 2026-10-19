@@ -119,8 +119,8 @@ export function createBookingsService(deps: {
       const q = bookingListQuery.parse(query);
       const now = new Date();
       const views: Record<typeof q.view, { statuses?: BookingStatus[]; from?: Date; to?: Date; order: "asc" | "desc" }> = {
-        upcoming: { statuses: q.includeCancelled ? ["upcoming", "cancelled"] : ["upcoming"], from: now, order: "asc" },
-        past: { statuses: q.includeCancelled ? ["upcoming", "completed", "no_show", "cancelled"] : ["upcoming", "completed", "no_show"], to: now, order: "desc" },
+        upcoming: { statuses: ["upcoming"], from: now, order: "asc" },
+        past: { statuses: ["upcoming", "completed", "no_show"], to: now, order: "desc" },
         cancelled: { statuses: ["cancelled"], order: "desc" },
         all: { order: "asc" },
       };

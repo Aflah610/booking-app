@@ -35,8 +35,6 @@ export const idempotencyKey = z.string().trim().min(8).max(200);
 
 export const bookingListQuery = z.object({
   view: z.enum(["upcoming", "past", "cancelled", "all"]).default("upcoming"),
-  /** Also list cancelled bookings in the upcoming and past views, for the staff screen. Off for everything else, so the API's answers do not change. */
-  includeCancelled: z.boolean().default(false),
   staffId: z.string().uuid().nullish(),
   clientId: z.string().uuid().nullish(),
   serviceId: z.string().uuid().nullish(),
