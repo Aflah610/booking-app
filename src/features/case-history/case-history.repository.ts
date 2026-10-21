@@ -65,6 +65,13 @@ export function createCaseHistoryRepository(db: Db) {
       return row?.staffId ?? null;
     },
 
+    /** Status and risk only, for readers who may not open the record. */
+    async headline(clientId: string): Promise<{ status: CaseRecordDTO["status"]; risk: Risk | null } | null> {
+      const [row] = await db.select({ status: caseHistory.status, a: caseHistory.riskSuicide, b: caseHistory.riskSelfHarm, c: caseHistory.riskOthers })
+        .from(caseHistory).where(eq(caseHistory.clientId, clientId));
+      return row ? { status: row.status, risk: overallRisk([row.a, row.b, row.c]) } : null;
+    },
+
     async clientExists(clientId: string): Promise<boolean> {
       const [row] = await db.select({ id: client.id }).from(client).where(eq(client.id, clientId));
       return Boolean(row);

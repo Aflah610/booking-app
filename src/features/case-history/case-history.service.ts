@@ -5,7 +5,7 @@ import type { StaffDTO } from "@/features/staff/staff.dto";
 import type { CaseListFilters, CaseListRow, CaseRecordDTO } from "./case-history.dto";
 import type { CaseHistoryRepository, NoteRow } from "./case-history.repository";
 import { addendumInput, intakeSteps, noteEditInput, noteInput, type IntakeStep } from "./case-history.schemas";
-import { overallRisk } from "./choices";
+import { overallRisk, type Risk } from "./choices";
 
 /** Who is asking: a signed-in staff member. */
 export type Reader = Pick<StaffDTO, "id" | "role" | "clinicalAdmin">;
@@ -121,6 +121,18 @@ export function createCaseHistoryService({ caseRepo }: { caseRepo: CaseHistoryRe
       const n = await note(reader, noteId);
       if (!n.signedAt) throw new DomainError("invalid", `Session note ${noteId} is still a draft; edit it instead`);
       await caseRepo.addAddendum(noteId, reader.id, text, audit(reader, "addendum", "session_note", noteId));
+    },
+
+    /**
+     * What the client page shows: the record for an allowed reader (without creating one), otherwise status and risk only.
+     */
+    async overview(reader: Reader, clientId: string): Promise<{ restricted: true; status: CaseRecordDTO["status"]; risk: Risk | null } | { restricted: false; record: CaseRecordDTO | null }> {
+      if (await canRead(reader, clientId)) {
+        const head = await caseRepo.headline(clientId);
+        return { restricted: false, record: head ? await caseRepo.findOrCreate(clientId) : null };
+      }
+      const head = await caseRepo.headline(clientId);
+      return { restricted: true, status: head?.status ?? "intake_pending", risk: head?.risk ?? null };
     },
 
     async noteableBookings(reader: Reader, clientId: string, now = new Date()) {

@@ -150,3 +150,14 @@ describe("the list", () => {
     expect((await c.caseHistory.list(lead, { therapist: "unassigned" })).length).toBe(0);
   });
 });
+
+describe("the client page overview", () => {
+  it("shows the record to the therapist and only status and risk to anyone else, without creating a record", async () => {
+    const { asha, manager, clientId } = await setup();
+    expect(await c.caseHistory.overview(asha, clientId)).toEqual({ restricted: false, record: null });
+    await c.caseHistory.saveIntake(asha, clientId, 5, { riskSelfHarm: "moderate", diagnosisCode: "6B01" });
+    const mine = await c.caseHistory.overview(asha, clientId);
+    expect(mine.restricted === false && mine.record?.diagnosisLabel).toBe("Panic disorder");
+    expect(await c.caseHistory.overview(manager, clientId)).toEqual({ restricted: true, status: "intake_pending", risk: "moderate" });
+  });
+});
