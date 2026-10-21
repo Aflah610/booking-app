@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 
 function message(err: unknown): string {
-  if (err instanceof DomainError || err instanceof RangeError) return err.message;
+  if (isDomainError(err) || err instanceof RangeError) return err.message;
   if (err instanceof ZodError) return err.issues.map((i) => `${i.path.join(".") || "value"}: ${i.message}`).join("; ");
   throw err;
 }

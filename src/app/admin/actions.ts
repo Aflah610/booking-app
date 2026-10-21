@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { app } from "@/features/container";
-import { DomainError } from "@/features/shared/errors";
+import { DomainError, isDomainError } from "@/features/shared/errors";
 import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { act, optional, optionalNumber, str } from "@/lib/form-actions";
 import { parseQuestions } from "@/features/catalog/questions";
@@ -241,7 +241,7 @@ export async function createApiKeyAction(_prev: NewApiKeyState, form: FormData):
     revalidatePath("/admin/otp");
     return { key, name: record.name };
   } catch (err) {
-    if (err instanceof DomainError) return { error: err.message };
+    if (isDomainError(err)) return { error: err.message };
     throw err;
   }
 }

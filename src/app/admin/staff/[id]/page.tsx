@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { app } from "@/features/container";
 import { DESIGNATIONS } from "@/features/staff/staff.dto";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { addDays, localDate } from "@/features/availability/slots";
 import { requireStaff, hasRole } from "@/lib/session";
 import { formatInZone } from "@/lib/time";
@@ -38,7 +38,7 @@ export default async function StaffDetail({
 
   const { staff, catalog, schedules } = app();
   const member = await staff.get(id).catch((err) => {
-    if (err instanceof DomainError) notFound();
+    if (isDomainError(err)) notFound();
     throw err;
   });
   const now = new Date();

@@ -5,7 +5,7 @@ import type { CaseRecordDTO, IntakeFields } from "@/features/case-history/case-h
 import { AFFECT, COOPERATION, INSIGHT, JUDGEMENT, LABEL, ONSET, RAPPORT, RISK, SEVERITY } from "@/features/case-history/choices";
 import { ICD11 } from "@/features/case-history/icd11";
 import { clientReference } from "@/features/clients/clients.dto";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { saveIntakeAction } from "../../actions";
@@ -78,8 +78,8 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
   try {
     r = await app().caseHistory.open(me, clientId);
   } catch (err) {
-    if (err instanceof DomainError && err.code === "not_found") notFound();
-    if (err instanceof DomainError && err.code === "forbidden") redirect(`/admin/case-histories/${clientId}`);
+    if (isDomainError(err) && err.code === "not_found") notFound();
+    if (isDomainError(err) && err.code === "forbidden") redirect(`/admin/case-histories/${clientId}`);
     throw err;
   }
   const c = await app().clients.get(clientId);

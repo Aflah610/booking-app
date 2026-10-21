@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { app } from "@/features/container";
 import { bookingReference } from "@/features/bookings/bookings.dto";
 import { addDays } from "@/features/availability/slots";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { isOnlineSession } from "@/features/bookings/meeting";
 import { requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
@@ -27,7 +27,7 @@ export default async function BookingPage({
   const sp = await searchParams;
   const { bookings, availability, settings, staff } = app();
   const b = await bookings.get(id).catch((err) => {
-    if (err instanceof DomainError) notFound();
+    if (isDomainError(err)) notFound();
     throw err;
   });
   const s = await settings.get();

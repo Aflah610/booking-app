@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import type { CaseRecordDTO } from "@/features/case-history/case-history.dto";
 import { LABEL, PART_OF_DAY } from "@/features/case-history/choices";
 import { clientReference } from "@/features/clients/clients.dto";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { dateLabel, dayLabel, isoDay, timeLabel } from "@/lib/format";
 import { requireStaff } from "@/lib/session";
 import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
@@ -23,8 +23,8 @@ export default async function CasePage({ params, searchParams }: { params: Promi
   try {
     record = await app().caseHistory.open(me, clientId);
   } catch (err) {
-    if (err instanceof DomainError && err.code === "not_found") notFound();
-    if (err instanceof DomainError && err.code === "forbidden") return <Restricted clientId={clientId} />;
+    if (isDomainError(err) && err.code === "not_found") notFound();
+    if (isDomainError(err) && err.code === "forbidden") return <Restricted clientId={clientId} />;
     throw err;
   }
   const [c, periods, s, noteable] = await Promise.all([

@@ -1,6 +1,6 @@
 import { app } from "@/features/container";
 import { therapistCsv } from "@/features/performance/performance.csv";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { currentStaff, hasRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store" },
     });
   } catch (err) {
-    if (err instanceof DomainError && err.code === "not_found") return Response.json({ error: { code: "not_found", message: err.message } }, { status: 404 });
+    if (isDomainError(err) && err.code === "not_found") return Response.json({ error: { code: "not_found", message: err.message } }, { status: 404 });
     throw err;
   }
 }

@@ -1,5 +1,5 @@
 import { app } from "@/features/container";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { currentStaff, hasRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   try {
     return Response.redirect(app().calendar.connectUrl(staffId), 302);
   } catch (err) {
-    if (err instanceof DomainError) return back(request, staffId, "error", err.message);
+    if (isDomainError(err)) return back(request, staffId, "error", err.message);
     throw err;
   }
 }

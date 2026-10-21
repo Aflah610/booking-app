@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { app } from "@/features/container";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { act } from "@/lib/form-actions";
 import { requireStaff } from "@/lib/session";
 import { kindOf } from "@/features/workflows/workflows.dto";
@@ -22,7 +22,7 @@ export async function saveWorkflowAction(id: string | null, _prev: SaveState, fo
     else await app().workflows.create({ staffId: me.id }, input);
     tab = kindOf(input.action.channel);
   } catch (err) {
-    if (err instanceof DomainError) return { error: err.message };
+    if (isDomainError(err)) return { error: err.message };
     if (err instanceof ZodError) return { error: err.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ` : "") + i.message).join("; ") };
     if (err instanceof SyntaxError) return { error: "The form could not be read. Reload the page and try again." };
     throw err;

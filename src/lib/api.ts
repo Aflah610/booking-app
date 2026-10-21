@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { app } from "@/features/container";
 import type { ApiKeyDTO, ApiScope } from "@/features/api-keys/api-keys.dto";
-import { DomainError, UpstreamError } from "@/features/shared/errors";
+import { DomainError, isDomainError, isUpstreamError } from "@/features/shared/errors";
 import { rateLimit } from "@/lib/rate-limit";
 
 type RouteContext = { params: Promise<Record<string, string>> };
@@ -74,8 +74,8 @@ export function apiRoute(scope: ApiScope, handler: Handler) {
       return NextResponse.json({ data: result });
     } catch (err) {
       if (err instanceof ZodError) return apiError(400, "invalid", "Invalid request", err.issues);
-      if (err instanceof DomainError) return apiError(STATUS[err.code], err.code, err.message, err.details);
-      if (err instanceof UpstreamError) return apiError(err.status, err.code === "not_configured" ? "not_configured" : "delivery_failed", err.message);
+      if (isDomainError(err)) return apiError(STATUS[err.code], err.code, err.message, err.details);
+      if (isUpstreamError(err)) return apiError(err.status, err.code === "not_configured" ? "not_configured" : "delivery_failed", err.message);
       console.error(err);
       return apiError(500, "internal", "Something went wrong");
     }

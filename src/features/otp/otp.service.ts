@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
-import { DomainError, UpstreamError } from "../shared/errors";
+import { DomainError, UpstreamError, isUpstreamError } from "../shared/errors";
 import { toE164 } from "../shared/phone";
 import type { OtpFailReason, OtpListFilter, OtpRecord, OtpSender, OtpSent, OtpStatus, OtpVerified } from "./otp.dto";
 import type { OtpRepository } from "./otp.repository";
@@ -79,7 +79,7 @@ export function createOtpService({
         // Keep the row so the admin report shows what failed, then tell the caller.
         const message = err instanceof Error ? err.message : "Unknown error";
         await otpRepo.markSendFailed(row.id, message);
-        if (err instanceof UpstreamError) throw err;
+        if (isUpstreamError(err)) throw err;
         throw new UpstreamError("delivery_failed", `The code could not be sent: ${message}`);
       }
       return { reference, phone, expiresAt: expiresAt.toISOString(), expiresInSec: OTP_RULES.ttlSec };

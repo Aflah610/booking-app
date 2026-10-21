@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { app } from "@/features/container";
 import { clientStatus, type ClientStatus } from "@/features/clients/client-status";
 import { clientReference, type ClientDTO } from "@/features/clients/clients.dto";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { requireStaff } from "@/lib/session";
 import { BookingRow } from "@/components/BookingRow";
 import { ClientCredits } from "@/components/ClientCredits";
@@ -41,7 +41,7 @@ export default async function ClientPage({
   const view = sp.bookings && sp.bookings in BOOKING_VIEWS ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
   const { clients, bookings, settings, staff } = app();
   const c = await clients.get(id).catch((err) => {
-    if (err instanceof DomainError) notFound();
+    if (isDomainError(err)) notFound();
     throw err;
   });
   const [history, s, periods, team, caseView] = await Promise.all([

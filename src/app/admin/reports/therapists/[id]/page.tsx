@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import { bookingReference } from "@/features/bookings/bookings.dto";
 import { PERIODS } from "@/features/performance/performance.dto";
 import type { ClientRow, SessionOutcome } from "@/features/performance/performance.dto";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { dayLabel, timeLabel } from "@/lib/format";
 import { hasRole, requireStaff } from "@/lib/session";
 import { PageHeader } from "@/components/Shell";
@@ -43,7 +43,7 @@ export default async function TherapistPage({ params, searchParams }: { params: 
   if (me.id !== id && !hasRole(me, "manager")) redirect("/?error=forbidden");
   const [d, firm] = await Promise.all([
     app().performance.therapist({ staffId: id, period }).catch((err) => {
-      if (err instanceof DomainError && err.code === "not_found") notFound();
+      if (isDomainError(err) && err.code === "not_found") notFound();
       throw err;
     }),
     app().settings.get(),

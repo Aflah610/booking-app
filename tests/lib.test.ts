@@ -110,3 +110,19 @@ describe("login settings", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("recognising domain errors", () => {
+  it("knows a DomainError thrown by another copy of the class, as the background worker's copy is", async () => {
+    const { DomainError, isDomainError, isUpstreamError } = await import("@/features/shared/errors");
+    // A second, separate class with the same name stands in for the worker's copy of the module.
+    class OtherCopy extends Error {
+      constructor(public readonly code: string, message: string) { super(message); this.name = "DomainError"; }
+    }
+    const foreign = new OtherCopy("conflict", "Already exists");
+    expect(foreign instanceof DomainError).toBe(false);
+    expect(isDomainError(foreign)).toBe(true);
+    expect(isDomainError(new DomainError("invalid", "x"))).toBe(true);
+    expect(isDomainError(new Error("plain"))).toBe(false);
+    expect(isUpstreamError(foreign)).toBe(false);
+  });
+});

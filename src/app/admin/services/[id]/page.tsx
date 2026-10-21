@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
@@ -18,7 +18,7 @@ export default async function ServiceDetail({
   const { id } = await params;
   const { error, ok } = await searchParams;
   const s = await app().catalog.get(id).catch((err) => {
-    if (err instanceof DomainError) notFound();
+    if (isDomainError(err)) notFound();
     throw err;
   });
   return (

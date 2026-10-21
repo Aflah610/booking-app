@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
 import { clientReference } from "@/features/clients/clients.dto";
-import { DomainError } from "@/features/shared/errors";
+import { isDomainError } from "@/features/shared/errors";
 import { isoDay, phoneLabel } from "@/lib/format";
 import { requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
@@ -25,7 +25,7 @@ export default async function EditClientPage({
   const { id } = await params;
   const { error } = await searchParams;
   const c = await app().clients.get(id).catch((err) => {
-    if (err instanceof DomainError) notFound();
+    if (isDomainError(err)) notFound();
     throw err;
   });
   const tz = (await app().settings.get()).timezone;
