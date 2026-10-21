@@ -8,7 +8,7 @@ import { PaymentBadge, StatusBadge } from "./StatusBadge";
  * meeting status. An upcoming online session also gets a "Join now" button at the far right that opens its video call
  * (kept outside the row's link, since a link can't sit inside another link).
  */
-export function BookingRow({ b, tz, prefix, showStaff = true, showJoin = true }: { b: BookingDTO; tz: string; prefix: string; showStaff?: boolean; showJoin?: boolean }) {
+export function BookingRow({ b, tz, prefix, showStaff = true, showJoin = true, showClient = true }: { b: BookingDTO; tz: string; prefix: string; showStaff?: boolean; showJoin?: boolean; showClient?: boolean }) {
   const join = showJoin && b.status === "upcoming" && b.meetingUrl;
   return (
     <div className="flex items-center gap-4 pr-5 transition-colors hover:bg-zinc-50">
@@ -19,9 +19,10 @@ export function BookingRow({ b, tz, prefix, showStaff = true, showJoin = true }:
           <span className="block text-sm text-zinc-600">{timeLabel(b.startsAt, tz)} – {timeLabel(b.endsAt, tz)}</span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{b.serviceName} with {b.clientName}</span>
+          <span className="block truncate text-sm font-medium">{b.serviceName}{showClient && <> with {b.clientName}</>}</span>
           <span className="block truncate text-sm text-zinc-600">
-            {showStaff && <>{b.staffName} · </>}{b.clientPhone}{b.source === "web" && " · booked online"}
+            {/* On the client's own page their name and phone would repeat on every row. */}
+            {[showStaff ? b.staffName : null, showClient ? b.clientPhone : null, b.source === "web" ? "booked online" : null].filter(Boolean).join(" · ")}
           </span>
         </span>
         <span className="flex shrink-0 flex-wrap items-center gap-1.5">

@@ -22,7 +22,8 @@ export async function act(path: string, ok: string, fn: () => Promise<unknown>):
   } catch (err) {
     error = message(err);
   }
-  revalidatePath(path);
+  // `path` may carry a query (e.g. ?tab=credits) so the person lands back where they were; only the page itself is revalidated.
+  revalidatePath(path.split("?")[0]);
   const [base, query] = target.split("?");
   const params = new URLSearchParams(query);
   params.set(error ? "error" : "ok", error ?? ok);

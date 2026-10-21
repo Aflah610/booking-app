@@ -183,19 +183,35 @@ export async function updateSettingsAction(form: FormData) {
   );
 }
 
-export async function updateClientAction(clientId: string, form: FormData) {
+const PROFILE_FIELDS = [
+  "dateOfBirth", "gender", "maritalStatus", "occupation", "education", "location", "languages",
+  "emergencyName", "emergencyRelation", "emergencyPhone", "referralSource", "consentSignedAt",
+] as const;
+
+export async function updateClientProfileAction(clientId: string, form: FormData) {
   const me = await requireStaff("manager");
-  await act(`/admin/clients/${clientId}`, "Client saved", () =>
-    app().clients.update({ staffId: me.id }, clientId, {
+  const profile = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(form, k)]));
+  // Saved: back to the client. Failed: stay on the form so nothing typed is lost from view.
+  await act(`/admin/clients/${clientId}/edit`, "Client saved", async () => {
+    await app().clients.updateProfile({ staffId: me.id }, clientId, {
       name: str(form, "name"),
       email: optional(form, "email"),
       whatsappOptIn: form.get("whatsappOptIn") === "on",
       notes: optional(form, "notes"),
-    }),
+      ...profile,
+    });
+    return `/admin/clients/${clientId}`;
+  });
+}
+
+export async function assignTherapistAction(clientId: string, form: FormData) {
+  const me = await requireStaff("manager");
+  await act(`/admin/clients/${clientId}`, "Therapist assigned", () =>
+    app().clients.assignTherapist({ staffId: me.id }, clientId, { staffId: str(form, "staffId"), reason: str(form, "reason") }),
   );
 }
 
-export type NewApiKeyState = { key?: string; name?: string; error?: string } | null;
+export type NewApiKeyState ={ key?: string; name?: string; error?: string } | null;
 
 /** Returns the raw key to the form instead of redirecting, so it never lands in a URL or the server logs. */
 export async function createApiKeyAction(_prev: NewApiKeyState, form: FormData): Promise<NewApiKeyState> {

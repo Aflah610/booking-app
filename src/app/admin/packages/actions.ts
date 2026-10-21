@@ -32,14 +32,14 @@ export async function updatePackageAction(id: string, form: FormData) {
 
 export async function sellPackageAction(clientId: string, form: FormData) {
   const me = await requireStaff("manager");
-  await act(`/admin/clients/${clientId}`, "Package sold", () =>
+  await act(`/admin/clients/${clientId}?tab=credits`, "Package sold", () =>
     app().packages.sell({ staffId: me.id }, clientId, { packageId: str(form, "packageId"), paymentNote: optional(form, "paymentNote") }),
   );
 }
 
 export async function topUpWalletAction(clientId: string, form: FormData) {
   const me = await requireStaff("manager");
-  await act(`/admin/clients/${clientId}`, "Wallet money added", () =>
+  await act(`/admin/clients/${clientId}?tab=credits`, "Wallet money added", () =>
     app().packages.topUp({ staffId: me.id }, clientId, { amountPaise: paise(str(form, "amount")), note: optional(form, "note") }),
   );
 }

@@ -1,115 +1,245 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
+import { clientStatus, type ClientStatus } from "@/features/clients/client-status";
+import { clientReference, type ClientDTO } from "@/features/clients/clients.dto";
 import { DomainError } from "@/features/shared/errors";
 import { requireStaff } from "@/lib/session";
 import { BookingRow } from "@/components/BookingRow";
+import { ClientCredits } from "@/components/ClientCredits";
 import { Notice } from "@/components/Notice";
-import { PageHeader } from "@/components/Shell";
-import { updateClientAction } from "../../actions";
-import { sellPackageAction, topUpWalletAction } from "../../packages/actions";
-import { longDayLabel } from "@/lib/format";
+import { assignTherapistAction } from "../../actions";
+import { dateLabel, dayLabel, isoDay, phoneLabel, timeLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const TABS = { case: "Case history", bookings: "Bookings", credits: "Credits" } as const;
+const BOOKING_VIEWS = { upcoming: "Upcoming", past: "Past", cancelled: "Cancelled" } as const;
+const STATUS_LABEL: Record<ClientStatus, string> = { not_started: "Not started", in_therapy: "In therapy", concluded: "Concluded" };
+
+/** Whole years between a YYYY-MM-DD birth date and today's date in the firm's time zone. */
+function age(dateOfBirth: string, today: string): number {
+  const [by, bm, bd] = dateOfBirth.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  return ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
+}
 
 export default async function ClientPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; ok?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; tab?: string; bookings?: string }>;
 }) {
   await requireStaff("manager");
   const { id } = await params;
-  const { error, ok } = await searchParams;
-  const { clients, bookings, settings, packages } = app();
+  const sp = await searchParams;
+  const tab = sp.tab && sp.tab in TABS ? (sp.tab as keyof typeof TABS) : "case";
+  const view = sp.bookings && sp.bookings in BOOKING_VIEWS ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
+  const { clients, bookings, settings, staff } = app();
   const c = await clients.get(id).catch((err) => {
     if (err instanceof DomainError) notFound();
     throw err;
   });
-  const now = new Date();
-  const [history, s, credit, onSale, allPackages, uses] = await Promise.all([
+  const [history, s, periods, team] = await Promise.all([
     bookings.list({ view: "all", clientId: id, limit: 200 }),
     settings.get(),
-    packages.summary(id, now),
-    packages.list(),
-    packages.allPackages(id),
-    packages.usesForClient(id, 20),
+    clients.therapistHistory(id),
+    staff.list(),
   ]);
-  const num = (n: number) => String(Number(n.toFixed(3)));
-  const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-  const oldPackages = allPackages.filter((p) => !credit.packages.some((c) => c.id === p.id));
+  const tz = s.timezone;
+  const now = new Date();
+  const byView = {
+    upcoming: history.filter((b) => b.status === "upcoming" && b.startsAt >= now),
+    past: history.filter((b) => b.status !== "cancelled" && b.startsAt < now).reverse(),
+    cancelled: history.filter((b) => b.status === "cancelled").reverse(),
+  };
+  const next = byView.upcoming[0];
+  const current = periods[0] && !periods[0].endsAt ? periods[0] : null;
+  // The reason and who made a change are stored on the period that replaced the old one (the next newer row).
+  const previous = periods.slice(current ? 1 : 0).map((p) => ({ ...p, replacedBy: periods[periods.indexOf(p) - 1] ?? null }));
+  const registeredBy = c.registeredBy ? team.find((m) => m.id === c.registeredBy)?.name : null;
+  const assignable = team.filter((m) => m.active && m.id !== current?.staffId);
+
+  const keyRows: [string, string | null][] = [
+    ["Age · gender", [c.dateOfBirth ? String(age(c.dateOfBirth, isoDay(now, tz))) : null, c.gender].filter(Boolean).join(" · ") || null],
+    ["Occupation", c.occupation],
+    ["Location", c.location],
+    ["Email", c.email],
+    ["Emergency", emergency(c)],
+  ];
+  const moreRows: [string, string | null][] = [
+    ["Date of birth", c.dateOfBirth ? dateLabel(new Date(`${c.dateOfBirth}T12:00:00Z`), "UTC") : null],
+    ["Marital status", c.maritalStatus],
+    ["Education", c.education],
+    ["Languages", c.languages],
+    ["WhatsApp", c.whatsappOptIn ? "Updates on" : "Updates off"],
+    ["Registered", `${dateLabel(c.createdAt, tz)}${registeredBy ? ` by ${registeredBy}` : ""}`],
+    ["Found us via", c.referralSource],
+    ["Consent", c.consentSignedAt ? `Signed ${dateLabel(c.consentSignedAt, tz)}` : null],
+    ["Notes", c.notes],
+  ];
+
   return (
     <>
-      <PageHeader title={c.name} subtitle={c.phoneE164} />
-      <Notice error={error} ok={ok} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <section>
-          <h2 className="mb-3 font-semibold">Credits</h2>
-          <div className="card mb-8 grid gap-5 p-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-zinc-600">Wallet</p>
-                <p className="mt-1 text-2xl font-semibold">{rupees(credit.totalPaise)}</p>
-                <p className="text-xs text-zinc-600">{rupees(credit.packageValuePaise)} in packages · {rupees(credit.walletPaise)} added as wallet money</p>
-                {credit.lots.map((l) => (
-                  <p key={l.id} className="text-xs text-zinc-600">{rupees(l.remainingPaise)} of {rupees(l.amountPaise)}, expires {longDayLabel(l.expiresAt, s.timezone)}{l.note ? ` · ${l.note}` : ""}</p>
-                ))}
+      <Link href="/admin/clients" className="text-sm text-zinc-600 hover:text-black">← Clients</Link>
+      <div className="mt-4">
+        <Notice error={sp.error} ok={sp.ok} />
+      </div>
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_21rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
+        <section className="min-w-0">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl font-semibold tracking-tight">{c.name}</h1>
+                <span className="badge">{STATUS_LABEL[clientStatus(history, now)]}</span>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-zinc-600">Package credits</p>
-                <p className="mt-1 text-2xl font-semibold">{num(credit.packages.reduce((n, p) => n + p.creditsLeft, 0))}</p>
-                {credit.packages.map((p) => (
-                  <p key={p.id} className="text-xs text-zinc-600">{p.packageName}: {num(p.creditsLeft)} of {num(p.creditsTotal)} left ({rupees(p.valueLeftPaise)}){p.expiresAt ? `, expires ${longDayLabel(p.expiresAt, s.timezone)}` : ""}{p.paymentNote ? ` · ${p.paymentNote}` : ""}</p>
+              <p className="mt-1 text-sm text-zinc-600">
+                Client since {dateLabel(c.createdAt, tz)}
+                {next && <> · next session {dayLabel(next.startsAt, tz)}, {timeLabel(next.startsAt, tz)}</>}
+              </p>
+            </div>
+            <Link href="/admin/bookings/new" className="btn">New booking</Link>
+          </div>
+
+          <nav className="tabs" aria-label="Client sections">
+            {Object.entries(TABS).map(([key, label]) => (
+              <Link key={key} href={`?tab=${key}`} className={`tab ${tab === key ? "tab-active" : ""}`} aria-current={tab === key ? "page" : undefined}>{label}</Link>
+            ))}
+          </nav>
+
+          {tab === "case" && (
+            <div className="card px-6 py-12 text-center">
+              <p className="font-medium">No case history yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-600">Diagnosis, risk, progress and session notes will show here once the case history is set up.</p>
+            </div>
+          )}
+
+          {tab === "bookings" && (
+            <>
+              <nav className="mb-4 flex gap-6 border-b border-zinc-200 text-sm" aria-label="Which bookings">
+                {Object.entries(BOOKING_VIEWS).map(([key, label]) => (
+                  <Link key={key} href={`?tab=bookings&bookings=${key}`} aria-current={view === key ? "page" : undefined}
+                    className={`-mb-px border-b-2 pb-2.5 ${view === key ? "border-black font-medium text-black" : "border-transparent text-zinc-600 hover:text-black"}`}>
+                    {label} <span className="tabular-nums text-zinc-500">{byView[key as keyof typeof byView].length}</span>
+                  </Link>
                 ))}
-                {credit.packages.length === 0 && <p className="text-xs text-zinc-600">None left.</p>}
+              </nav>
+              <div className="card divide-y divide-zinc-100 overflow-hidden">
+                {byView[view].length === 0 && <p className="p-8 text-center text-sm text-zinc-600">No {BOOKING_VIEWS[view].toLowerCase()} bookings.</p>}
+                {byView[view].map((b) => <BookingRow key={b.id} b={b} tz={tz} prefix={s.bookingPrefix} showClient={false} />)}
               </div>
+            </>
+          )}
+
+          {tab === "credits" && <ClientCredits clientId={id} tz={tz} bookingPrefix={s.bookingPrefix} />}
+        </section>
+
+        <aside className="grid content-start gap-8 lg:border-l lg:border-zinc-200 lg:pl-8">
+          <dl className="grid grid-cols-2 gap-3">
+            <div className="card px-4 py-3">
+              <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Client ID</dt>
+              <dd className="mt-1 font-mono text-[15px] font-semibold">{clientReference(c.number)}</dd>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <form action={sellPackageAction.bind(null, id)} className="grid gap-2 rounded-lg border border-zinc-200 p-3">
-                <p className="text-sm font-medium">Sell a package</p>
-                <select className="input" name="packageId" required aria-label="Package">
-                  {onSale.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.name} · {rupees(p.pricePaise)}</option>)}
-                </select>
-                <input className="input" name="paymentNote" placeholder="How it was paid (cash, UPI ref …)" />
-                <div><button className="btn-ghost" type="submit" disabled={onSale.every((p) => !p.active)}>Sell</button></div>
-              </form>
-              <form action={topUpWalletAction.bind(null, id)} className="grid gap-2 rounded-lg border border-zinc-200 p-3">
-                <p className="text-sm font-medium">Add wallet money</p>
-                <input className="input" name="amount" inputMode="decimal" placeholder="Amount in ₹, e.g. 10000" required aria-label="Amount in rupees" />
-                <input className="input" name="note" placeholder="How it was paid" />
-                <div><button className="btn-ghost" type="submit">Add</button></div>
-              </form>
+            <div className="card px-4 py-3">
+              <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Phone</dt>
+              <dd className="mt-1 whitespace-nowrap text-[15px] font-semibold tabular-nums">{phoneLabel(c.phoneE164)}</dd>
             </div>
-            <p className="text-xs text-zinc-600">Wallet money expires a year after it is added and cannot be paid back in cash. Bookings use package credits first (a ₹1,500 service takes 1.5 credits of a ₹1,000-credit package), then wallet money, then the rest is paid.</p>
-            {uses.length > 0 && (
-              <div>
-                <p className="mb-1 text-sm font-medium">Recent use</p>
-                <ul className="divide-y divide-zinc-100 text-sm">
-                  {uses.map((u) => (
-                    <li key={u.id} className="flex flex-wrap items-center gap-x-4 py-1.5">
-                      <span className="flex-1">Booking {s.bookingPrefix}{String(u.bookingNumber).padStart(5, "0")} · {u.kind === "package" ? `${num(u.credits)} credit${u.credits === 1 ? "" : "s"} of ${u.label} (${rupees(u.valuePaise)})` : `${rupees(u.amountPaise)} from wallet`}</span>
-                      {u.returnedAt ? <span className="font-medium text-green-700">Given back</span> : <span className="text-zinc-600">Used</span>}
+          </dl>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">General info</h2>
+              <Link href={`/admin/clients/${id}/edit`} className="text-sm text-black underline-offset-4 hover:underline">Edit</Link>
+            </div>
+            <InfoRows rows={keyRows} />
+            <details className="group mt-3">
+              <summary className="cursor-pointer list-none text-sm font-medium underline underline-offset-4 group-open:mb-3">
+                <span className="group-open:hidden">Show all details</span>
+                <span className="hidden group-open:inline">Show less</span>
+              </summary>
+              <InfoRows rows={moreRows} />
+            </details>
+          </section>
+
+          <section className="border-t border-zinc-200 pt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Assigned therapist</h2>
+            </div>
+            {current ? (
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-black text-xs font-semibold text-white">{initials(current.staffName)}</span>
+                <div className="min-w-0">
+                  <p className="font-semibold">{current.staffName}</p>
+                  <p className="text-sm text-zinc-600">{current.designation ? `${current.designation} · ` : ""}since {dateLabel(current.startsAt, tz)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-600">No therapist assigned yet.</p>
+            )}
+
+            <details className="mt-4">
+              <summary className="cursor-pointer list-none text-sm font-medium underline underline-offset-4">{current ? "Reassign" : "Assign a therapist"}</summary>
+              <form action={assignTherapistAction.bind(null, id)} className="mt-3 grid gap-3 rounded-lg border border-zinc-200 p-3">
+                <div>
+                  <label className="label" htmlFor="staffId">Therapist</label>
+                  <select className="input" id="staffId" name="staffId" required>
+                    {assignable.map((m) => <option key={m.id} value={m.id}>{m.name}{m.designation ? ` · ${m.designation}` : ""}</option>)}
+                  </select>
+                </div>
+                {current && (
+                  <div>
+                    <label className="label" htmlFor="reason">Reason</label>
+                    <input className="input" id="reason" name="reason" required placeholder="e.g. therapist left the firm" />
+                  </div>
+                )}
+                <div><button className="btn" type="submit" disabled={assignable.length === 0}>{current ? "Reassign" : "Assign"}</button></div>
+              </form>
+            </details>
+
+            {previous.length > 0 && (
+              <div className="mt-6">
+                <p className="mb-2.5 text-xs text-zinc-500">Previously</p>
+                <ol className="grid gap-3 border-l border-zinc-300 pl-3.5">
+                  {previous.map((p) => (
+                    <li key={p.id}>
+                      <p className="text-sm font-medium">{p.staffName}{!p.staffActive && <span className="font-normal text-zinc-500"> · former staff</span>}</p>
+                      <p className="text-sm text-zinc-600">{dateLabel(p.startsAt, tz)} – {p.endsAt ? dateLabel(p.endsAt, tz) : "now"} · {p.sessions} session{p.sessions === 1 ? "" : "s"}</p>
+                      {p.replacedBy && (
+                        <p className="text-sm text-zinc-600">
+                          Reassigned{p.replacedBy.assignedByName ? ` by ${p.replacedBy.assignedByName}` : ""}{p.replacedBy.reason ? `: ${p.replacedBy.reason}` : ""}
+                        </p>
+                      )}
                     </li>
                   ))}
-                </ul>
+                </ol>
               </div>
             )}
-            {oldPackages.length > 0 && <p className="text-xs text-zinc-600">Used up or expired: {oldPackages.map((p) => p.packageName).join(", ")}.</p>}
-          </div>
-          <h2 className="mb-3 font-semibold">Bookings</h2>
-          <div className="card divide-y divide-zinc-100 overflow-hidden">
-            {history.length === 0 && <p className="p-8 text-center text-sm text-zinc-600">No bookings.</p>}
-            {[...history].reverse().map((b) => <BookingRow key={b.id} b={b} tz={s.timezone} prefix={s.bookingPrefix} />)}
-          </div>
-        </section>
-        <form action={updateClientAction.bind(null, id)} className="card grid content-start gap-4 p-5">
-          <div><label className="label" htmlFor="name">Name</label><input className="input" id="name" name="name" defaultValue={c.name} required /></div>
-          <div><label className="label" htmlFor="email">Email</label><input className="input" id="email" name="email" type="email" defaultValue={c.email ?? ""} /></div>
-          <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="whatsappOptIn" defaultChecked={c.whatsappOptIn} /> WhatsApp updates</label>
-          <div><label className="label" htmlFor="notes">Notes</label><textarea className="input" id="notes" name="notes" rows={4} defaultValue={c.notes ?? ""} /></div>
-          <div><button className="btn" type="submit">Save</button></div>
-        </form>
+          </section>
+        </aside>
       </div>
     </>
   );
+}
+
+function InfoRows({ rows }: { rows: [string, string | null][] }) {
+  return (
+    <dl className="grid gap-2.5 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
+          <dt className="text-zinc-600">{label}</dt>
+          <dd className={`break-words ${value ? "" : "text-zinc-400"}`}>{value ?? "—"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function emergency(c: ClientDTO): string | null {
+  const who = [c.emergencyName, c.emergencyRelation ? `(${c.emergencyRelation})` : null].filter(Boolean).join(" ");
+  return [who, c.emergencyPhone ? phoneLabel(c.emergencyPhone) : null].filter(Boolean).join(" · ") || null;
+}
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 }
