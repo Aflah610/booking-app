@@ -98,7 +98,10 @@ instead of per key. It is **off** until `PUBLIC_API_ORIGINS` lists the site (for
 | `GET /api/public/v1/staff?service=<id>` | `/api/v1/staff` | 120 a minute |
 | `GET /api/public/v1/availability?serviceId=&staffId=&from=&to=` | `/api/v1/availability` | 120 a minute |
 | `GET /api/public/v1/packages` | `/api/v1/packages` (to show; buying needs a payment, so it stays on the keyed API) | 120 a minute |
-| `POST /api/public/v1/bookings` with `Idempotency-Key` | `/api/v1/bookings` without `purchase` | 8 in 10 minutes |
+| `POST /api/public/v1/bookings` with `Idempotency-Key` (or `idempotencyKey` in the body) | `/api/v1/bookings` without `purchase` | 8 in 10 minutes |
 
 The booking answer carries `manageUrl`, the client's link to view, move or cancel. While **Online payment** is on, a
 priced service can't be booked here (403), exactly as on `/book`: it would expire unpaid.
+
+Send only simple requests from the browser: GET with no custom headers, and the booking POST as `text/plain` with the
+key in the body. Catalyst's gateway answers CORS preflights itself without CORS headers, so a preflighted request fails.

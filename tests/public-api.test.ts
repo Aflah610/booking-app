@@ -95,6 +95,20 @@ describe("public website API", () => {
     expect(await c.bookings.list({ view: "all" })).toHaveLength(1);
   });
 
+  it("takes the idempotency key from a plain-text body, so browsers need no preflight", async () => {
+    const { svc, ameen } = await setup();
+    const body = { serviceId: svc.id, staffId: ameen.id, start: nextWeek("15:00"), client: ravi, idempotencyKey: "idem-body-key-1" };
+    const req = () =>
+      new NextRequest("http://localhost/api/public/v1/bookings", {
+        method: "POST",
+        headers: { origin: SITE, "x-forwarded-for": `10.1.0.${++visitor}`, "content-type": "text/plain;charset=UTF-8" },
+        body: JSON.stringify(body),
+      });
+    expect((await postBooking(req())).status).toBe(201);
+    expect((await postBooking(req())).status).toBe(200);
+    expect(await c.bookings.list({ view: "all" })).toHaveLength(1);
+  });
+
   it("needs an idempotency key and refuses a package purchase", async () => {
     const { svc, ameen } = await setup();
     const body = { serviceId: svc.id, staffId: ameen.id, start: nextWeek("11:00"), client: ravi };
