@@ -10,6 +10,8 @@ export const staffInput = z.object({
   designation: z.enum(DESIGNATIONS).nullable().optional(),
   timezone: timezone.default("Asia/Kolkata"),
   active: z.boolean().default(true),
+  // Like designation: left alone by an update that does not mention it.
+  clinicalAdmin: z.boolean().optional(),
 });
 export type StaffInput = z.input<typeof staffInput>;
 export type StaffData = z.output<typeof staffInput>;

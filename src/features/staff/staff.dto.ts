@@ -12,6 +12,8 @@ export type StaffDTO = {
   designation: Designation | null;
   timezone: string;
   active: boolean;
+  /** May read and write every client's clinical record. */
+  clinicalAdmin: boolean;
 };
 
 /** What the website may see about a staff member. */

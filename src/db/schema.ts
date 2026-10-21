@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { AFFECT, CASE_STATUS, COOPERATION, INSIGHT, JUDGEMENT, ONSET, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "../features/case-history/choices";
 import {
   bigint,
   boolean,
@@ -84,6 +85,8 @@ export const staff = pgTable("staff", {
   designation: text("designation").$type<"Psychiatrist" | "Psychologist" | "Nutritionist" | "Sales Executive">(),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
   active: boolean("active").notNull().default(true),
+  /** May read and write every client's clinical record, not only the clients they treat. */
+  clinicalAdmin: boolean("clinical_admin").notNull().default(false),
   /** scrypt hash for email-and-password sign-in; null = this person signs in with Google or Zoho only. */
   passwordHash: text("password_hash"),
   /** SHA-256 of the one-time "forgot password" link's token (the token itself is only ever in the email), and when the link stops working. */
@@ -269,6 +272,104 @@ export const clientTherapist = pgTable("client_therapist", {
   uniqueIndex("client_therapist_open_idx").on(t.clientId).where(sql`${t.endsAt} is null`),
   index("client_therapist_client_idx").on(t.clientId, t.startsAt),
 ]);
+
+const oneOf = (column: unknown, values: readonly string[]) => sql`${column} in (${sql.raw(values.map((v) => `'${v}'`).join(", "))})`;
+
+/** A client's clinical record: the intake assessment. Session notes hang off it. */
+export const caseHistory = pgTable("case_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().unique().references(() => client.id, { onDelete: "cascade" }),
+  status: text("status").$type<(typeof CASE_STATUS)[number]>().notNull().default("intake_pending"),
+  presentingComplaints: text("presenting_complaints"),
+  onset: text("onset").$type<(typeof ONSET)[number]>(),
+  duration: text("duration"),
+  severity: text("severity").$type<(typeof SEVERITY)[number]>(),
+  historyPresent: text("history_present"),
+  pastPsychiatric: text("past_psychiatric"),
+  medicalHistory: text("medical_history"),
+  medication: text("medication"),
+  familyHistory: text("family_history"),
+  personalHistory: text("personal_history"),
+  substanceUse: text("substance_use"),
+  premorbidPersonality: text("premorbid_personality"),
+  mseAppearance: text("mse_appearance"),
+  mseCooperation: text("mse_cooperation").$type<(typeof COOPERATION)[number]>(),
+  mseRapport: text("mse_rapport").$type<(typeof RAPPORT)[number]>(),
+  mseSpeech: text("mse_speech"),
+  mseMood: text("mse_mood"),
+  mseAffect: text("mse_affect").$type<(typeof AFFECT)[number]>(),
+  mseThought: text("mse_thought"),
+  msePerception: text("mse_perception"),
+  mseCognition: text("mse_cognition"),
+  mseInsight: text("mse_insight").$type<(typeof INSIGHT)[number]>(),
+  mseJudgement: text("mse_judgement").$type<(typeof JUDGEMENT)[number]>(),
+  riskSuicide: text("risk_suicide").$type<(typeof RISK)[number]>(),
+  riskSelfHarm: text("risk_self_harm").$type<(typeof RISK)[number]>(),
+  riskOthers: text("risk_others").$type<(typeof RISK)[number]>(),
+  diagnosisCode: text("diagnosis_code"),
+  diagnosisLabel: text("diagnosis_label"),
+  diagnosisSecondary: text("diagnosis_secondary"),
+  diagnosisSpecifiers: text("diagnosis_specifiers"),
+  formulation: text("formulation"),
+  goalsShort: text("goals_short"),
+  goalsLong: text("goals_long"),
+  approach: text("approach"),
+  frequency: text("frequency"),
+  planNotes: text("plan_notes"),
+  intakeCompletedAt: timestamp("intake_completed_at", { withTimezone: true }),
+  intakeCompletedBy: uuid("intake_completed_by").references(() => staff.id, { onDelete: "set null" }),
+  updatedBy: uuid("updated_by").references(() => staff.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  check("case_history_status", oneOf(t.status, CASE_STATUS)),
+  check("case_history_onset", oneOf(t.onset, ONSET)),
+  check("case_history_severity", oneOf(t.severity, SEVERITY)),
+  check("case_history_cooperation", oneOf(t.mseCooperation, COOPERATION)),
+  check("case_history_rapport", oneOf(t.mseRapport, RAPPORT)),
+  check("case_history_affect", oneOf(t.mseAffect, AFFECT)),
+  check("case_history_insight", oneOf(t.mseInsight, INSIGHT)),
+  check("case_history_judgement", oneOf(t.mseJudgement, JUDGEMENT)),
+  check("case_history_risk_suicide", oneOf(t.riskSuicide, RISK)),
+  check("case_history_risk_self_harm", oneOf(t.riskSelfHarm, RISK)),
+  check("case_history_risk_others", oneOf(t.riskOthers, RISK)),
+]);
+
+export const sessionNote = pgTable("session_note", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  caseHistoryId: uuid("case_history_id").notNull().references(() => caseHistory.id, { onDelete: "cascade" }),
+  /** The booked session this note is about; null for a session that was never booked here. */
+  bookingId: uuid("booking_id").unique().references(() => booking.id, { onDelete: "set null" }),
+  /** Session 1, 2, 3 … within this case. */
+  number: integer("number").notNull(),
+  sessionAt: timestamp("session_at", { withTimezone: true }).notNull(),
+  authorId: uuid("author_id").notNull().references(() => staff.id),
+  summary: text("summary").notNull(),
+  risk: text("risk").$type<(typeof RISK)[number]>(),
+  response: text("response").$type<(typeof RESPONSE)[number]>(),
+  progress: text("progress").$type<(typeof PROGRESS)[number]>(),
+  nextPlan: text("next_plan"),
+  homework: text("homework"),
+  followUpOn: date("follow_up_on"),
+  /** Null while a draft; once set the note can only be added to. */
+  signedAt: timestamp("signed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex("session_note_number_idx").on(t.caseHistoryId, t.number),
+  check("session_note_risk", oneOf(t.risk, RISK)),
+  check("session_note_response", oneOf(t.response, RESPONSE)),
+  check("session_note_progress", oneOf(t.progress, PROGRESS)),
+]);
+
+/** A correction or later remark on a signed note; the note itself is never changed. */
+export const sessionNoteAddendum = pgTable("session_note_addendum", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  noteId: uuid("note_id").notNull().references(() => sessionNote.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").notNull().references(() => staff.id),
+  text: text("text").notNull(),
+  createdAt: createdAt(),
+}, (t) => [index("session_note_addendum_note_idx").on(t.noteId)]);
 
 export const servicePackage = pgTable("package", {
   id: uuid("id").primaryKey().defaultRandom(),
