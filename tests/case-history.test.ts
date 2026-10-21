@@ -161,3 +161,12 @@ describe("the client page overview", () => {
     expect(await c.caseHistory.overview(manager, clientId)).toEqual({ restricted: true, status: "intake_pending", risk: "moderate" });
   });
 });
+
+describe("case list date filter", () => {
+  it("keeps clients whose last session note falls in the range, and drops those with no notes", async () => {
+    const { asha, lead, clientId } = await setup();
+    await c.caseHistory.addNote(asha, clientId, { sessionOn: "2026-10-05", summary: "x" });
+    expect((await c.caseHistory.list(lead, { from: new Date("2026-10-01T00:00:00Z"), to: new Date("2026-10-08T00:00:00Z") })).length).toBe(1);
+    expect((await c.caseHistory.list(lead, { from: new Date("2026-10-06T00:00:00Z") })).length).toBe(0);
+  });
+});

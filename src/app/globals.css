@@ -89,6 +89,18 @@ body {
 .table tr:last-child td {
   @apply border-b-0;
 }
+/* A table row that opens one thing: its main link is stretched over the whole row, so clicking anywhere opens it while
+   middle-click and "open in new tab" still work. Other links or buttons in the row sit above it with .row-above. */
+.row-link {
+  @apply relative cursor-pointer transition-colors hover:bg-zinc-50;
+}
+.row-link-target::after {
+  content: "";
+  @apply absolute inset-0;
+}
+.row-above {
+  @apply relative z-10;
+}
 .toggle {
   @apply relative h-5 w-9 cursor-pointer appearance-none rounded-full bg-zinc-300 transition-colors checked:bg-black;
 }

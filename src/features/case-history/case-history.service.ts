@@ -164,7 +164,9 @@ export function createCaseHistoryService({ caseRepo }: { caseRepo: CaseHistoryRe
       return rows.filter((r) =>
         (!f.status || (f.status === "high_risk" ? r.risk === "high" : r.status === f.status)) &&
         (!f.therapist || (f.therapist === "unassigned" ? !r.therapistId : r.therapistId === f.therapist)) &&
-        (!f.risk || r.risk === f.risk));
+        (!f.risk || r.risk === f.risk) &&
+        (!f.from || (r.lastNoteAt !== null && r.lastNoteAt >= f.from)) &&
+        (!f.to || (r.lastNoteAt !== null && r.lastNoteAt < f.to)));
     },
   };
 }

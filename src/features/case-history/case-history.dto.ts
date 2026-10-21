@@ -103,6 +103,9 @@ export type CaseListFilters = {
   /** A staff id, or "unassigned". */
   therapist?: string;
   risk?: Risk;
+  /** The last session note falls in [from, to). */
+  from?: Date;
+  to?: Date;
 };
 
 /** A past booking a note can be written for. */

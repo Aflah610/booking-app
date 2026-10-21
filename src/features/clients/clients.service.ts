@@ -29,7 +29,7 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
   return {
     get,
     findByPhone: (phoneE164: string) => clientsRepo.findByPhone(phoneE164),
-    list: (opts?: { q?: string; limit?: number; relevance?: boolean }) => clientsRepo.list(opts),
+    list: (opts?: { q?: string; limit?: number; relevance?: boolean; from?: Date; to?: Date }) => clientsRepo.list(opts),
     therapistHistory: (clientId: string) => clientsRepo.therapistHistory(clientId),
 
     /** Adds a client by hand. Clients are matched by mobile number, so a number already on file is refused. */

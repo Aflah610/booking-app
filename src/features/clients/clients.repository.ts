@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbOrTx } from "@/db";
 import { booking, client, clientTherapist, staff } from "@/db/schema";
@@ -67,8 +67,8 @@ export function createClientsRepository(db: Db) {
       return row ?? null;
     },
 
-    /** Newest first, with how many bookings each has; `q` matches name, phone or email. */
-    list({ q, limit = 100, relevance = false }: { q?: string; limit?: number; relevance?: boolean } = {}) {
+    /** Newest first, with how many bookings each has; `q` matches name, phone or email; `from`/`to` bound the sign-up time. */
+    list({ q, limit = 100, relevance = false, from, to }: { q?: string; limit?: number; relevance?: boolean; from?: Date; to?: Date } = {}) {
       const like = (s: string) => `%${s.replace(/[%_\\]/g, "\\$&")}%`;
       const pattern = q ? like(q) : null;
       // "98765 43210" or "+91 98765" should find +919876543210, so a phone search also tries the digits alone.
@@ -80,7 +80,11 @@ export function createClientsRepository(db: Db) {
           sql<number>`(select count(*)::int from booking b where b.client_id = client.id)`,
         })
         .from(client)
-        .where(pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined)
+        .where(and(
+          pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined,
+          from ? gte(client.createdAt, from) : undefined,
+          to ? lt(client.createdAt, to) : undefined,
+        ))
         // For a search box: names that start with what was typed come first, then the rest alphabetically. Otherwise newest first.
         .orderBy(...(relevance && q ? [sql`case when ${client.name} ilike ${like(q).slice(1)} then 0 else 1 end`, asc(client.name)] : [desc(client.createdAt), asc(client.name)]))
         .limit(limit);

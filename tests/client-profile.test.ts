@@ -146,3 +146,14 @@ describe("adding a client by hand", () => {
     await expect(c.clients.create({}, { name: "Someone", phone: "+91 98765 11111" })).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("Meera (CL-") });
   });
 });
+
+describe("client list date filter", () => {
+  it("keeps clients who signed up inside the range of days, whole days in the firm's time zone", async () => {
+    await db.execute(sql`insert into client (name, phone_e164, created_at) values
+      ('Early', '+919000000011', '2026-09-30T18:45:00Z'), ('Before', '+919000000014', '2026-09-30T18:00:00Z'), ('Inside', '+919000000012', '2026-10-05T10:00:00Z'), ('Late', '+919000000013', '2026-10-10T19:00:00Z')`);
+    const { dayRange } = await import("@/lib/day-range");
+    // 30 Sep 18:45 UTC is already 1 Oct in India (18:00 is not); 10 Oct 19:00 UTC is 11 Oct there.
+    const names = (await c.clients.list({ ...dayRange("2026-10-01", "2026-10-10", "Asia/Kolkata") })).map((r) => r.name);
+    expect(names.sort()).toEqual(["Early", "Inside"]);
+  });
+});

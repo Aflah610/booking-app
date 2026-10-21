@@ -22,8 +22,8 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
           </thead>
           <tbody>
             {rows.map((s) => (
-              <tr key={s.id}>
-                <td><Link className="font-medium hover:underline" href={`/admin/staff/${s.id}`}>{s.name}</Link></td>
+              <tr key={s.id} className="row-link">
+                <td><Link className="row-link-target font-medium" href={`/admin/staff/${s.id}`}>{s.name}</Link></td>
                 <td className="text-zinc-600">{s.email}</td>
                 <td className="text-zinc-600">{s.designation ?? "–"}</td>
                 <td className="capitalize">{s.role}</td>
