@@ -206,6 +206,21 @@ export async function updateClientProfileAction(clientId: string, form: FormData
   });
 }
 
+export async function createClientAction(form: FormData) {
+  const me = await requireStaff("manager");
+  await act("/admin/clients/new", "Client added", async () => {
+    const created = await app().clients.create({ staffId: me.id }, {
+      name: str(form, "name"),
+      phone: str(form, "phone"),
+      email: optional(form, "email"),
+      whatsappOptIn: form.get("whatsappOptIn") === "on",
+      notes: optional(form, "notes"),
+    });
+    if (str(form, "staffId")) await app().clients.assignTherapist({ staffId: me.id }, created.id, { staffId: str(form, "staffId") });
+    return `/admin/clients/${created.id}`;
+  });
+}
+
 export async function assignTherapistAction(clientId: string, form: FormData) {
   const me = await requireStaff("manager");
   await act(`/admin/clients/${clientId}`, "Therapist assigned", () =>

@@ -30,6 +30,9 @@ export const clientUpdateInput = z.object({
   notes: z.string().trim().max(5000).nullish(),
 });
 
+/** A client added by staff before any booking. */
+export const clientCreateInput = clientContactInput.extend({ notes: z.string().trim().max(5000).nullish().transform((v) => v || null) });
+
 /** A form box left empty means "not recorded". */
 const blank = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
 const text = (max: number) => z.preprocess(blank, z.string().trim().max(max).nullable().default(null));

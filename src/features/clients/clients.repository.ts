@@ -86,6 +86,14 @@ export function createClientsRepository(db: Db) {
         .limit(limit);
     },
 
+    create(data: ClientContact & { notes: string | null; registeredBy: string | null }, audit: Omit<AuditEntry, "entityId">) {
+      return db.transaction(async (tx) => {
+        const [row] = await tx.insert(client).values(data).returning(clientColumns);
+        await writeAudit(tx, { ...audit, entityId: row.id });
+        return row;
+      });
+    },
+
     update(id: string, data: ClientProfileFields, audit: AuditEntry) {
       return db.transaction(async (tx) => {
         const [row] = await tx.update(client).set(data).where(eq(client.id, id)).returning(clientColumns);

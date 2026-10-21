@@ -1,9 +1,9 @@
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import type { ClientDTO } from "./clients.dto";
+import { clientReference, type ClientDTO } from "./clients.dto";
 import type { ClientsRepository } from "./clients.repository";
-import { assignTherapistInput, clientProfileInput, clientUpdateInput } from "./clients.schemas";
+import { assignTherapistInput, clientCreateInput, clientProfileInput, clientUpdateInput } from "./clients.schemas";
 
 export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepository }) {
   async function get(id: string): Promise<ClientDTO> {
@@ -31,6 +31,16 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     findByPhone: (phoneE164: string) => clientsRepo.findByPhone(phoneE164),
     list: (opts?: { q?: string; limit?: number; relevance?: boolean }) => clientsRepo.list(opts),
     therapistHistory: (clientId: string) => clientsRepo.therapistHistory(clientId),
+
+    /** Adds a client by hand. Clients are matched by mobile number, so a number already on file is refused. */
+    async create(actor: Actor, input: unknown): Promise<ClientDTO> {
+      const data = clientCreateInput.parse(input);
+      const existing = await clientsRepo.findByPhone(data.phone);
+      if (existing) throw new DomainError("conflict", `A client with mobile ${data.phone} already exists: ${existing.name} (${clientReference(existing.number)})`);
+      const { phone, ...rest } = data;
+      // Personal data: the audit row says a client was added, not who.
+      return clientsRepo.create({ ...rest, email: rest.email ?? null, phoneE164: phone, registeredBy: actor.staffId ?? null },{ actor, action: "create", entity: "client" });
+    },
 
     // Async, so bad input comes back as a rejected promise like every other failure.
     update: async (actor: Actor, id: string, input: unknown) => save(actor, id, clientUpdateInput.parse(input)),

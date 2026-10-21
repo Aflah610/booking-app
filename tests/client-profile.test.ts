@@ -136,3 +136,13 @@ describe("client status", () => {
     expect(clientStatus([s("completed", "2026-08-01T10:00:00Z")], now)).toBe("concluded");
   });
 });
+
+describe("adding a client by hand", () => {
+  it("creates the client with who added them, and refuses a mobile number already on file", async () => {
+    const shana = await c.staff.create({}, { name: "Shana", email: "shana2@firm.test" });
+    const added = await c.clients.create({ staffId: shana.id }, { name: "Meera", phone: "98765 11111", email: "", whatsappOptIn: false, notes: "" });
+    expect(added).toMatchObject({ name: "Meera", phoneE164: "+919876511111", email: null, notes: null, whatsappOptIn: false, registeredBy: shana.id });
+    expect(added.number).toBeGreaterThan(0);
+    await expect(c.clients.create({}, { name: "Someone", phone: "+91 98765 11111" })).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("Meera (CL-") });
+  });
+});
