@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { app } from "@/features/container";
+import { isUuid } from "@/features/shared/validation";
 import { addDays } from "@/features/availability/slots";
 import { hasRole, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function NewBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ service?: string; staff?: string; date?: string; start?: string; error?: string }>;
+  searchParams: Promise<{ service?: string; staff?: string; date?: string; start?: string; client?: string; error?: string }>;
 }) {
   const me = await requireStaff();
   const sp = await searchParams;
@@ -30,6 +31,8 @@ export default async function NewBookingPage({
   const people = serviceId ? await staff.listBookableForService(serviceId) : [];
   const staffId = sp.staff && people.some((p) => p.id === sp.staff) ? sp.staff : "";
   const svc = services.find((x) => x.id === serviceId);
+  // Opened from a client's page: their details fill the form. Only for managers, who can already search clients here.
+  const client = sp.client && isUuid(sp.client) && hasRole(me, "manager") ? await app().clients.get(sp.client).catch(() => null) : null;
 
   const slots = serviceId && people.length
     ? (
@@ -41,7 +44,7 @@ export default async function NewBookingPage({
     : [];
   const chosen = sp.start ? slots.find((x) => x.start.toISOString() === sp.start) ?? null : null;
   const href = (patch: Record<string, string>) =>
-    `/admin/bookings/new?${new URLSearchParams({ service: serviceId ?? "", staff: staffId, date, ...patch })}`;
+    `/admin/bookings/new?${new URLSearchParams({ service: serviceId ?? "", staff: staffId, date, ...(client ? { client: client.id } : {}), ...patch })}`;
 
   if (!services.length) {
     return (
@@ -58,6 +61,7 @@ export default async function NewBookingPage({
       <Notice error={sp.error} />
       <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
         <AutoSubmitForm className="card grid content-start gap-4 p-5" action="/admin/bookings/new">
+          {client && <input type="hidden" name="client" value={client.id} />}
           <div>
             <label className="label" htmlFor="service">Service</label>
             <select className="input" id="service" name="service" defaultValue={serviceId}>
@@ -116,7 +120,7 @@ export default async function NewBookingPage({
               <input type="hidden" name="staffId" value={staffId} />
               <input type="hidden" name="start" value={chosen.start.toISOString()} />
               <input type="hidden" name="date" value={date} />
-              <ClientFields canSearch={hasRole(me, "manager")} />
+              <ClientFields canSearch={hasRole(me, "manager")} initial={client && { id: client.id, name: client.name, phone: client.phoneE164, email: client.email, whatsappOptIn: client.whatsappOptIn }} />
               <QuestionFields questions={svc.questions} />
               <div className="sm:col-span-2"><label className="label" htmlFor="notes">Notes</label><textarea className="input" id="notes" name="notes" rows={2} placeholder="Only staff see these" /></div>
               <div className="sm:col-span-2"><button className="btn-success" type="submit">Confirm booking</button></div>

@@ -103,7 +103,7 @@ export default async function ClientPage({
                 {next && <> · next session {dayLabel(next.startsAt, tz)}, {timeLabel(next.startsAt, tz)}</>}
               </p>
             </div>
-            <Link href="/admin/bookings/new" className="btn">New booking</Link>
+            <Link href={`/admin/bookings/new?${new URLSearchParams({ client: id, ...(current ? { staff: current.staffId } : {}) })}`} className="btn">New booking</Link>
           </div>
 
           <nav className="tabs" aria-label="Client sections">

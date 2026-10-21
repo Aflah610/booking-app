@@ -3,19 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 
 type Match = { id: string; name: string; phone: string; email: string | null; whatsappOptIn: boolean; bookings: number };
+/** A client already chosen before the form opens, e.g. from "New booking" on their page. */
+export type PickedClient = Omit<Match, "bookings">;
 
 /**
  * The client's details on a new booking. Managers can search existing clients by name, phone or email and pick one to fill the
  * boxes in; anyone can still type a new client in. A phone number we already know is matched to that client when the booking is saved.
  */
-export function ClientFields({ canSearch }: { canSearch: boolean }) {
+export function ClientFields({ canSearch, initial }: { canSearch: boolean; initial?: PickedClient | null }) {
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<Match[] | null>(null);
-  const [picked, setPicked] = useState<Match | null>(null);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [whatsapp, setWhatsapp] = useState(true);
+  const [picked, setPicked] = useState<PickedClient | null>(initial ?? null);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [whatsapp, setWhatsapp] = useState(initial?.whatsappOptIn ?? true);
   const latest = useRef(0);
 
   useEffect(() => {
