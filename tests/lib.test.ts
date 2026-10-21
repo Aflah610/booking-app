@@ -126,3 +126,17 @@ describe("recognising domain errors", () => {
     expect(isUpstreamError(foreign)).toBe(false);
   });
 });
+
+describe("phone field country splitting", () => {
+  it("finds the country from an international number, preferring the obvious one for shared codes", async () => {
+    const { splitE164, flag, COUNTRIES } = await import("@/components/countries");
+    expect(splitE164("+919876543210")).toEqual({ iso: "IN", national: "9876543210" });
+    expect(splitE164("+971501234567")).toEqual({ iso: "AE", national: "501234567" });
+    expect(splitE164("+447911123456")).toEqual({ iso: "GB", national: "7911123456" });
+    expect(splitE164("+12025550123")).toEqual({ iso: "US", national: "2025550123" });
+    expect(splitE164("")).toEqual({ iso: "IN", national: "" });
+    expect(splitE164(null)).toEqual({ iso: "IN", national: "" });
+    expect(flag("IN")).toBe("🇮🇳");
+    expect(new Set(COUNTRIES.map((c) => c.iso)).size).toBe(COUNTRIES.length);
+  });
+});

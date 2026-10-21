@@ -6,6 +6,7 @@ import { isDomainError } from "@/features/shared/errors";
 import { isoDay, phoneLabel } from "@/lib/format";
 import { requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
+import { PhoneField } from "@/components/PhoneField";
 import { PageHeader } from "@/components/Shell";
 import { updateClientProfileAction } from "../../../actions";
 
@@ -84,7 +85,7 @@ export default async function EditClientPage({
           <h2 className="font-semibold sm:col-span-3">Emergency contact</h2>
           {text("emergencyName", "Name")}
           {text("emergencyRelation", "Relation", { placeholder: "e.g. Spouse" })}
-          {text("emergencyPhone", "Phone", { type: "tel", placeholder: "+91 98765 43210" })}
+          <PhoneField id="emergencyPhone" name="emergencyPhone" label="Phone" defaultValue={c.emergencyPhone} />
         </fieldset>
 
         <fieldset className="card grid gap-4 p-5 sm:grid-cols-2">

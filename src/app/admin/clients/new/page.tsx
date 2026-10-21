@@ -2,6 +2,7 @@ import Link from "next/link";
 import { app } from "@/features/container";
 import { requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
+import { PhoneField } from "@/components/PhoneField";
 import { PageHeader } from "@/components/Shell";
 import { createClientAction } from "../../actions";
 
@@ -21,7 +22,7 @@ export default async function NewClientPage({ searchParams }: { searchParams: Pr
       <Notice error={error} />
       <form action={createClientAction} className="card grid max-w-2xl gap-4 p-5 sm:grid-cols-2">
         <div><label className="label" htmlFor="name">Name</label><input className="input" id="name" name="name" required autoComplete="off" /></div>
-        <div><label className="label" htmlFor="phone">Mobile number</label><input className="input" id="phone" name="phone" type="tel" required placeholder="98765 43210" /></div>
+        <PhoneField id="phone" name="phone" label="Mobile number" required />
         <div><label className="label" htmlFor="email">Email</label><input className="input" id="email" name="email" type="email" placeholder="Optional" /></div>
         <div>
           <label className="label" htmlFor="staffId">Therapist</label>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PhoneField } from "./PhoneField";
 
 type Match = { id: string; name: string; phone: string; email: string | null; whatsappOptIn: boolean; bookings: number };
 /** A client already chosen before the form opens, e.g. from "New booking" on their page. */
@@ -94,7 +95,7 @@ export function ClientFields({ canSearch, initial }: { canSearch: boolean; initi
         </div>
       )}
       <div><label className="label" htmlFor="clientName">Client name</label><input className="input" id="clientName" name="clientName" required value={name} onChange={(e) => setName(e.target.value)} /></div>
-      <div><label className="label" htmlFor="clientPhone">Mobile number</label><input className="input" id="clientPhone" name="clientPhone" type="tel" placeholder="98765 43210" required value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+      <PhoneField id="clientPhone" name="clientPhone" label="Mobile number" required value={phone} onChange={setPhone} />
       <div><label className="label" htmlFor="clientEmail">Email</label><input className="input" id="clientEmail" name="clientEmail" type="email" placeholder="Optional" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <label className="flex items-center gap-3 self-end pb-2 text-sm">
         <input type="checkbox" className="toggle" name="whatsappOptIn" checked={whatsapp} onChange={(e) => setWhatsapp(e.target.checked)} /> Send WhatsApp updates

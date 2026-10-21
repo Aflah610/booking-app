@@ -9,6 +9,7 @@ import { dayLabel, isoDay, longDayLabel, timeLabel } from "@/lib/format";
 import { groupByDay } from "@/lib/public-slots";
 import { zonedToUtc } from "@/lib/time";
 import { bookPublicAction } from "./actions";
+import { PhoneField } from "@/components/PhoneField";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Book an appointment" };
@@ -153,7 +154,7 @@ export default async function BookPage({
           <input type="hidden" name="key" value={crypto.randomUUID()} />
           {embed && <input type="hidden" name="embed" value="1" />}
           <div><label className="label" htmlFor="clientName">Your name</label><input className="input" id="clientName" name="clientName" autoComplete="name" required /></div>
-          <div><label className="label" htmlFor="clientPhone">Mobile number</label><input className="input" id="clientPhone" name="clientPhone" type="tel" autoComplete="tel" placeholder="98765 43210" required /></div>
+          <PhoneField id="clientPhone" name="clientPhone" label="Mobile number" required />
           <div className="sm:col-span-2"><label className="label" htmlFor="clientEmail">Email <span className="text-red-700">*</span></label><input className="input" id="clientEmail" name="clientEmail" type="email" autoComplete="email" required /></div>
           <QuestionFields questions={svc.questions} />
           <div className="sm:col-span-2"><label className="label" htmlFor="notes">Anything else? (optional)</label><textarea className="input" id="notes" name="notes" rows={2} /></div>
