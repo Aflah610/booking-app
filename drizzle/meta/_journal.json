@@ -169,6 +169,13 @@
       "when": 1792438305203,
       "tag": "0023_otp_request",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792580493403,
+      "tag": "0024_client_profile_fields",
+      "breakpoints": true
     }
   ]
 }

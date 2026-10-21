@@ -234,9 +234,41 @@ export const client = pgTable("client", {
   email: text("email"),
   whatsappOptIn: boolean("whatsapp_opt_in").notNull().default(false),
   notes: text("notes"),
+  /** The short running number staff quote, shown as CL-00142. */
+  number: integer("number").generatedByDefaultAsIdentity().notNull().unique(),
+  dateOfBirth: date("date_of_birth"),
+  gender: text("gender"),
+  maritalStatus: text("marital_status"),
+  occupation: text("occupation"),
+  education: text("education"),
+  location: text("location"),
+  languages: text("languages"),
+  emergencyName: text("emergency_name"),
+  emergencyRelation: text("emergency_relation"),
+  emergencyPhone: text("emergency_phone"),
+  referralSource: text("referral_source"),
+  consentSignedAt: timestamp("consent_signed_at", { withTimezone: true }),
+  /** The staff member who added this client; null for clients who booked online. */
+  registeredBy: uuid("registered_by").references(() => staff.id, { onDelete: "set null" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [check("client_phone_e164", sql`${t.phoneE164} ~ '^\\+[1-9][0-9]{6,14}$'`)]);
+
+/** One row per period a therapist was assigned to a client; `ends_at` null is the current one. */
+export const clientTherapist = pgTable("client_therapist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  staffId: uuid("staff_id").notNull().references(() => staff.id),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  assignedBy: uuid("assigned_by").references(() => staff.id, { onDelete: "set null" }),
+  reason: text("reason"),
+  createdAt: createdAt(),
+}, (t) => [
+  // A client has at most one current therapist, even when two people reassign at the same moment.
+  uniqueIndex("client_therapist_open_idx").on(t.clientId).where(sql`${t.endsAt} is null`),
+  index("client_therapist_client_idx").on(t.clientId, t.startsAt),
+]);
 
 export const servicePackage = pgTable("package", {
   id: uuid("id").primaryKey().defaultRandom(),
