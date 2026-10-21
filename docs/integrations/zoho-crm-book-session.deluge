@@ -1,0 +1,85 @@
+/*
+ * Zoho CRM standalone function: book a session in Waky Booking.
+ *
+ * Setup (once):
+ *   1. In Waky Booking, Settings > API: create a "website" API key.
+ *   2. In Zoho CRM, Setup > Developer Hub > Variables: add an org variable
+ *      API name: waky_api_key   Type: Single Line   Value: the key (bk_...)
+ *   3. Setup > Developer Hub > Functions > New Function > Standalone; name it bookWakySession,
+ *      add the six String arguments below, paste this code, save.
+ *
+ * Arguments:
+ *   serviceId    the service's id (GET /api/v1/services)
+ *   staffId      a therapist's id (GET /api/v1/staff?service=...), or "" for anyone available
+ *   startTime    the start, ISO 8601 on a whole minute, e.g. "2026-10-30T10:00:00+05:30" or "2026-10-30T04:30:00Z"
+ *   clientName   e.g. "Ravi Kumar"
+ *   clientPhone  e.g. "+919876543210" (a 10-digit number is taken as Indian)
+ *   clientEmail  optional, "" for none
+ *
+ * Returns a short text: "Booked BK-00012 ..." or "Not booked: <reason>".
+ */
+string standalone.bookWakySession(String serviceId, String staffId, String startTime, String clientName, String clientPhone, String clientEmail)
+{
+	baseUrl = "https://waky-booking-50046919821.development.catalystappsail.in/api/v1";
+	apiKey = zoho.crm.getOrgVariable("waky_api_key");
+	if(apiKey == null || apiKey == "")
+	{
+		return "Not booked: the org variable waky_api_key is not set";
+	}
+	client = Map();
+	client.put("name",clientName);
+	client.put("phone",clientPhone);
+	client.put("whatsappOptIn",true);
+	if(clientEmail != null && clientEmail != "")
+	{
+		client.put("email",clientEmail);
+	}
+	body = Map();
+	body.put("serviceId",serviceId);
+	if(staffId != null && staffId != "")
+	{
+		body.put("staffId",staffId);
+	}
+	body.put("start",startTime);
+	body.put("client",client);
+	body.put("notes","Booked from Zoho CRM");
+	// The same client and time always give the same key, so running the function twice by mistake books once.
+	idemKey = "crm-" + clientPhone.replaceAll("[^0-9]","") + "-" + startTime.replaceAll("[^0-9]","");
+	headers = Map();
+	headers.put("Authorization","Bearer " + apiKey);
+	headers.put("Content-Type","application/json");
+	headers.put("Idempotency-Key",idemKey);
+	response = invokeurl
+	[
+		url :baseUrl + "/bookings"
+		type :POST
+		parameters:body.toString()
+		headers:headers
+		detailed:true
+	];
+	status = response.get("responseCode");
+	reply = response.get("responseText");
+	if(reply != null && !reply.isEmpty() && reply.toString().startsWith("{"))
+	{
+		reply = reply.toString().toMap();
+	}
+	if(status == 201 || status == 200)
+	{
+		booking = reply.get("data").get("booking");
+		info "Manage token (store it if CRM will move or cancel this booking): " + reply.get("data").get("manageToken");
+		return "Booked " + booking.get("reference") + ": " + booking.get("serviceName") + " with " + booking.get("staffName") + " at " + booking.get("start") + " (payment " + booking.get("payment").get("status") + ")";
+	}
+	// 409: the time was just taken; 400: a field is wrong; 401: the API key is wrong; 403: not allowed.
+	message = "HTTP " + status;
+	if(reply != null && reply.get("error") != null)
+	{
+		message = reply.get("error").get("message");
+		details = reply.get("error").get("details");
+		// details is an object on a 409 (with a reason) but a list of field problems on a 400.
+		if(details != null && details.toString().startsWith("{") && details.get("reason") != null)
+		{
+			message = message + " (" + details.get("reason") + ")";
+		}
+	}
+	return "Not booked: " + message;
+}
