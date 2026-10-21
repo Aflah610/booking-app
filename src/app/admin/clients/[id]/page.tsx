@@ -248,7 +248,11 @@ function CaseOverview({ view, clientId, tz }: { view: Awaited<ReturnType<CaseHis
   if (view.restricted) {
     return (
       <div className="card grid gap-3 p-5">
-        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={view.status} /><RiskBadge risk={view.risk} prefix="Risk: " /></div>
+        {view.status ? (
+          <div className="flex flex-wrap items-center gap-2"><StatusBadge status={view.status} />{view.risk && <RiskBadge risk={view.risk} prefix="Risk: " />}</div>
+        ) : (
+          <p className="font-medium">No case history has been started yet</p>
+        )}
         <p className="text-sm text-zinc-600">Diagnosis and session notes are visible only to the client&apos;s therapist and clinical admins.</p>
       </div>
     );

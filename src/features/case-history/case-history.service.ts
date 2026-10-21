@@ -126,13 +126,14 @@ export function createCaseHistoryService({ caseRepo }: { caseRepo: CaseHistoryRe
     /**
      * What the client page shows: the record for an allowed reader (without creating one), otherwise status and risk only.
      */
-    async overview(reader: Reader, clientId: string): Promise<{ restricted: true; status: CaseRecordDTO["status"]; risk: Risk | null } | { restricted: false; record: CaseRecordDTO | null }> {
+    async overview(reader: Reader, clientId: string): Promise<{ restricted: true; status: CaseRecordDTO["status"] | null; risk: Risk | null } | { restricted: false; record: CaseRecordDTO | null }> {
       if (await canRead(reader, clientId)) {
         const head = await caseRepo.headline(clientId);
         return { restricted: false, record: head ? await caseRepo.findOrCreate(clientId) : null };
       }
       const head = await caseRepo.headline(clientId);
-      return { restricted: true, status: head?.status ?? "intake_pending", risk: head?.risk ?? null };
+      // No record yet is said plainly, not shown as a status nobody set.
+      return { restricted: true, status: head?.status ?? null, risk: head?.risk ?? null };
     },
 
     async noteableBookings(reader: Reader, clientId: string, now = new Date()) {
