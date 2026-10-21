@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { AFFECT, CASE_STATUS, COOPERATION, INSIGHT, JUDGEMENT, ONSET, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "../features/case-history/choices";
+import { AFFECT, CASE_STATUS, COOPERATION, DELIVERY, INSIGHT, JUDGEMENT, ONSET, PART_OF_DAY, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "../features/case-history/choices";
 import {
   bigint,
   boolean,
@@ -360,6 +360,27 @@ export const sessionNote = pgTable("session_note", {
   check("session_note_risk", oneOf(t.risk, RISK)),
   check("session_note_response", oneOf(t.response, RESPONSE)),
   check("session_note_progress", oneOf(t.progress, PROGRESS)),
+]);
+
+/**
+ * The therapist suggesting the client's next session: a message by WhatsApp and email with a suggested date. Nothing is
+ * booked or held; the client arranges the actual time, so no slot is ever taken by a suggestion.
+ */
+export const followUp = pgTable("follow_up", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  caseHistoryId: uuid("case_history_id").notNull().references(() => caseHistory.id, { onDelete: "cascade" }),
+  suggestedOn: date("suggested_on").notNull(),
+  partOfDay: text("part_of_day").$type<(typeof PART_OF_DAY)[number]>(),
+  note: text("note"),
+  sentBy: uuid("sent_by").notNull().references(() => staff.id),
+  whatsapp: text("whatsapp").$type<(typeof DELIVERY)[number]>().notNull(),
+  email: text("email").$type<(typeof DELIVERY)[number]>().notNull(),
+  createdAt: createdAt(),
+}, (t) => [
+  index("follow_up_case_idx").on(t.caseHistoryId, t.createdAt),
+  check("follow_up_part_of_day", oneOf(t.partOfDay, PART_OF_DAY)),
+  check("follow_up_whatsapp", oneOf(t.whatsapp, DELIVERY)),
+  check("follow_up_email", oneOf(t.email, DELIVERY)),
 ]);
 
 /** A correction or later remark on a signed note; the note itself is never changed. */

@@ -26,7 +26,8 @@ export async function act(path: string, ok: string, fn: () => Promise<unknown>):
   revalidatePath(path.split("?")[0]);
   const [base, query] = target.split("?");
   const params = new URLSearchParams(query);
-  params.set(error ? "error" : "ok", error ?? ok);
+  // An action that worked out its own success message (e.g. what was sent where) returns it in the path's ?ok=.
+  if (error || !params.has("ok")) params.set(error ? "error" : "ok", error ?? ok);
   redirect(`${base}?${params}`);
 }
 

@@ -122,7 +122,11 @@ export function createContainer(db: Db, opts: {
     schedules: createSchedulesService({ schedulesRepo: createSchedulesRepository(db) }),
     settings: createSettingsService({ settingsRepo }),
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
-    caseHistory: createCaseHistoryService({ caseRepo: createCaseHistoryRepository(db) }),
+    caseHistory: createCaseHistoryService({
+      caseRepo: createCaseHistoryRepository(db),
+      senders: { email: senders.email, whatsapp: senders.whatsapp },
+      firmName: async () => (await settingsRepo.get()).name,
+    }),
     availability,
     bookings: createBookingsService({
       bookingsRepo,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AFFECT, COOPERATION, INSIGHT, JUDGEMENT, ONSET, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "./choices";
+import { AFFECT, COOPERATION, INSIGHT, JUDGEMENT, ONSET, PART_OF_DAY, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "./choices";
 import { ICD11 } from "./icd11";
 
 /** A form box left empty means "not recorded". */
@@ -61,3 +61,13 @@ export const noteInput = z.object({
 export const noteEditInput = noteInput.omit({ bookingId: true, sessionOn: true });
 
 export const addendumInput = z.object({ text: z.string().trim().min(1, "Write the addendum").max(5000) });
+
+export const followUpInput = z
+  .object({
+    suggestedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the suggested date"),
+    partOfDay: choice(PART_OF_DAY),
+    note: text(500),
+    whatsapp: z.boolean(),
+    email: z.boolean(),
+  })
+  .refine((v) => v.whatsapp || v.email, { message: "Choose WhatsApp, email or both", path: ["whatsapp"] });

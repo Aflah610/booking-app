@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/db";
-import { booking, caseHistory, client, clientTherapist, service, sessionNote, sessionNoteAddendum, staff } from "@/db/schema";
+import { booking, caseHistory, client, clientTherapist, followUp, service, sessionNote, sessionNoteAddendum, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
-import type { CaseRecordDTO, IntakeFields, NoteableBooking, SessionNoteDTO } from "./case-history.dto";
+import type { CaseRecordDTO, Delivery, FollowUpDTO, IntakeFields, NoteableBooking, SessionNoteDTO } from "./case-history.dto";
 import { overallRisk, type Risk } from "./choices";
 
 const completedBy = alias(staff, "completed_by");
@@ -58,7 +58,30 @@ export function createCaseHistoryRepository(db: Db) {
     return notes.map((n) => ({ ...n, addenda: addenda.filter((a) => a.noteId === n.id).map(({ noteId: _, ...a }) => a) }));
   }
 
+  function followUpsFor(caseHistoryId: string): Promise<FollowUpDTO[]> {
+    return db
+      .select({ id: followUp.id, suggestedOn: followUp.suggestedOn, partOfDay: followUp.partOfDay, note: followUp.note, sentByName: staff.name,
+        whatsapp: followUp.whatsapp, email: followUp.email, createdAt: followUp.createdAt })
+      .from(followUp)
+      .innerJoin(staff, eq(staff.id, followUp.sentBy))
+      .where(eq(followUp.caseHistoryId, caseHistoryId))
+      .orderBy(desc(followUp.createdAt));
+  }
+
   return {
+    async clientContact(clientId: string): Promise<{ name: string; phoneE164: string; email: string | null } | null> {
+      const [row] = await db.select({ name: client.name, phoneE164: client.phoneE164, email: client.email }).from(client).where(eq(client.id, clientId));
+      return row ?? null;
+    },
+
+    insertFollowUp(data: { caseHistoryId: string; suggestedOn: string; partOfDay: FollowUpDTO["partOfDay"]; note: string | null; sentBy: string; whatsapp: Delivery; email: Delivery }, audit: Omit<AuditEntry, "entityId">) {
+      return db.transaction(async (tx) => {
+        const [row] = await tx.insert(followUp).values(data).returning({ id: followUp.id });
+        await writeAudit(tx, { ...audit, entityId: row.id });
+        return row.id;
+      });
+    },
+
     async currentTherapistId(clientId: string): Promise<string | null> {
       const [row] = await db.select({ staffId: clientTherapist.staffId }).from(clientTherapist)
         .where(and(eq(clientTherapist.clientId, clientId), isNull(clientTherapist.endsAt)));
@@ -86,7 +109,7 @@ export function createCaseHistoryRepository(db: Db) {
         .from(caseHistory)
         .leftJoin(completedBy, eq(completedBy.id, caseHistory.intakeCompletedBy))
         .where(eq(caseHistory.clientId, clientId));
-      return { ...row, risk: overallRisk([row.riskSuicide, row.riskSelfHarm, row.riskOthers]), notes: await notesFor(row.id) };
+      return { ...row, risk: overallRisk([row.riskSuicide, row.riskSelfHarm, row.riskOthers]), notes: await notesFor(row.id), followUps: await followUpsFor(row.id) };
     },
 
     updateIntake(caseHistoryId: string, data: Partial<IntakeFields> & { updatedBy: string | null; status?: CaseRecordDTO["status"]; intakeCompletedAt?: Date; intakeCompletedBy?: string | null }, audit: AuditEntry) {

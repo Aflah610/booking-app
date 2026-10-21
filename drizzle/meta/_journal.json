@@ -183,6 +183,13 @@
       "when": 1792591510070,
       "tag": "0025_case_history",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792597091054,
+      "tag": "0026_follow_up",
+      "breakpoints": true
     }
   ]
 }

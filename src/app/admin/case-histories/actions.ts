@@ -55,3 +55,20 @@ export async function saveIntakeAction(clientId: string, step: number, form: For
     return next;
   });
 }
+
+const DELIVERED: Record<string, string> = { sent: "sent", not_set_up: "isn't set up yet", no_contact: "has no address for this client", failed: "failed" };
+
+export async function sendFollowUpAction(clientId: string, form: FormData) {
+  const me = await requireStaff();
+  await act(casePath(clientId), "Follow-up sent", async () => {
+    const r = await app().caseHistory.sendFollowUp(me, clientId, {
+      suggestedOn: str(form, "suggestedOn"),
+      partOfDay: str(form, "partOfDay"),
+      note: str(form, "note"),
+      whatsapp: form.get("whatsapp") === "on",
+      email: form.get("email") === "on",
+    });
+    const parts = (["whatsapp", "email"] as const).filter((ch) => r[ch] !== "not_chosen").map((ch) => `${ch === "whatsapp" ? "WhatsApp" : "Email"} ${DELIVERED[r[ch]]}`);
+    return `${casePath(clientId)}?${new URLSearchParams({ ok: `Follow-up recorded. ${parts.join("; ")}.` })}`;
+  });
+}

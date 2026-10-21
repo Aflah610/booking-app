@@ -2,15 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
 import type { CaseRecordDTO } from "@/features/case-history/case-history.dto";
-import { LABEL } from "@/features/case-history/choices";
+import { LABEL, PART_OF_DAY } from "@/features/case-history/choices";
 import { clientReference } from "@/features/clients/clients.dto";
 import { DomainError } from "@/features/shared/errors";
-import { dateLabel, dayLabel, timeLabel } from "@/lib/format";
+import { dateLabel, dayLabel, isoDay, timeLabel } from "@/lib/format";
 import { requireStaff } from "@/lib/session";
 import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
 import { Notice } from "@/components/Notice";
 import { NoteFields, SessionNoteCard } from "@/components/SessionNote";
-import { addNoteAction } from "../actions";
+import { addNoteAction, sendFollowUpAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Case history" };
@@ -108,9 +108,43 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </div>
       )}
 
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Sessions <span className="tabular-nums">{r.notes.length}</span></h2>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <h2 className="pt-2 text-[11px] font-medium uppercase tracking-wider text-zinc-500">Sessions <span className="tabular-nums">{r.notes.length}</span></h2>
+        <details className="group">
+          <summary className="btn-ghost cursor-pointer list-none select-none">Send follow-up</summary>
+          <form action={sendFollowUpAction.bind(null, clientId)} className="card mt-2 grid w-[min(28rem,calc(100vw-2rem))] gap-3 p-4">
+            <p className="text-sm text-zinc-600">Suggest the client&apos;s next session. Nothing is booked: they arrange the actual time with you.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div><label className="label" htmlFor="suggestedOn">Suggested date</label><input className="input" id="suggestedOn" name="suggestedOn" type="date" required min={isoDay(new Date(), tz)} /></div>
+              <div>
+                <label className="label" htmlFor="partOfDay">Time of day</label>
+                <select className="input" id="partOfDay" name="partOfDay" defaultValue="">
+                  <option value="">Any time</option>
+                  {PART_OF_DAY.map((p) => <option key={p} value={p}>{LABEL[p]}</option>)}
+                </select>
+              </div>
+            </div>
+            <div><label className="label" htmlFor="fuNote">Message (optional)</label><input className="input" id="fuNote" name="note" maxLength={500} placeholder="e.g. Bring your thought diary." /></div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2"><input type="checkbox" name="whatsapp" defaultChecked={c.whatsappOptIn} /> WhatsApp</label>
+              <label className="flex items-center gap-2"><input type="checkbox" name="email" defaultChecked={Boolean(c.email)} disabled={!c.email} /> Email{!c.email && <span className="text-zinc-500">(no address)</span>}</label>
+            </div>
+            <div><button className="btn" type="submit">Send</button></div>
+          </form>
+        </details>
       </div>
+      {r.followUps.length > 0 && (
+        <ul className="mb-4 grid gap-2">
+          {r.followUps.map((f) => (
+            <li key={f.id} className="rounded-lg border border-dashed border-zinc-300 px-4 py-2.5">
+              <p className="text-sm">Follow-up initiated for <span className="font-medium">{dayLabel(new Date(`${f.suggestedOn}T12:00:00Z`), "UTC")} {f.suggestedOn.slice(0, 4)}</span>{f.partOfDay && <span className="text-zinc-600"> · {LABEL[f.partOfDay].toLowerCase()}</span>}{f.note && <span className="text-zinc-600"> · &ldquo;{f.note}&rdquo;</span>}</p>
+              <p className="text-[11px] text-zinc-500">
+                {dateLabel(f.createdAt, tz)}, {timeLabel(f.createdAt, tz)} by {f.sentByName} · WhatsApp {DELIVERY_LABEL[f.whatsapp]} · Email {DELIVERY_LABEL[f.email]}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
       <details className="card mb-4 p-5" open={r.notes.length === 0 && !empty}>
         <summary className="cursor-pointer font-medium">Add session note</summary>
         <form action={addNoteAction.bind(null, clientId)} className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -144,6 +178,8 @@ export default async function CasePage({ params, searchParams }: { params: Promi
     </>
   );
 }
+
+const DELIVERY_LABEL: Record<string, string> = { sent: "sent", not_set_up: "not set up", no_contact: "no address", failed: "failed", not_chosen: "not chosen" };
 
 function Section({ title, step, clientId, children }: { title: string; step: number; clientId: string; children: React.ReactNode }) {
   return (

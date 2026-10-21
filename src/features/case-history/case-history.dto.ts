@@ -1,4 +1,4 @@
-import type { AFFECT, CASE_STATUS, COOPERATION, INSIGHT, JUDGEMENT, ONSET, PROGRESS, RAPPORT, RESPONSE, Risk, SEVERITY } from "./choices";
+import type { AFFECT, CASE_STATUS, COOPERATION, DELIVERY, INSIGHT, JUDGEMENT, ONSET, PART_OF_DAY, PROGRESS, RAPPORT, RESPONSE, Risk, SEVERITY } from "./choices";
 
 export type CaseStatus = (typeof CASE_STATUS)[number];
 
@@ -65,6 +65,21 @@ export type SessionNoteDTO = {
   addenda: AddendumDTO[];
 };
 
+export type Delivery = (typeof DELIVERY)[number];
+
+/** A suggested next session sent to the client. It books nothing. */
+export type FollowUpDTO = {
+  id: string;
+  /** YYYY-MM-DD. */
+  suggestedOn: string;
+  partOfDay: (typeof PART_OF_DAY)[number] | null;
+  note: string | null;
+  sentByName: string;
+  whatsapp: Delivery;
+  email: Delivery;
+  createdAt: Date;
+};
+
 export type CaseRecordDTO = IntakeFields & {
   id: string;
   clientId: string;
@@ -76,6 +91,8 @@ export type CaseRecordDTO = IntakeFields & {
   updatedAt: Date;
   /** Newest first. */
   notes: SessionNoteDTO[];
+  /** Newest first. */
+  followUps: FollowUpDTO[];
 };
 
 /** One row of the case histories list. Clinical fields are null when the reader may not see this client's record. */

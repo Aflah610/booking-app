@@ -2,15 +2,28 @@ import { DomainError } from "@/features/shared/errors";
 import { PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import { isUuid } from "@/features/shared/validation";
 import type { StaffDTO } from "@/features/staff/staff.dto";
-import type { CaseListFilters, CaseListRow, CaseRecordDTO } from "./case-history.dto";
+import { NotConfigured, type Sender } from "@/features/workflows/workflows.dto";
+import { dayLabel } from "@/lib/format";
+import type { CaseListFilters, CaseListRow, CaseRecordDTO, Delivery } from "./case-history.dto";
 import type { CaseHistoryRepository, NoteRow } from "./case-history.repository";
-import { addendumInput, intakeSteps, noteEditInput, noteInput, type IntakeStep } from "./case-history.schemas";
-import { overallRisk, type Risk } from "./choices";
+import { addendumInput, followUpInput, intakeSteps, noteEditInput, noteInput, type IntakeStep } from "./case-history.schemas";
+import { LABEL, overallRisk, type Risk } from "./choices";
 
 /** Who is asking: a signed-in staff member. */
-export type Reader = Pick<StaffDTO, "id" | "role" | "clinicalAdmin">;
+export type Reader = Pick<StaffDTO, "id" | "role" | "clinicalAdmin"> & { name?: string };
 
-export function createCaseHistoryService({ caseRepo }: { caseRepo: CaseHistoryRepository }) {
+/** The WhatsApp template Meta must approve for follow-ups (see docs/whatsapp-templates.md). */
+export const FOLLOW_UP_TEMPLATE = "follow_up_suggestion";
+
+const noSender: Sender = async () => {
+  throw new NotConfigured("not wired");
+};
+
+export function createCaseHistoryService({ caseRepo, senders = { email: noSender, whatsapp: noSender }, firmName = async () => "" }: {
+  caseRepo: CaseHistoryRepository;
+  senders?: { email: Sender; whatsapp: Sender };
+  firmName?: () => Promise<string>;
+}) {
   async function canRead(reader: Reader, clientId: string): Promise<boolean> {
     if (reader.clinicalAdmin) return true;
     return (await caseRepo.currentTherapistId(clientId)) === reader.id;
@@ -134,6 +147,50 @@ export function createCaseHistoryService({ caseRepo }: { caseRepo: CaseHistoryRe
       const head = await caseRepo.headline(clientId);
       // No record yet is said plainly, not shown as a status nobody set.
       return { restricted: true, status: head?.status ?? null, risk: head?.risk ?? null };
+    },
+
+    /**
+     * Suggests the client's next session by WhatsApp and/or email. Nothing is booked or held: the client arranges the
+     * actual time. Each channel's outcome is recorded; one not set up or failing never stops the other.
+     */
+    async sendFollowUp(reader: Reader, clientId: string, input: unknown, now = new Date()) {
+      const data = followUpInput.parse(input);
+      if (data.suggestedOn < now.toISOString().slice(0, 10)) throw new DomainError("invalid", "The suggested date has already passed");
+      const record = await open(reader, clientId);
+      const c = await caseRepo.clientContact(clientId);
+      if (!c) throw new DomainError("not_found", `Client ${clientId} not found`);
+      const firm = await firmName();
+      const therapist = reader.name ?? "Your therapist";
+      const when = `${dayLabel(new Date(`${data.suggestedOn}T12:00:00Z`), "UTC")}${data.partOfDay ? ` (${LABEL[data.partOfDay].toLowerCase()})` : ""}`;
+      const first = c.name.split(/\s+/)[0] ?? c.name;
+
+      const attempt = async (chosen: boolean, has: boolean, send: () => Promise<unknown>): Promise<Delivery> => {
+        if (!chosen) return "not_chosen";
+        if (!has) return "no_contact";
+        try {
+          await send();
+          return "sent";
+        } catch (err) {
+          return err instanceof NotConfigured ? "not_set_up" : "failed";
+        }
+      };
+      const whatsapp = await attempt(data.whatsapp, true, () =>
+        senders.whatsapp({ channel: "whatsapp", to: c.phoneE164, templateName: FOLLOW_UP_TEMPLATE, language: "en", params: [first, therapist, when] }));
+      const email = await attempt(data.email, Boolean(c.email), () =>
+        senders.email({
+          channel: "email",
+          to: c.email!,
+          subject: `Your next session with ${therapist}`,
+          body: [`Hi ${first},`, "", `${therapist} suggests your next session around ${when}.`, ...(data.note ? ["", data.note] : []), "",
+            "Reply to this email or call us to fix a time that suits you.", "", firm ? `– ${firm}` : ""].join("\n").trim(),
+        }));
+
+      await caseRepo.insertFollowUp(
+        { caseHistoryId: record.id, suggestedOn: data.suggestedOn, partOfDay: data.partOfDay, note: data.note, sentBy: reader.id, whatsapp, email },
+        // The message text is not kept in the audit row, only what was sent where.
+        { actor: { staffId: reader.id }, action: "create", entity: "follow_up", details: { suggestedOn: data.suggestedOn, whatsapp, email } },
+      );
+      return { whatsapp, email };
     },
 
     async noteableBookings(reader: Reader, clientId: string, now = new Date()) {

@@ -171,3 +171,41 @@ describe("case list date filter", () => {
     expect((await c.caseHistory.list(lead, { from: new Date("2026-10-06T00:00:00Z") })).length).toBe(0);
   });
 });
+
+describe("follow-up suggestions", () => {
+  it("sends the suggested date by WhatsApp and email, books nothing, and records who sent it and how each channel went", async () => {
+    const { createContainer } = await import("@/features/container");
+    const { NotConfigured } = await import("@/features/workflows/workflows.dto");
+    const sent: { channel: string; to?: string; params?: string[]; body?: string }[] = [];
+    const k = createContainer(db, {
+      senders: {
+        email: async (m) => { sent.push(m as never); return {}; },
+        whatsapp: async () => { throw new NotConfigured("WhatsApp isn't set up yet"); },
+        webhook: async () => ({}),
+      },
+    });
+    const { asha, clientId } = await setup();
+    await c.clients.updateProfile({}, clientId, { name: "Ravi Kumar", email: "ravi@example.com", whatsappOptIn: true });
+    const bookingsBefore = (await k.bookings.list({ view: "all", clientId })).length;
+
+    const result = await k.caseHistory.sendFollowUp({ ...asha, name: "Asha" }, clientId,
+      { suggestedOn: "2026-10-30", partOfDay: "afternoon", note: "Bring your thought diary.", whatsapp: true, email: true }, at("2026-10-21T10:00"));
+    expect(result).toEqual({ whatsapp: "not_set_up", email: "sent" });
+    expect(sent[0]).toMatchObject({ channel: "email", to: "ravi@example.com" });
+    expect(sent[0].body).toContain("Asha suggests your next session around Fri, 30 Oct (afternoon).");
+    expect(sent[0].body).toContain("Bring your thought diary.");
+    expect((await k.bookings.list({ view: "all", clientId })).length).toBe(bookingsBefore);
+
+    const [f] = (await k.caseHistory.open(asha, clientId)).followUps;
+    expect(f).toMatchObject({ suggestedOn: "2026-10-30", partOfDay: "afternoon", sentByName: "Asha", whatsapp: "not_set_up", email: "sent" });
+  });
+
+  it("refuses a past date, no channel, and readers without access; a client without email is marked so", async () => {
+    const { asha, dev, clientId } = await setup();
+    const now = at("2026-10-21T10:00");
+    await expect(c.caseHistory.sendFollowUp(asha, clientId, { suggestedOn: "2026-10-01", whatsapp: true, email: false }, now)).rejects.toMatchObject({ code: "invalid" });
+    await expect(c.caseHistory.sendFollowUp(asha, clientId, { suggestedOn: "2026-10-30", whatsapp: false, email: false }, now)).rejects.toThrow(/WhatsApp, email or both/);
+    await expect(c.caseHistory.sendFollowUp(dev, clientId, { suggestedOn: "2026-10-30", whatsapp: true, email: true }, now)).rejects.toMatchObject({ code: "forbidden" });
+    expect(await c.caseHistory.sendFollowUp(asha, clientId, { suggestedOn: "2026-10-30", whatsapp: false, email: true }, now)).toEqual({ whatsapp: "not_chosen", email: "no_contact" });
+  });
+});

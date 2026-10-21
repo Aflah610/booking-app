@@ -10,6 +10,9 @@ export const JUDGEMENT = ["good", "fair", "poor"] as const;
 export const RISK = ["none", "low", "moderate", "high"] as const;
 export const RESPONSE = ["engaged", "partially_engaged", "resistant"] as const;
 export const PROGRESS = ["improved", "same", "worse"] as const;
+export const PART_OF_DAY = ["morning", "afternoon", "evening"] as const;
+/** What happened to each channel of a follow-up message. */
+export const DELIVERY = ["sent", "not_set_up", "no_contact", "failed", "not_chosen"] as const;
 
 
 export type Risk = (typeof RISK)[number];
@@ -31,4 +34,5 @@ export const LABEL: Record<string, string> = {
   none: "None", low: "Low", high: "High",
   engaged: "Engaged", partially_engaged: "Partially engaged", resistant: "Resistant",
   improved: "Improved", same: "No change", worse: "Worse",
+  morning: "Morning", afternoon: "Afternoon", evening: "Evening",
 };

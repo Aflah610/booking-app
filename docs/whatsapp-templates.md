@@ -63,3 +63,15 @@ Buttons (quick reply): `Book again`, `No thanks`
 Note the template names and language codes. In phase 3 we'll need these environment variables set in AppSail
 (never in chat or code): `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN` (a permanent system-user token),
 `WHATSAPP_WEBHOOK_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET`.
+
+## Follow-up suggestion: `follow_up_suggestion`
+
+Sent when a therapist presses **Send follow-up** in a case history. It suggests a date; nothing is booked.
+
+Category: **Utility**. Language: English (`en`).
+
+Body:
+
+> Hi {{1}}, {{2}} suggests your next session around {{3}}. Reply to this message or call us to fix a time that suits you. – Your Firm
+
+Samples: `Ravi`, `Asha`, `Fri, 30 Oct (afternoon)`
