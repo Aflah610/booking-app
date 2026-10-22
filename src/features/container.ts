@@ -48,8 +48,6 @@ import { PRESETS } from "./workflows/presets";
 import { createSenders } from "./workflows/senders";
 import { createWorkflowsRepository } from "./workflows/workflows.repository";
 import { createWorkflowsService, type Senders } from "./workflows/workflows.service";
-import { createCaseHistoryRepository } from "./case-history/case-history.repository";
-import { createCaseHistoryService } from "./case-history/case-history.service";
 
 /**
  * Wires repositories into services. This is the only place that picks the storage
@@ -122,11 +120,6 @@ export function createContainer(db: Db, opts: {
     schedules: createSchedulesService({ schedulesRepo: createSchedulesRepository(db) }),
     settings: createSettingsService({ settingsRepo }),
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
-    caseHistory: createCaseHistoryService({
-      caseRepo: createCaseHistoryRepository(db),
-      senders: { email: senders.email, whatsapp: senders.whatsapp },
-      firmName: async () => (await settingsRepo.get()).name,
-    }),
     availability,
     bookings: createBookingsService({
       bookingsRepo,

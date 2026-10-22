@@ -26,7 +26,6 @@ export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNod
               {manager && <NavLink href="/admin/staff" icon="users" exact>Staff</NavLink>}
               {manager && <NavLink href="/admin/packages" icon="wallet">Packages</NavLink>}
               {manager && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}
-              <NavLink href="/admin/case-histories" icon="file">Case histories</NavLink>
               {manager && <NavLink href="/admin/reports" icon="chart">Reports</NavLink>}
               {manager && <NavLink href="/admin/workflows" icon="bolt">Workflows</NavLink>}
               {hasRole(me, "admin") && <NavLink href="/admin/otp" icon="shield">OTP Authentication</NavLink>}

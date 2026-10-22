@@ -9,14 +9,11 @@ import { BookingRow } from "@/components/BookingRow";
 import { ClientCredits } from "@/components/ClientCredits";
 import { Notice } from "@/components/Notice";
 import { assignTherapistAction } from "../../actions";
-import { RiskBadge, StatusBadge } from "@/components/CaseBadges";
-import type { CaseHistoryService } from "@/features/case-history/case-history.service";
-import { LABEL } from "@/features/case-history/choices";
 import { dateLabel, dayLabel, isoDay, phoneLabel, timeLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const TABS = { case: "Case history", bookings: "Bookings", credits: "Credits" } as const;
+const TABS = { bookings: "Bookings", credits: "Credits" } as const;
 const BOOKING_VIEWS = { upcoming: "Upcoming", past: "Past", cancelled: "Cancelled" } as const;
 const STATUS_LABEL: Record<ClientStatus, string> = { not_started: "Not started", in_therapy: "In therapy", concluded: "Concluded" };
 
@@ -34,22 +31,21 @@ export default async function ClientPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string; tab?: string; bookings?: string }>;
 }) {
-  const me = await requireStaff("manager");
+  await requireStaff("manager");
   const { id } = await params;
   const sp = await searchParams;
-  const tab = sp.tab && sp.tab in TABS ? (sp.tab as keyof typeof TABS) : "case";
+  const tab = sp.tab && sp.tab in TABS ? (sp.tab as keyof typeof TABS) : "bookings";
   const view = sp.bookings && sp.bookings in BOOKING_VIEWS ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
   const { clients, bookings, settings, staff } = app();
   const c = await clients.get(id).catch((err) => {
     if (isDomainError(err)) notFound();
     throw err;
   });
-  const [history, s, periods, team, caseView] = await Promise.all([
+  const [history, s, periods, team] = await Promise.all([
     bookings.list({ view: "all", clientId: id, limit: 200 }),
     settings.get(),
     clients.therapistHistory(id),
     staff.list(),
-    app().caseHistory.overview(me, id),
   ]);
   const tz = s.timezone;
   const now = new Date();
@@ -111,8 +107,6 @@ export default async function ClientPage({
               <Link key={key} href={`?tab=${key}`} className={`tab ${tab === key ? "tab-active" : ""}`} aria-current={tab === key ? "page" : undefined}>{label}</Link>
             ))}
           </nav>
-
-          {tab === "case" && <CaseOverview view={caseView} clientId={id} tz={tz} />}
 
           {tab === "bookings" && (
             <>
@@ -241,53 +235,4 @@ function emergency(c: ClientDTO): string | null {
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
-}
-
-function CaseOverview({ view, clientId, tz }: { view: Awaited<ReturnType<CaseHistoryService["overview"]>>; clientId: string; tz: string }) {
-  const link = `/admin/case-histories/${clientId}`;
-  if (view.restricted) {
-    return (
-      <div className="card grid gap-3 p-5">
-        {view.status ? (
-          <div className="flex flex-wrap items-center gap-2"><StatusBadge status={view.status} />{view.risk && <RiskBadge risk={view.risk} prefix="Risk: " />}</div>
-        ) : (
-          <p className="font-medium">No case history has been started yet</p>
-        )}
-        <p className="text-sm text-zinc-600">Diagnosis and session notes are visible only to the client&apos;s therapist and clinical admins.</p>
-      </div>
-    );
-  }
-  const r = view.record;
-  if (!r || (!r.presentingComplaints && !r.diagnosisLabel && r.notes.length === 0)) {
-    return (
-      <div className="card px-6 py-12 text-center">
-        <p className="font-medium">No case history yet</p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-600">Start with the intake: presenting problem, history, mental status, risk, diagnosis and plan.</p>
-        <Link href={`${link}/intake?step=1`} className="btn mt-4">Start intake</Link>
-      </div>
-    );
-  }
-  const last = r.notes[0];
-  return (
-    <section className="card grid gap-5 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2"><h2 className="font-semibold">{LABEL[r.status]}</h2>{r.risk && <RiskBadge risk={r.risk} prefix="Risk: " />}</div>
-          <p className="text-sm text-zinc-600">{r.notes.length} session note{r.notes.length === 1 ? "" : "s"}{r.intakeCompletedAt ? ` · intake completed ${dateLabel(r.intakeCompletedAt, tz)}` : " · intake in progress"}</p>
-        </div>
-        <Link href={link} className="btn-ghost">View case history →</Link>
-      </div>
-      <dl className="grid gap-4 sm:grid-cols-3">
-        <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Diagnosis</dt><dd className="mt-1 text-sm font-medium">{r.diagnosisLabel ?? "Not yet"}{r.diagnosisCode && <span className="ml-1.5 font-normal text-zinc-600">{r.diagnosisCode}</span>}</dd></div>
-        <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Approach</dt><dd className="mt-1 text-sm font-medium">{[r.approach, r.frequency].filter(Boolean).join(", ") || "Not set"}</dd></div>
-        <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Cooperation</dt><dd className="mt-1 text-sm font-medium">{r.mseCooperation ? LABEL[r.mseCooperation] : "Not recorded"}</dd></div>
-      </dl>
-      {last && (
-        <div className="rounded-lg bg-zinc-50 px-4 py-3 text-sm">
-          <p className="mb-1 text-xs text-zinc-600">Last note · session {last.number} · {dateLabel(last.sessionAt, tz)} · {last.authorName}</p>
-          <p className="line-clamp-2">{last.summary}</p>
-        </div>
-      )}
-    </section>
-  );
 }

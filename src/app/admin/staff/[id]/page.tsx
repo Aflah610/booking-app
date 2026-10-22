@@ -193,12 +193,6 @@ export default async function StaffDetail({
             <label className="flex items-center gap-3 text-sm sm:col-span-2">
               <input type="checkbox" className="toggle" name="active" defaultChecked={member.active} /> Active (can sign in and be booked)
             </label>
-            {hasRole(me, "admin") && (
-              <label className="flex items-start gap-3 text-sm sm:col-span-2">
-                <input type="checkbox" className="toggle mt-0.5" name="clinicalAdmin" defaultChecked={member.clinicalAdmin} />
-                <span>Clinical admin <span className="block text-xs text-zinc-600">Can read and write every client&apos;s case history, not only the clients they treat.</span></span>
-              </label>
-            )}
             <fieldset className="sm:col-span-2">
               <legend className="label">Services they offer and their price</legend>
               <p className="mb-2 text-xs text-zinc-600">Leave the price blank to use the service&apos;s own price. A price here is what this person charges.</p>

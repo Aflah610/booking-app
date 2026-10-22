@@ -54,8 +54,6 @@ export async function updateStaffAction(staffId: string, form: FormData) {
       designation: designationOf(form),
       timezone: str(form, "timezone"),
       active: form.get("active") === "on",
-      // Only admins see the switch, so a manager saving the form leaves it as it is.
-      clinicalAdmin: hasRole(me, "admin") ? form.get("clinicalAdmin") === "on" : undefined,
     });
     const offered = form.getAll("serviceIds").map(String);
     await app().staff.setServices({ staffId: me.id }, staffId, offered);
