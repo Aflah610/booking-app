@@ -1,5 +1,5 @@
 /**
- * Fails unpaid bookings after 15 minutes, cancels them after 24 hours, sends due workflow messages, writes bookings to staff calendars and copies their busy times, all from
+ * Fails unpaid bookings after 10 minutes, cancels them after 24 hours, sends due workflow messages, writes bookings to staff calendars and copies their busy times, all from
  * inside the app so reminders and follow-ups need no extra service.
  * With several containers they all run it; `claimDue` hands each message to only one of them.
  * Kept out of instrumentation.ts so the Edge build never tries to load Node-only code.

@@ -67,7 +67,7 @@ export const business = pgTable("business", {
   welcomeText: text("welcome_text"),
   /** Page on the firm's website where a client finishes an unpaid booking; used in "complete your payment" messages. */
   resumeUrl: text("resume_url"),
-  /** When on, website bookings of priced services are held for 15 minutes until the website reports a payment. */
+  /** When on, website bookings of priced services are held for 10 minutes until the website reports a payment. */
   onlinePayment: boolean("online_payment").notNull().default(false),
   /** Online sessions: services marked "Google Meet" get a Meet link in the therapist's calendar event. */
   meetEnabled: boolean("meet_enabled").notNull().default(false),
@@ -460,7 +460,7 @@ export const booking = pgTable("booking", {
   status: bookingStatus("status").notNull().default("upcoming"),
   /** Set by staff for now; a payment provider can update it later. */
   paymentStatus: paymentStatus("payment_status").notNull().default("pending"),
-  /** Online payment: when the current attempt runs out (15 minutes), and the last moment the client may still resume (24 hours). */
+  /** Online payment: when the current attempt runs out (10 minutes), and the last moment the client may still resume (24 hours). */
   paymentDueAt: timestamp("payment_due_at", { withTimezone: true }),
   resumeUntil: timestamp("resume_until", { withTimezone: true }),
   /** The time was given back because payment wasn't completed; the booking no longer blocks the calendar. */

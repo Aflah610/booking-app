@@ -88,7 +88,7 @@ export const PRESETS: { key: string; title: string; blurb: string; input: Workfl
   {
     key: "payment-failed",
     title: "Complete your payment",
-    blurb: "Email when a booking's payment didn't arrive in 15 minutes, with a link to finish within 24 hours.",
+    blurb: "Email when a booking's payment didn't arrive in 10 minutes, with a link to finish within 24 hours.",
     input: {
       name: "Payment not received (email)",
       trigger: "payment_failed",

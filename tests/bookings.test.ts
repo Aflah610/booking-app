@@ -163,7 +163,7 @@ describe("holds", () => {
     const { svc } = await setup();
     const input = { serviceId: svc.id, start: at("2026-10-19T10:00") };
     await c.bookings.hold(website, input, { now });
-    const later = new Date(now.getTime() + 6 * 60_000);
+    const later = new Date(now.getTime() + 11 * 60_000);
     await c.bookings.create(desk, { ...input, client: asha }, { now: later });
   });
 });

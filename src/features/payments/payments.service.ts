@@ -13,7 +13,7 @@ const MIN = 60_000;
 
 /**
  * Payment records and the clock around them. Razorpay runs on the firm's website; this app is told what
- * happened and keeps the details. A booking that isn't paid in 15 minutes gives its time back and shows
+ * happened and keeps the details. A booking that isn't paid in 10 minutes gives its time back and shows
  * "Payment failed"; the client has 24 hours from booking to come back, choose a time and pay.
  */
 export function createPaymentsService(deps: {
@@ -81,7 +81,7 @@ export function createPaymentsService(deps: {
       needsRefund: false,
     });
     if (!row) return { booking: b, payment: (await paymentsRepo.findByRazorpayPayment(data.razorpayPaymentId!))!, duplicate: true as const, warning: null };
-    // A failed try is only recorded. The booking waits out its 15 minutes, in case the client tries again.
+    // A failed try is only recorded. The booking waits out its 10 minutes, in case the client tries again.
     if (data.status === "failed") return { booking: b, payment: row, duplicate: false as const, warning: null };
 
     const paid = await bookingsRepo.markPaid(bookingId, {
@@ -119,7 +119,7 @@ export function createPaymentsService(deps: {
 
     /**
      * The client is back (within 24 hours). Takes the same time again if it's still free, or a new one,
-     * and gives them another 15 minutes to pay. A paid booking whose time was lost just gets its new time.
+     * and gives them another 10 minutes to pay. A paid booking whose time was lost just gets its new time.
      */
     async resume(actor: Actor, bookingId: string, input: unknown = {}, now = new Date()) {
       const data = resumeInput.parse(input ?? {});
@@ -130,7 +130,7 @@ export function createPaymentsService(deps: {
         const why = b.status === "cancelled" ? "This booking was cancelled" : b.paymentStatus === "paid" ? "This booking is already paid" : "This booking can't be resumed";
         throw new DomainError("conflict", `${why}. ${b.status === "cancelled" ? "Please book again." : ""}`.trim(), { reason: b.status === "cancelled" ? "expired" : "not_resumable" });
       }
-      // Still inside its 15 minutes, and not moving: nothing to take back. The client just pays.
+      // Still inside its 10 minutes, and not moving: nothing to take back. The client just pays.
       if (action === "pay" && !data.start) return { booking: b };
 
       const start = data.start ?? b.startsAt;

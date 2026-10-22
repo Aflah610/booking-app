@@ -24,7 +24,7 @@ The slot list a client sees is a hint. It can be seconds old. So:
 
 ## Short holds while the client fills in the form
 
-When a client picks a time, the website can call `POST /api/v1/slot-holds` to hold it for 5 minutes. Other clients stop seeing that slot; the booking request
+When a client picks a time, the website can call `POST /api/v1/slot-holds` to hold it for 10 minutes. Other clients stop seeing that slot; the booking request
 presents the hold token. Holds that expire are ignored by queries and deleted by a cleanup job. Table:
 `slot_hold` (already in the schema).
 

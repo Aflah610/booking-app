@@ -1,5 +1,5 @@
 /** How long one try at paying lasts, and how long a client may come back and finish. */
-export const PAYMENT_WINDOW_MIN = 15;
+export const PAYMENT_WINDOW_MIN = 10;
 export const RESUME_WINDOW_HOURS = 24;
 
 export type PaymentRecordStatus = "paid" | "failed" | "refunded";
