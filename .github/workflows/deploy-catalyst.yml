@@ -74,8 +74,13 @@ jobs:
           npm i -g zcatalyst-cli@1.28.0
           catalyst deploy appsail --name booking-app \
             --source "docker-archive://$PWD/booking-app.tar" --port 9000 \
-            -p 73492000000013052 --dc in --token "$CATALYST_TOKEN" -ni | tee deploy.log
-          grep -q "Deploy completed successfully" deploy.log
+            -p 73492000000013052 --dc in --token "$CATALYST_TOKEN" -ni --verbose 2>&1 | tee deploy.log || true
+          if ! grep -q "Deploy completed successfully" deploy.log; then
+            # Annotations can be read without signing in, so the reason shows on the run page and in the API.
+            reason=$(sed 's/\x1b\[[0-9;]*m//g' deploy.log | grep -v '^\s*$' | tail -n 20 | tr '\n' ' ' | cut -c1-1500)
+            echo "::error title=Catalyst deploy failed::$reason"
+            exit 1
+          fi
           echo "deployed=true" >> "$GITHUB_OUTPUT"
       - name: Check the live app
         if: steps.deploy.outputs.deployed == 'true'
