@@ -81,7 +81,7 @@ export function createContainer(db: Db, opts: {
     // The client's page for moving or cancelling a booking, for use in messages.
     manageToken: (id) => (manageSecret ? manageToken(id, manageSecret) : null),
     calendarFileUrl: (id) => `${appUrl}/manage/${id}/calendar.ics`,
-    defaultLogoUrl: `${appUrl}/brand/waky-logo.png`,
+    defaultLogoUrl: `${appUrl}/brand/mindlap-logo.png`,
     joinLink: (id) => (manageSecret ? `${appUrl}/join/${id}?t=${manageToken(id, manageSecret)}` : null),
     manageLink: (id) => (manageSecret ? `${appUrl}/manage/${id}?t=${manageToken(id, manageSecret)}` : null),
     workflowsRepo: createWorkflowsRepository(db),
@@ -112,7 +112,7 @@ export function createContainer(db: Db, opts: {
       async sendResetLink(to, token) {
         const firm = await settingsRepo.get();
         const link = `${appUrl}/reset-password?token=${token}`;
-        const mail = passwordResetEmail({ name: to.name, link, firmName: firm.name, logoUrl: firm.logoUrl ?? `${appUrl}/brand/waky-logo.png` });
+        const mail = passwordResetEmail({ name: to.name, link, firmName: firm.name, logoUrl: firm.logoUrl ?? `${appUrl}/brand/mindlap-logo.png` });
         await senders.email({ channel: "email", to: to.email, subject: mail.subject, body: mail.text, html: mail.html });
       },
     }),
@@ -138,7 +138,7 @@ export function createContainer(db: Db, opts: {
         const firm = await settingsRepo.get();
         const own = (await workflows.list()).find((w) => w.channel === "email" && w.trigger === "booked" && w.active);
         const template = own && "body" in own.config ? own.config.body : (PRESETS[0].input.action as { body: string }).body;
-        return sendSampleEmail(senders.email, to, { name: firm.name, logoUrl: firm.logoUrl ?? `${appUrl}/brand/waky-logo.png` }, template);
+        return sendSampleEmail(senders.email, to, { name: firm.name, logoUrl: firm.logoUrl ?? `${appUrl}/brand/mindlap-logo.png` }, template);
       },
     },
     calendar,

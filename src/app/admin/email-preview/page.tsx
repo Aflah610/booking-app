@@ -19,7 +19,7 @@ export default async function EmailPreviewPage() {
     vars: { ...SAMPLE_VARS, firm_name: firm.name },
     subject: "Preview",
     firmName: firm.name,
-    logoUrl: firm.logoUrl ?? `${base}/brand/waky-logo.png`,
+    logoUrl: firm.logoUrl ?? `${base}/brand/mindlap-logo.png`,
   });
   return (
     <>

@@ -43,7 +43,7 @@ function eventBody(b: CalendarBookingDTO, inviteClient: boolean) {
     b.clientEmail ? `Email: ${b.clientEmail}` : null,
     b.notes ? `Notes: ${b.notes}` : null,
     "",
-    "Booked through Waky Booking.",
+    "Booked through Mindlap.",
   ].filter((l): l is string => l !== null);
   return {
     summary: `${b.serviceName} – ${b.clientName}`,

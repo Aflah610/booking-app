@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LoginSmile } from "./LoginSmile";
 
 /** The cream page with the logo and the corner smiley that the sign-in screens share. */
@@ -9,8 +10,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
       </div>
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#253d34] text-lg font-semibold text-[#e9be65]">W</span>
-          <span className="text-sm font-medium tracking-tight text-[#5f6663]">Waky Booking</span>
+          <Image src="/brand/mindlap-logo.png" alt="Mindlap" width={630} height={173} unoptimized priority className="h-10 w-auto" />
         </div>
         <h1 className="text-[28px] font-semibold tracking-tight text-[#1c1c1c]">{title}</h1>
         <p className="mb-8 mt-1.5 text-[15px] text-[#5f6663]">{subtitle}</p>

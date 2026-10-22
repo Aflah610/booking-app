@@ -33,7 +33,7 @@ async function booked(template: string, branded: boolean, name = "Ravi Kumar") {
 describe("styled confirmation email", () => {
   it("sends the styled version with its plain-text copy, using the app's logo when the firm set none", async () => {
     const mail = await booked("# Confirmed\n\nHi {{client_name}},\n\n> **When:** {{date}} at {{time}}\n\n[Change it]({{manage_link}})", true);
-    expect(mail.html).toContain("https://book.example.com/brand/waky-logo.png");
+    expect(mail.html).toContain("https://book.example.com/brand/mindlap-logo.png");
     expect(mail.html).toContain("Waky Booking");
     expect(mail.html).toContain("Monday, 19 October 2026 at 10:00 am");
     expect(mail.body).toContain("Hi Ravi Kumar,");
@@ -45,7 +45,7 @@ describe("styled confirmation email", () => {
     await c.settings.update({}, { ...(await c.settings.get()), logoUrl: "https://cdn.example.com/logo.png" });
     const mail = await booked("Hi", true);
     expect(mail.html).toContain("https://cdn.example.com/logo.png");
-    expect(mail.html).not.toContain("waky-logo.png");
+    expect(mail.html).not.toContain("mindlap-logo.png");
   });
 
   it("escapes a client's name in the styled version", async () => {

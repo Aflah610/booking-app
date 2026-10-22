@@ -178,6 +178,6 @@ export const SAMPLE_VARS: TemplateVars = {
   add_to_calendar: "https://example.com/calendar.ics",
   amount: "₹1,500",
   resume_link: "https://example.com/resume/sample",
-  firm_name: "Waky Booking",
+  firm_name: "Mindlap",
   cancel_reason: "",
 };

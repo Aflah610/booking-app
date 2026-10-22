@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { signOut } from "@/auth";
 import type { StaffDTO } from "@/features/staff/staff.dto";
 import { hasRole } from "@/lib/session";
@@ -13,8 +14,7 @@ export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNod
       sidebar={
         <>
             <div className="flex items-center gap-2 px-3 pb-2 pt-1 md:pb-6">
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-black text-sm font-bold text-white">W</span>
-              <span className="font-semibold tracking-tight text-black">Waky Booking</span>
+              <Image src="/brand/mindlap-logo.png" alt="Mindlap" width={630} height={173} unoptimized priority className="h-7 w-auto" />
             </div>
             <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible" aria-label="Main">
               <NavLink href="/" icon="home" exact>Today</NavLink>

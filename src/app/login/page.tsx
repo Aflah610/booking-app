@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { AuthError } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -21,8 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </div>
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#253d34] text-lg font-semibold text-[#e9be65]">W</span>
-          <span className="text-sm font-medium tracking-tight text-[#5f6663]">Waky Booking</span>
+          <Image src="/brand/mindlap-logo.png" alt="Mindlap" width={630} height={173} unoptimized priority className="h-10 w-auto" />
         </div>
         <h1 className="text-[28px] font-semibold tracking-tight text-[#1c1c1c]">Welcome back</h1>
         <p className="mb-8 mt-1.5 text-[15px] text-[#5f6663]">Sign in to your workspace.</p>

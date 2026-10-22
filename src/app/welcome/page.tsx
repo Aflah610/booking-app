@@ -11,7 +11,7 @@ export default async function WelcomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#f8f4f2] px-4 text-center">
       <LoginSmile />
-      <h1 className="welcome-rise mt-6 text-[28px] font-semibold tracking-tight text-[#1c1c1c]">Welcome to Waky Labs</h1>
+      <h1 className="welcome-rise mt-6 text-[28px] font-semibold tracking-tight text-[#1c1c1c]">Welcome to Mindlap</h1>
       <p className="welcome-rise mt-1.5 text-[15px] text-[#5f6663]" style={{ animationDelay: "0.25s" }}>
         Good to see you, {first}.
       </p>
