@@ -55,7 +55,7 @@ Authorization: Bearer bk_xxxxxxxxxxxxxxxx
 | Reason | When | What to do |
 |---|---|---|
 | `slot_taken` | Someone booked that time first | Fetch availability again, let the client pick |
-| `slot_held` | Another client is holding it (up to 5 minutes) | Same as above |
+| `slot_held` | Another client is holding it (up to 10 minutes) | Same as above |
 | `slot_unavailable` | The time is no longer free (resume or reschedule) | Same as above |
 | `hold_expired`, `hold_missing` | The hold token ran out or is unknown | Book without a hold, or hold again |
 | `time_passed` | The start time is in the past | Pick a future time |
@@ -83,13 +83,13 @@ Payment reports are safe to repeat too: the same `razorpayPaymentId` is counted 
 1. `GET /services`: show the services.
 2. `GET /staff?service=<serviceId>`: show the therapists (and each one's price). Optional: "anyone available".
 3. `GET /availability?serviceId=…&staffId=…&from=…&to=…`: show free dates and times.
-4. Optional: `POST /slot-holds` when the client picks a time, to keep it for 5 minutes while they fill in the form.
+4. Optional: `POST /slot-holds` when the client picks a time, to keep it for 10 minutes while they fill in the form.
 5. `POST /bookings` with `Idempotency-Key`. Store the returned `booking.id` and `manageToken` with the client.
 
 ### B. Book and pay online with Razorpay
 
 Online payment is switched on in **Settings > Online payment**. Then a website booking of a service with a price is
-held unpaid for **15 minutes** (`payment.dueAt`), and resumable for **24 hours** (`payment.resumeUntil`).
+held unpaid for **10 minutes** (`payment.dueAt`), and resumable for **24 hours** (`payment.resumeUntil`).
 
 1. Steps 1–3 of flow A.
 2. Optional: `GET /credits/quote?phone=…&serviceId=…&staffId=…` to show "uses 1 credit, ₹500 left to pay".
@@ -98,7 +98,7 @@ held unpaid for **15 minutes** (`payment.dueAt`), and resumable for **24 hours**
 4. Create a Razorpay order for `payment.amountPaise` on your server and open Razorpay Checkout.
 5. When Checkout finishes, **verify Razorpay's signature on your server**, then report it:
    `POST /bookings/{id}/payment` with `status: "paid"` (or `"failed"`). A paid report confirms the booking.
-6. No payment within 15 minutes: the booking becomes `failed` and the time is offered to others. The client can come
+6. No payment within 10 minutes: the booking becomes `failed` and the time is offered to others. The client can come
    back within 24 hours: `POST /bookings/{id}/resume`, then steps 4–5 again.
 
 ### C. Buy a package and book in one go
@@ -179,7 +179,7 @@ GET /availability?serviceId=ec04…&staffId=2392…&from=2026-10-27T00:00:00%2B0
 
 ### 3.4 `POST /slot-holds` and `DELETE /slot-holds/{token}`
 
-Optional. Holds a time for 5 minutes so nobody else can take it while the client fills in the form.
+Optional. Holds a time for 10 minutes so nobody else can take it while the client fills in the form.
 
 ```json
 { "serviceId": "ec04…", "staffId": "2392…", "start": "2026-10-27T03:30:00.000Z" }
@@ -317,14 +317,14 @@ Header `X-Manage-Token`. Report what Razorpay Checkout said, **after verifying i
 - Same `razorpayPaymentId` again: 200 with `duplicate: true` (nothing changes).
 - `warning: "duplicate_payment"`: a second, different payment on a paid booking; flagged for a refund.
 - `warning: "choose_new_time"`: paid, but the time had been given to someone else; show times and call `/resume`.
-- A `failed` report is recorded only; the client may still pay within the 15 minutes.
+- A `failed` report is recorded only; the client may still pay within the 10 minutes.
 
 `GET /bookings/{id}/payment` (same header) lists every payment reported for the booking.
 
 ### 3.11 `POST /bookings/{id}/resume`
 
 Header `X-Manage-Token`. Body optional: `{ "start"?: "…", "staffId"?: "…" }`. For an unpaid booking within 24 hours:
-takes the same time again if it is free (or the new `start`) and gives another 15 minutes to pay. Then charge and
+takes the same time again if it is free (or the new `start`) and gives another 10 minutes to pay. Then charge and
 report as in 3.10. 409 `slot_unavailable`: ask for another time.
 
 ### 3.12 Credits, packages and wallet

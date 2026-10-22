@@ -66,7 +66,7 @@ how many credits (or how much wallet money) a booking with them takes.
 |---|---|
 | Booking cancelled (by staff, client or website) | Given back: the credits and the exact rupees taken |
 | Unpaid online booking cancelled after the 24-hour resume window | Given back |
-| 15-minute payment window runs out | Held, so the client can resume within 24 hours |
+| 10-minute payment window runs out | Held, so the client can resume within 24 hours |
 | Booking moved (any time, any therapist) | Stays with the booking; nothing is taken twice or topped up |
 | No-show, **client** missed it | Stays used |
 | No-show, **staff** missed it | Given back |

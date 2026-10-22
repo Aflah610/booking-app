@@ -372,7 +372,7 @@ export function createBookingsRepository(db: Db) {
     },
 
     /**
-     * Online bookings whose 15 minutes ran out: the payment fails and the time goes back on offer.
+     * Online bookings whose 10 minutes ran out: the payment fails and the time goes back on offer.
      * Done in one statement so two workers can't both claim the same booking.
      */
     async expirePending(now: Date): Promise<string[]> {
@@ -436,7 +436,7 @@ export function createBookingsRepository(db: Db) {
 
     /**
      * Takes a time for a booking whose time was given back, at the same time or a new one. With `pay`, the
-     * booking goes back to "payment pending" for another 15 minutes.
+     * booking goes back to "payment pending" for another 10 minutes.
      */
     async reclaim(
       id: string,

@@ -60,7 +60,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <section className="card grid gap-4 p-6">
           <h2 className="font-semibold">Online payment</h2>
           <p className="text-sm text-zinc-600">
-            Your website takes the payment with Razorpay and reports it here. When this is on, a website booking of a priced service is held for 15 minutes.
+            Your website takes the payment with Razorpay and reports it here. When this is on, a website booking of a priced service is held for 10 minutes.
             If no payment arrives it shows &ldquo;Payment failed&rdquo; and the time goes back on offer. The client can still come back within 24 hours to choose a time and pay; after that the booking is cancelled.
           </p>
           <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="onlinePayment" defaultChecked={s.onlinePayment} /> Website bookings must be paid online</label>

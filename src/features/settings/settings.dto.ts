@@ -15,7 +15,7 @@ export type BusinessSettingsDTO = {
   welcomeText: string | null;
   /** Page on the firm's website where clients finish an unpaid booking. */
   resumeUrl: string | null;
-  /** Website bookings of priced services must be paid online: held 15 minutes, then failed. */
+  /** Website bookings of priced services must be paid online: held 10 minutes, then failed. */
   onlinePayment: boolean;
   /** Services set to "Google Meet" get a Meet link for their sessions. */
   meetEnabled: boolean;

@@ -49,7 +49,7 @@ src/features/       The actual logic, one folder per topic:
   catalog/          Services clients can book
   schedules/        Weekly hours, date overrides, time off
   availability/     Works out free start times (slots.ts is the engine)
-  bookings/         Create, hold a time for 5 minutes, move, cancel
+  bookings/         Create, hold a time for 10 minutes, move, cancel
   clients/          Client records, matched by phone number
   settings/         Firm-wide defaults
   api-keys/         Keys the website uses to call the API
@@ -74,7 +74,7 @@ database) and `*.service.ts` (the business rules).
 1. The website asks for free times (`/api/v1/availability`). The engine takes each staff member's weekly
    hours, applies date overrides and time off, removes existing bookings (plus buffers) and times held by
    someone else, and applies the notice and "how far ahead" rules.
-2. Optionally the website holds a time for 5 minutes while the client fills in their details.
+2. Optionally the website holds a time for 10 minutes while the client fills in their details.
 3. The website creates the booking. The database itself refuses two bookings that overlap for the same
    person, so a double booking can't slip through even under heavy traffic.
 4. The client gets a private manage link to move or cancel it, up to the cut-off set in Settings

@@ -55,11 +55,11 @@ describe("service price", () => {
 });
 
 describe("booking online", () => {
-  it("holds a priced website booking for 15 minutes and confirms nothing yet", async () => {
+  it("holds a priced website booking for 10 minutes and confirms nothing yet", async () => {
     const { svc } = await setup();
     const b = await book(svc.id, "2026-10-19T10:00");
     expect(b).toMatchObject({ paymentStatus: "pending", amountPaise: 150000, slotReleased: false });
-    expect(b.paymentDueAt).toEqual(plus(t0, 15));
+    expect(b.paymentDueAt).toEqual(plus(t0, 10));
     expect(b.resumeUntil).toEqual(plus(t0, 24 * 60));
     expect(await c.workflows.processDue({ now: t0 })).toBe(0); // no confirmation until it is paid
   });
@@ -131,13 +131,13 @@ describe("reporting a payment", () => {
   });
 });
 
-describe("the 15 minutes and the 24 hours", () => {
-  it("fails an unpaid booking after 15 minutes, gives its time back and asks the client to pay", async () => {
+describe("the 10 minutes and the 24 hours", () => {
+  it("fails an unpaid booking after 10 minutes, gives its time back and asks the client to pay", async () => {
     const { svc } = await setup();
     const b = await book(svc.id, "2026-10-19T10:00");
-    await c.payments.expire(plus(t0, 14));
+    await c.payments.expire(plus(t0, 9));
     expect((await c.bookings.get(b.id)).paymentStatus).toBe("pending");
-    expect(await freeTimes(svc.id, "2026-10-19", plus(t0, 14))).not.toContain(at("2026-10-19T10:00").toISOString());
+    expect(await freeTimes(svc.id, "2026-10-19", plus(t0, 9))).not.toContain(at("2026-10-19T10:00").toISOString());
     await c.payments.expire(plus(t0, 16));
     expect(await c.bookings.get(b.id)).toMatchObject({ paymentStatus: "failed", slotReleased: true, status: "upcoming" });
     expect(await freeTimes(svc.id, "2026-10-19", plus(t0, 16))).toContain(at("2026-10-19T10:00").toISOString());
@@ -162,7 +162,7 @@ describe("the 15 minutes and the 24 hours", () => {
     const back = plus(t0, 60);
     const same = await c.payments.resume({}, b.id, {}, back);
     expect(same.booking).toMatchObject({ paymentStatus: "pending", slotReleased: false });
-    expect(same.booking.paymentDueAt).toEqual(plus(back, 15));
+    expect(same.booking.paymentDueAt).toEqual(plus(back, 10));
     expect(same.booking.resumeUntil).toEqual(plus(t0, 24 * 60)); // the 24 hours still run from the original booking
     await c.payments.expire(plus(back, 16));
     await book(svc.id, "2026-10-19T10:00", meena, plus(back, 17)); // someone takes it
@@ -211,7 +211,7 @@ describe("the 15 minutes and the 24 hours", () => {
     await c.payments.expire(plus(t0, 16));
     const r = await c.payments.report({}, b.id, paid(), plus(t0, 20));
     expect(r).toMatchObject({ warning: null, booking: { paymentStatus: "paid", slotReleased: false } });
-    // The "payment failed" message queued at 15 minutes, and now the confirmation.
+    // The "payment failed" message queued at 10 minutes, and now the confirmation.
     expect(await c.workflows.processDue({ now: plus(t0, 20) })).toBe(2);
   });
 

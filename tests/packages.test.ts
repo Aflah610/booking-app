@@ -274,7 +274,7 @@ describe("on the website", () => {
       await c.workflows.processDue({ now: t0 }); // setup's own free booking sends its confirmation first
       const part = (await webBook(counselling.id, "2026-10-19T10:00")).booking;
       expect(part).toMatchObject({ paymentStatus: "pending", amountPaise: 60000, creditPaise: 40000 });
-      expect(part.paymentDueAt).toEqual(new Date(t0.getTime() + 15 * 60_000));
+      expect(part.paymentDueAt).toEqual(new Date(t0.getTime() + 10 * 60_000));
       expect(await c.workflows.processDue({ now: t0 })).toBe(0); // not confirmed until the rest is paid
 
       await c.packages.topUp({}, clientId, { amountPaise: 500000 }, t0);
@@ -286,7 +286,7 @@ describe("on the website", () => {
     }
   });
 
-  it("gives credit back when an unpaid booking is cancelled after 24 hours, but not when only the 15 minutes pass", async () => {
+  it("gives credit back when an unpaid booking is cancelled after 24 hours, but not when only the 10 minutes pass", async () => {
     await online(true);
     try {
       const { counselling, clientId } = await setup();

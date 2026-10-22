@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * One call does all the background work: fail unpaid bookings (15 minutes) and cancel stale ones (24 hours), send due
+ * One call does all the background work: fail unpaid bookings (10 minutes) and cancel stale ones (24 hours), send due
  * workflow messages, write queued bookings to calendars, and refresh calendar busy times. On a host that can't keep
  * a timer running (Vercel), a scheduler calls this every minute or so instead of the built-in worker.
  * Safe to call as often as you like, and from several places at once: each job is claimed by one caller only.

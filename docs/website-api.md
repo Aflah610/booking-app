@@ -62,7 +62,7 @@ repeat: the same Razorpay payment id is recorded once.
 | 1 | `GET /api/v1/services` | Bookable services |
 | 2 | `GET /api/v1/staff?service=<id>` | Optional: who offers it |
 | 3 | `GET /api/v1/availability?serviceId=&staffId=&from=&to=` | Free start times; leave out `staffId` for anyone. At most 62 days |
-| 4 | `POST /api/v1/slot-holds` `{ serviceId, staffId?, start }` | Optional: holds the time for 5 minutes, returns `token` |
+| 4 | `POST /api/v1/slot-holds` `{ serviceId, staffId?, start }` | Optional: holds the time for 10 minutes, returns `token` |
 | 5 | `POST /api/v1/bookings` with header `Idempotency-Key` | `{ serviceId, staffId?, start, holdToken?, client: { name, phone, email?, whatsappOptIn? }, notes? }` |
 | – | `POST /api/v1/bookings/{id}/payment`, `POST /api/v1/bookings/{id}/resume`, `GET /api/v1/bookings?phone=` | Payments: see [online-payments.md](online-payments.md) |
 | – | `GET /api/v1/bookings/{id}` | Header `X-Manage-Token` |

@@ -23,7 +23,7 @@ import {
 } from "./bookings.schemas";
 
 const MIN = 60_000;
-export const HOLD_MINUTES = 5;
+export const HOLD_MINUTES = 10;
 const FAIRNESS_WINDOW_DAYS = 28;
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -198,7 +198,7 @@ export function createBookingsService(deps: {
 
       // Checked after the time is confirmed free, so a missing answer never hides "that time was taken".
       const answers = checkAnswers(picked.service.questions, data.formAnswers);
-      // A website booking of a priced service is held until the website reports a payment (or 15 minutes pass).
+      // A website booking of a priced service is held until the website reports a payment (or 10 minutes pass).
       // A therapist's own price for the service wins over the service's price.
       const staffPrice = await bookingsRepo.staffPrice(picked.staffId, data.serviceId);
       const pricePaise = staffPrice ?? picked.service.pricePaise;
@@ -453,7 +453,7 @@ export function createBookingsService(deps: {
       if (!PAYMENT_STATUSES.includes(status)) throw new DomainError("invalid", `Unknown payment status "${status}"`);
       await get(id);
       const audit = { actor, action: "set_payment", entity: "booking", entityId: id, details: { status } };
-      // "Paid" also stops the 15-minute clock and takes the time back if it had been given up.
+      // "Paid" also stops the 10-minute clock and takes the time back if it had been given up.
       if (status === "paid") await bookingsRepo.markPaid(id, audit);
       else await bookingsRepo.setPayment(id, status, audit);
       return get(id);

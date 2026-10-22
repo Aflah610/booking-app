@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/v1/slot-holds { serviceId, staffId?, start }
- * Holds a time for 5 minutes while the client fills in the form. Send the returned token as
+ * Holds a time for 10 minutes while the client fills in the form. Send the returned token as
  * `holdToken` when creating the booking.
  */
 export const POST = apiRoute("website", async (req, { key }) => {
