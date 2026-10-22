@@ -65,8 +65,8 @@ describe("database pool config", () => {
 describe("login settings", () => {
   const base = { DATABASE_URL: "postgres://u:p@localhost/db", AUTH_SECRET: "x".repeat(32) };
 
-  it("needs at least one way for staff to sign in", () => {
-    expect(missingEnv(base)).toEqual(["AUTH_GOOGLE_ID+AUTH_GOOGLE_SECRET or AUTH_ZOHO_ID+AUTH_ZOHO_SECRET"]);
+  it("does not need Google or Zoho, since staff can always sign in with email and password", () => {
+    expect(missingEnv(base)).toEqual([]);
     expect(missingEnv({ ...base, AUTH_ZOHO_ID: "id", AUTH_ZOHO_SECRET: "s" })).toEqual([]);
     expect(missingEnv({ ...base, AUTH_GOOGLE_ID: "id", AUTH_GOOGLE_SECRET: "s" })).toEqual([]);
   });
