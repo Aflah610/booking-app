@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { poolConfig } from "@/db/pool-config";
 import { missingEnv } from "@/lib/env";
-import { enabledLoginProviders } from "@/lib/login-providers";
+import { enabledLoginProviders, loginFailures } from "@/lib/login-providers";
 import { formatDayRanges, parseDayRanges } from "@/lib/hours-form";
 import { formatInZone, zonedToUtc } from "@/lib/time";
 
@@ -138,5 +138,19 @@ describe("phone field country splitting", () => {
     expect(splitE164(null)).toEqual({ iso: "IN", national: "" });
     expect(flag("IN")).toBe("🇮🇳");
     expect(new Set(COUNTRIES.map((c) => c.iso)).size).toBe(COUNTRIES.length);
+  });
+});
+
+describe("staff login lockout", () => {
+  it("locks a key after too many wrong passwords and opens again after 15 minutes", () => {
+    const key = "email:lockout-test@example.com";
+    const t = 1_000_000;
+    for (let i = 0; i < 4; i++) loginFailures.record(key, t);
+    expect(loginFailures.locked(key, 5, t)).toBe(false);
+    loginFailures.record(key, t);
+    expect(loginFailures.locked(key, 5, t)).toBe(true);
+    expect(loginFailures.locked(key, 5, t + 15 * 60 * 1000 + 1)).toBe(false);
+    loginFailures.clear(key);
+    expect(loginFailures.locked(key, 5, t)).toBe(false);
   });
 });

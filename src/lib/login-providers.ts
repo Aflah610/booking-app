@@ -2,6 +2,7 @@ import type { Provider } from "next-auth/providers";
 import { createHash, timingSafeEqual } from "node:crypto";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import { callerKey } from "@/lib/rate-limit";
 
 export type LoginProviderId = "google" | "zoho";
 
@@ -85,17 +86,50 @@ export function localLoginProvider(env: Record<string, string | undefined> = pro
   });
 }
 
+const LOCKOUT_MS = 15 * 60 * 1000;
+const MAX_FAILS_PER_EMAIL = 5;
+const MAX_FAILS_PER_CALLER = 20;
+const failures = new Map<string, { n: number; resetAt: number }>();
+
+/** Wrong passwords counted per key in this process; a key is locked once it reaches `max` within 15 minutes. */
+export const loginFailures = {
+  locked(key: string, max: number, now = Date.now()): boolean {
+    const f = failures.get(key);
+    return Boolean(f && f.resetAt > now && f.n >= max);
+  },
+  record(key: string, now = Date.now()): void {
+    if (failures.size > 5000) for (const [k, f] of failures) if (f.resetAt <= now) failures.delete(k);
+    const f = failures.get(key);
+    if (!f || f.resetAt <= now) failures.set(key, { n: 1, resetAt: now + LOCKOUT_MS });
+    else f.n += 1;
+  },
+  clear(key: string): void {
+    failures.delete(key);
+  },
+};
+
 /** Email + personal password for staff who have one set (see `npm run staff:set-password`). Works on the live site too. */
 export function passwordLoginProvider(verify: (email: string, password: string) => Promise<{ id: string; email: string; name: string } | null>): Provider {
   return Credentials({
     id: "password",
     name: "Email and password",
     credentials: { email: {}, password: {} },
-    async authorize(credentials) {
+    async authorize(credentials, request) {
       const email = typeof credentials?.email === "string" ? credentials.email.trim() : "";
       const password = typeof credentials?.password === "string" ? credentials.password : "";
       if (!email || !password) return null;
-      return verify(email, password);
+      // Stops password guessing: 5 wrong tries lock that email, 20 lock that visitor, each for 15 minutes.
+      const emailKey = `email:${email.toLowerCase()}`;
+      const callerKeyId = `caller:${callerKey(request.headers)}`;
+      if (loginFailures.locked(emailKey, MAX_FAILS_PER_EMAIL) || loginFailures.locked(callerKeyId, MAX_FAILS_PER_CALLER)) return null;
+      const member = await verify(email, password);
+      if (member) {
+        loginFailures.clear(emailKey);
+        return member;
+      }
+      loginFailures.record(emailKey);
+      loginFailures.record(callerKeyId);
+      return null;
     },
   });
 }

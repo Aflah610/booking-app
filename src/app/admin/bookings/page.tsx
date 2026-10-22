@@ -31,8 +31,9 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const me = await requireStaff();
   const sp = await searchParams;
   const view: View = VIEWS.some(([v]) => v === sp.view) ? (sp.view as View) : "upcoming";
-  // Staff see their own diary by default; anyone can switch to the whole firm (front desk).
-  const staffFilter = sp.staff === "all" ? null : sp.staff || (hasRole(me, "manager") ? null : me.id);
+  // Managers and admins see the whole firm (or one person); other staff only their own diary.
+  const manager = hasRole(me, "manager");
+  const staffFilter = !manager ? me.id : sp.staff === "all" ? null : sp.staff || null;
   const { bookings, catalog, staff, settings, preferences } = app();
   const [people, services, s, savedColumns] = await Promise.all([
     staff.list(),
@@ -100,7 +101,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           <div><label className="label !text-xs" htmlFor="to">To</label><input className="input" id="to" name="to" type="date" defaultValue={toDay} /></div>
           <div>
             <label className="label !text-xs" htmlFor="staff">Therapist</label>
-            <select className="input" id="staff" name="staff" defaultValue={staffFilter ?? "all"}>
+            <select className="input" id="staff" name="staff" defaultValue={staffFilter ?? "all"} disabled={!manager}>
               <option value="all">Everyone</option>
               {people.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.id === me.id ? `${p.name} (me)` : p.name}</option>)}
             </select>

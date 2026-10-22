@@ -5,7 +5,7 @@ import { bookingReference } from "@/features/bookings/bookings.dto";
 import { addDays } from "@/features/availability/slots";
 import { isDomainError } from "@/features/shared/errors";
 import { isOnlineSession } from "@/features/bookings/meeting";
-import { requireStaff } from "@/lib/session";
+import { hasRole, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, NO_SHOW_BY_LABEL, PAYMENT_LABEL, timeLabel } from "@/lib/format";
 import { Notice } from "@/components/Notice";
@@ -22,7 +22,7 @@ export default async function BookingPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string; move?: string; date?: string }>;
 }) {
-  await requireStaff();
+  const me = await requireStaff();
   const { id } = await params;
   const sp = await searchParams;
   const { bookings, availability, settings, staff } = app();
@@ -30,6 +30,8 @@ export default async function BookingPage({
     if (isDomainError(err)) notFound();
     throw err;
   });
+  // Other staff's bookings look exactly like missing ones.
+  if (b.staffId !== me.id && !hasRole(me, "manager")) notFound();
   const s = await settings.get();
   const [paymentRows, creditUses, credit, calendar] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId), app().calendar.status(b.staffId)]);
   const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;

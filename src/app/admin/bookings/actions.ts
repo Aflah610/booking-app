@@ -4,9 +4,18 @@ import { app } from "@/features/container";
 import type { PaymentStatus } from "@/features/bookings/bookings.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { act, answersFromForm, optional, str } from "@/lib/form-actions";
-import { requireStaff } from "@/lib/session";
+import { hasRole, requireStaff } from "@/lib/session";
 
 const deskActor = (staffId: string): BookingActor => ({ staffId, mode: "staff" });
+
+/** Managers and admins may change any booking; other staff only bookings in their own diary. */
+async function requireBookingAccess(id: string) {
+  const me = await requireStaff();
+  if (hasRole(me, "manager")) return me;
+  const b = await app().bookings.get(id);
+  if (b.staffId !== me.id) throw new Error("You can only change bookings in your own diary.");
+  return me;
+}
 
 export async function createBookingAction(form: FormData) {
   const me = await requireStaff();
@@ -35,7 +44,7 @@ export async function createBookingAction(form: FormData) {
 }
 
 export async function rescheduleBookingAction(id: string, start: string, staffId: string) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Booking moved", async () => {
     const moved = await app().bookings.reschedule(deskActor(me.id), id, { start, staffId });
     return `/admin/bookings/${moved.id}`;
@@ -43,14 +52,14 @@ export async function rescheduleBookingAction(id: string, start: string, staffId
 }
 
 export async function cancelBookingAction(id: string, form: FormData) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Booking cancelled", () =>
     app().bookings.cancel(deskActor(me.id), id, { reason: optional(form, "reason") }),
   );
 }
 
 export async function markBookingAction(id: string, status: "completed" | "no_show" | "upcoming", form: FormData) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   const by = str(form, "by");
   await act(`/admin/bookings/${id}`, "Status updated", () =>
     app().bookings.markStatus(deskActor(me.id), id, status, { noShowBy: by === "client" || by === "staff" ? by : undefined }),
@@ -58,34 +67,34 @@ export async function markBookingAction(id: string, status: "completed" | "no_sh
 }
 
 export async function setPaymentAction(id: string, status: PaymentStatus) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Payment updated", () => app().bookings.setPayment({ staffId: me.id }, id, status));
 }
 
 export async function useCreditAction(id: string) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Paid with the client's credit", () => app().bookings.useCredit({ staffId: me.id }, id));
 }
 
 export async function meetingAction(id: string, action: "add" | "remove" | "reset") {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   const done = { add: "Meet link requested", remove: "Online link removed", reset: "Back to the service's setting" } as const;
   await act(`/admin/bookings/${id}`, done[action], () => app().bookings.setMeeting({ staffId: me.id }, id, { action }));
 }
 
 export async function manualMeetingAction(id: string, form: FormData) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Link saved", () => app().bookings.setMeeting({ staffId: me.id }, id, { action: "manual", url: str(form, "url") }));
 }
 
 export async function updateBookingNotesAction(id: string, form: FormData) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Notes saved", () => app().bookings.updateNotes({ staffId: me.id }, id, optional(form, "notes")));
 }
 
 /** Staff type in a payment (cash, a transfer, or one the website couldn't report). Amount is entered in rupees. */
 export async function recordPaymentAction(id: string, form: FormData) {
-  const me = await requireStaff();
+  const me = await requireBookingAccess(id);
   await act(`/admin/bookings/${id}`, "Payment recorded", () =>
     app().payments.recordManual({ staffId: me.id }, id, {
       amountPaise: Math.round(Number(str(form, "amount").replace(/,/g, "")) * 100),
