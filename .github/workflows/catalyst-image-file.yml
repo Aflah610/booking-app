@@ -1,0 +1,27 @@
+name: Build image file for Catalyst
+
+# Builds the app image as an OCI tar file and attaches it to the run, so it can be deployed with
+#   catalyst deploy appsail --name booking-app --source docker-archive://booking-app.tar
+# without Docker on your computer. Download it from the run's "Artifacts" section.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  image-file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          outputs: type=oci,dest=booking-app.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: booking-app-${{ github.sha }}
+          path: booking-app.tar
+          retention-days: 14
+          compression-level: 0
