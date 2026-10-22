@@ -17,6 +17,8 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 AUTH_TRUST_HOST=true
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
+# Logos and other files under /public; the standalone server does not include them on its own.
+COPY --from=build --chown=app:app /app/public ./public
 COPY --from=build --chown=app:app /app/dist ./dist
 COPY --from=build --chown=app:app /app/drizzle ./drizzle
 COPY --chown=app:app docker-entrypoint.sh ./
