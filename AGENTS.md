@@ -1,5 +1,36 @@
 # Engineering rules
 
+This file is read by **Codex** (AGENTS.md) and by **Claude Code** (CLAUDE.md imports it). Both work on this
+project for the same owner, Aflah.
+
+## Working together (Codex and Claude Code)
+
+- **Before you start:** `git pull`, then read the newest entries in `docs/WORKLOG.md`.
+- **When you finish:** commit, and add an entry at the top of `docs/WORKLOG.md` (date, agent, what changed,
+  what is live, what is open), written for the other agent, which has none of your chat history.
+- **One agent per task.** If the log shows the other agent mid-way through something, leave those files alone.
+  For bigger work use your own branch or `git worktree`; never leave uncommitted changes when you stop.
+- **Migrations:** two agents generating a migration at once get the same number. Pull first, generate, commit
+  and push straight away; if numbers clash, delete yours and generate again on top.
+- Secrets (API keys, SSH keys, database URLs, `app.env`) never go in the repo, this file or the log.
+
+## Mindlap facts
+
+- Live at `https://book.mindlap.in` on an AWS Lightsail server in Mumbai with Lightsail Postgres. The server
+  deploys `main` by itself every 5 minutes, **only after GitHub CI ("check": lint, typecheck, tests, build)
+  passes**. Run `npm run lint` before pushing; a lint error stops the deploy.
+- On the server never run git as root (`sudo git ...` in `/opt/mindlap/src`); it breaks the deploy job.
+- Never write to the old Neon `DATABASE_URL`: it is test data only.
+- Roles: admin, manager, psychologist, BDE (sales), CCD. Permissions in `src/features/access/permissions.ts`,
+  editable by the admin. Only CCD books for clients; psychologists see only their own clients, without
+  contact details; managers see only *pending* case notes (a note is due 24 hours after the session).
+- Booking rules (live data, not code): psychologists 9:00 to 23:00, 30-minute gap after every session,
+  at most 7 sessions per psychologist per day (Settings > Booking rules). Individual therapy 60 min,
+  couple therapy 90 min.
+- Case history mirrors the old system MCH (6 steps). MCH data is copied with `scripts/import-mch.ts`
+  (dry run by default). Never print or log clients' clinical text.
+- The website (`mindlap.in`, repo `mindlap-therapy`) talks to this app through its Cloudflare Worker.
+
 Rules for anyone (person or AI agent) changing this codebase. They are our own. We looked at how the old
 open-source Cal.com code organised its logic for ideas only. Never copy or imitate its code; design our own
 solution for each problem.
