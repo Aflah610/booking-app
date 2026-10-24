@@ -1,5 +1,5 @@
 // Copies clients and case histories from MCH. Usage:
-//   tsx scripts/import-mch.ts mch-export.json --fallback-author you@firm.com [--staff "MCH name=staff@email"]... [--commit]
+//   tsx scripts/import-mch.ts mch-export.json --fallback-author you@firm.com [--staff "MCH name=staff@email"]... [--create-missing-staff] [--commit]
 // Without --commit it only counts (everything is rolled back). Prints counts and MCH codes, never clinical text.
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
@@ -25,7 +25,7 @@ async function main() {
   }
   const data = JSON.parse(readFileSync(file, "utf8")) as MchExport;
   const dryRun = !args.includes("--commit");
-  const report = await importMch(db, data, { fallbackAuthorId: await byEmail(fallbackEmail), staffByName, dryRun });
+  const report = await importMch(db, data, { fallbackAuthorId: await byEmail(fallbackEmail), staffByName, dryRun, createMissingStaff: args.includes("--create-missing-staff") });
   console.log(JSON.stringify({ mode: dryRun ? "dry run (nothing saved)" : "saved", in: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.length])), ...report }, null, 2));
   process.exit(0);
 }

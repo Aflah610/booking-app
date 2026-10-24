@@ -64,6 +64,17 @@ describe("copying from MCH", () => {
     expect(r.notes[1]).toMatchObject({ progressNotes: "Better", nextPlan: "Continue", durationText: "50 mins", therapistSignature: "Asha" });
   });
 
+  it("matches a shorter or longer spelling of a name, and can add missing psychologists switched off", async () => {
+    const { asha, admin } = await staff();
+    const data = exportWith({ users: [{ id: 10, name: "asha" }, { id: 11, name: "Someone Gone" }] });
+    const report = await importMch(db, data, { fallbackAuthorId: admin.id, createMissingStaff: true });
+    expect(report).toMatchObject({ staffCreated: ["Someone Gone"], unmatchedPsychologists: [], notesByFallbackAuthor: 0, periods: 2 });
+    const gone = (await db.query.staff.findMany()).find((s) => s.name === "Someone Gone")!;
+    expect(gone).toMatchObject({ active: false, accessRole: "psychologist", passwordHash: null });
+    const notes = await db.query.sessionNote.findMany();
+    expect(notes.map((n) => n.authorId).sort()).toEqual([asha.id, gone.id].sort());
+  });
+
   it("can run again without copying anything twice, and a dry run saves nothing", async () => {
     const { admin } = await staff();
     expect((await importMch(db, exportWith(), { fallbackAuthorId: admin.id, dryRun: true })).clientsCreated).toBe(2);

@@ -43,6 +43,8 @@ export type MchImportOptions = {
   fallbackAuthorId: string;
   /** MCH psychologist name → staff id here, for names spelt differently in the two systems. */
   staffByName?: Record<string, string>;
+  /** Add MCH psychologists who have no account here as switched-off staff, instead of signing their notes with the fallback. */
+  createMissingStaff?: boolean;
   /** Run everything, then roll back: for counting before the real copy. */
   dryRun?: boolean;
 };
@@ -57,6 +59,7 @@ export type MchImportReport = {
   notes: number;
   notesByFallbackAuthor: number;
   unmatchedPsychologists: string[];
+  staffCreated: string[];
 };
 
 const blank = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
@@ -77,7 +80,7 @@ class Rollback extends Error {}
 
 export async function importMch(db: Db, data: MchExport, opts: MchImportOptions): Promise<MchImportReport> {
   const report: MchImportReport = {
-    clientsCreated: 0, clientsMatched: 0, clientsSkipped: [], periods: 0, caseHistories: 0, caseHistoriesSkipped: [], notes: 0, notesByFallbackAuthor: 0, unmatchedPsychologists: [],
+    clientsCreated: 0, clientsMatched: 0, clientsSkipped: [], periods: 0, caseHistories: 0, caseHistoriesSkipped: [], notes: 0, notesByFallbackAuthor: 0, unmatchedPsychologists: [], staffCreated: [],
   };
   try {
     await db.transaction(async (tx) => {
@@ -94,18 +97,36 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
   const staffRows = await tx.select({ id: schema.staff.id, name: schema.staff.name }).from(schema.staff);
   const staffByKey = new Map(staffRows.map((s) => [nameKey(s.name), s.id]));
   for (const [name, id] of Object.entries(opts.staffByName ?? {})) staffByKey.set(nameKey(name), id);
+  // "anasooya" is "Anasooya Pramod" and "Theresa Thomas" is "Theresa P Thomas": one name's words all in the other's, if only one person fits.
+  const words = (k: string) => new Set(k.split(" "));
+  const within = (a: Set<string>, b: Set<string>) => [...a].every((w) => b.has(w));
+  const match = (name: string) => {
+    const key = nameKey(name);
+    if (!key) return null;
+    if (staffByKey.has(key)) return staffByKey.get(key)!;
+    const w = words(key);
+    const fits = new Set(staffRows.filter((s) => within(w, words(nameKey(s.name))) || within(words(nameKey(s.name)), w)).map((s) => s.id));
+    return fits.size === 1 ? [...fits][0] : null;
+  };
 
   const userName = new Map(data.users.map((u) => [u.id, u.name]));
-  const staffForUser = (userId: Id | null) => (userId == null ? null : staffByKey.get(nameKey(userName.get(userId) ?? "")) ?? null);
+  const staffForUser = (userId: Id | null) => (userId == null ? null : match(userName.get(userId) ?? ""));
   const psychUser = new Map(data.psychologists.map((p) => [p.id, p.user_id]));
-  const unmatched = new Set<string>();
-  const staffForPsych = (psychId: Id | null) => {
-    if (psychId == null) return null;
-    const userId = psychUser.get(psychId) ?? null;
-    const id = staffForUser(userId);
-    if (!id && userId != null) unmatched.add(userName.get(userId) ?? `MCH psychologist ${psychId}`);
-    return id;
-  };
+  const forPsych = new Map<Id, string | null>();
+  for (const p of data.psychologists) {
+    const name = userName.get(p.user_id)?.trim() || `MCH psychologist ${p.id}`;
+    let id = staffForUser(p.user_id) ?? staffByKey.get(nameKey(name)) ?? null;
+    if (!id && opts.createMissingStaff) {
+      // Kept switched off, without a way to sign in, so their notes keep their name; the admin turns them on if they still work here.
+      [{ id }] = await tx.insert(schema.staff).values({
+        name, email: `mch-psychologist-${p.id}@import.invalid`, accessRole: "psychologist", designation: "Psychologist", active: false,
+      }).returning({ id: schema.staff.id });
+      staffByKey.set(nameKey(name), id);
+      report.staffCreated.push(name);
+    } else if (!id) report.unmatchedPsychologists.push(name);
+    forPsych.set(p.id, id);
+  }
+  const staffForPsych = (psychId: Id | null) => (psychId == null ? null : forPsych.get(psychId) ?? null);
 
   // Two MCH clients with one phone number would land on the same client here, mixing two people's records; those are left out.
   const phoneCount = new Map<string, number>();
@@ -229,5 +250,4 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
     }
   }
 
-  report.unmatchedPsychologists = [...unmatched].sort();
 }
