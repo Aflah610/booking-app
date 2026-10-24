@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { importMch, type MchExport } from "@/features/mch-import/mch-import";
+import { importMch, type MchExport } from "@/features/mch-import/mch-import.repository";
 import { c, db, reset } from "./helpers";
 
 beforeEach(reset);

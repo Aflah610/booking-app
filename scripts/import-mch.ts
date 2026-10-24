@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "../src/db";
-import { importMch, type MchExport } from "../src/features/mch-import/mch-import";
+import { importMch, type MchExport } from "../src/features/mch-import/mch-import.repository";
 
 async function main() {
   const args = process.argv.slice(2);
