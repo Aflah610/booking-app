@@ -87,6 +87,9 @@ export const staff = pgTable("staff", {
   active: boolean("active").notNull().default(true),
   /** May read and write every client's clinical record, not only the clients they treat. */
   clinicalAdmin: boolean("clinical_admin").notNull().default(false),
+  /** Sales executives switch this off when they stop taking leads (break, end of shift); new leads skip them. */
+  leadsOnline: boolean("leads_online").notNull().default(true),
+  leadsOnlineChangedAt: timestamp("leads_online_changed_at", { withTimezone: true }),
   /** scrypt hash for email-and-password sign-in; null = this person signs in with Google or Zoho only. */
   passwordHash: text("password_hash"),
   /** SHA-256 of the one-time "forgot password" link's token (the token itself is only ever in the email), and when the link stops working. */
@@ -287,6 +290,8 @@ export const lead = pgTable("lead", {
   adHeadline: text("ad_headline"),
   adUrl: text("ad_url"),
   assignedTo: uuid("assigned_to").references(() => staff.id, { onDelete: "set null" }),
+  /** When it was last given to someone; the round robin goes by this, so leads handed out later still count. */
+  assignedAt: timestamp("assigned_at", { withTimezone: true }),
   status: text("status").$type<"new" | "contacted" | "follow_up" | "converted" | "lost">().notNull().default("new"),
   followUpOn: date("follow_up_on", { mode: "string" }),
   notes: text("notes"),

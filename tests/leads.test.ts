@@ -158,3 +158,52 @@ describe("the WhatsApp webhook", () => {
     expect(signatureValid(body, null, "secret")).toBe(false);
   });
 });
+
+describe("online and offline", () => {
+  const owner = (r: Awaited<ReturnType<typeof message>>) => (r.kind === "created" ? r.lead.assignedTo : "none");
+
+  it("gives every new lead to whoever is online while the other is offline", async () => {
+    const asha = await sales("Asha");
+    const binu = await sales("Binu");
+    await c.leads.setOnline(asViewer(binu), binu.id, false, new Date("2026-10-20T00:00:00Z"));
+    const owners = [];
+    for (let i = 0; i < 3; i++) owners.push(owner(await message(`9810000000${i}`, `2026-10-20T0${i + 1}:00:00Z`)));
+    expect(owners).toEqual([asha.id, asha.id, asha.id]);
+    expect((await c.leads.salesTeam(asViewer(asha))).map((p) => [p.name, p.online])).toEqual([["Asha", true], ["Binu", false]]);
+  });
+
+  it("goes back to taking turns once both are online again", async () => {
+    const asha = await sales("Asha");
+    const binu = await sales("Binu");
+    await c.leads.setOnline(asViewer(binu), binu.id, false, new Date("2026-10-20T00:00:00Z"));
+    await message("98100 00001", "2026-10-20T01:00:00Z");
+    await message("98100 00002", "2026-10-20T02:00:00Z");
+    await c.leads.setOnline(asViewer(binu), binu.id, true, new Date("2026-10-20T03:00:00Z"));
+    const next = [owner(await message("98100 00003", "2026-10-20T04:00:00Z")), owner(await message("98100 00004", "2026-10-20T05:00:00Z"))];
+    expect(next).toEqual([binu.id, asha.id]);
+  });
+
+  it("holds leads while everyone is offline and shares them out in turn when someone comes online", async () => {
+    const asha = await sales("Asha");
+    const binu = await sales("Binu");
+    await c.leads.setOnline(asViewer(asha), asha.id, false, new Date("2026-10-20T00:00:00Z"));
+    await c.leads.setOnline(asViewer(binu), binu.id, false, new Date("2026-10-20T00:00:00Z"));
+    for (let i = 0; i < 3; i++) expect(owner(await message(`9820000000${i}`, `2026-10-20T0${i + 1}:00:00Z`))).toBeNull();
+    expect(await c.leads.setOnline(asViewer(asha), asha.id, true, new Date("2026-10-20T05:00:00Z"))).toBe(3);
+    const mine = await c.leads.list(asViewer(asha));
+    expect(mine).toHaveLength(3);
+    // Binu comes online too: the next new lead is his, since Asha just took the waiting ones.
+    await c.leads.setOnline(asViewer(binu), binu.id, true, new Date("2026-10-20T06:00:00Z"));
+    expect(owner(await message("98200 00009", "2026-10-20T07:00:00Z"))).toBe(binu.id);
+  });
+
+  it("lets sales executives switch only themselves; managers can switch anyone", async () => {
+    const asha = await sales("Asha");
+    const binu = await sales("Binu");
+    const boss = await c.staff.create({}, { name: "Boss", email: "boss@firm.test", role: "manager" });
+    await expect(c.leads.setOnline(asViewer(asha), binu.id, false)).rejects.toThrow(/only switch yourself/);
+    await c.leads.setOnline(asViewer(boss), binu.id, false);
+    expect((await c.leads.salesTeam(asViewer(boss))).find((p) => p.id === binu.id)?.online).toBe(false);
+    await expect(c.leads.setOnline(asViewer(boss), boss.id, false)).rejects.toThrow(/not an active sales executive/);
+  });
+});

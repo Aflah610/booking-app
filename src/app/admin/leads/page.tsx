@@ -7,6 +7,7 @@ import { dateLabel, dayLabel, phoneLabel, timeLabel } from "@/lib/format";
 import { hasRole, requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
+import { setLeadsOnlineAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Leads" };
@@ -19,11 +20,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const view = sp.view && sp.view in VIEWS ? (sp.view as keyof typeof VIEWS) : "open";
   const manager = hasRole(me, "manager");
-  const [rows, team, s] = await Promise.all([
+  const [rows, team, s, sales] = await Promise.all([
     app().leads.list(me, { view, q: sp.q?.trim() || undefined, assignedTo: sp.staff || undefined }),
     manager ? app().leads.assignable() : Promise.resolve([]),
     app().settings.get(),
+    app().leads.salesTeam(me),
   ]);
+  const anyoneOnline = sales.some((p) => p.online);
   const tz = s.timezone;
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -38,6 +41,26 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         action={<Link href="/admin/leads/new" className="btn">New lead</Link>}
       />
       <Notice error={sp.error} ok={sp.ok} />
+      {sales.length > 0 && (
+        <section className="card mb-6 p-4" aria-label="Who is taking leads">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium">Taking new leads:</span>
+            {sales.map((p) => {
+              const mine = p.id === me.id;
+              return (
+                <form key={p.id} action={setLeadsOnlineAction.bind(null, p.id, !p.online)} className="flex items-center gap-2 rounded-full border border-zinc-200 py-1 pl-3 pr-1">
+                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${p.online ? "bg-green-600" : "bg-zinc-400"}`} />
+                  <span className="text-sm">{mine ? "You" : p.name} · {p.online ? "Online" : "Offline"}</span>
+                  {(mine || manager) && (
+                    <button type="submit" className="btn-ghost px-2 py-0.5 text-xs">{p.online ? "Go offline" : "Go online"}</button>
+                  )}
+                </form>
+              );
+            })}
+          </div>
+          {!anyoneOnline && <p className="mt-2 text-sm text-red-700">Nobody is online, so new leads wait as Not assigned until someone comes online.</p>}
+        </section>
+      )}
       <nav className="tabs" aria-label="Which leads">
         {Object.entries(VIEWS).map(([key, label]) => (
           <Link key={key} href={qs({ view: key })} className={`tab ${view === key ? "tab-active" : ""}`} aria-current={view === key ? "page" : undefined}>{label}</Link>

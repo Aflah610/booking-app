@@ -26,6 +26,18 @@ const columns = {
 
 const open = notInArray(lead.status, ["converted", "lost"]);
 
+/** Sales executives who can be given a lead at `at`: active, switched online, and not on leave. */
+const takingLeads = (at: Date) =>
+  and(
+    eq(staff.active, true),
+    eq(staff.designation, SALES_DESIGNATION),
+    eq(staff.leadsOnline, true),
+    sql`not exists (select 1 from time_off t where t.staff_id = ${staff.id} and t.starts_at <= ${at} and t.ends_at > ${at})`,
+  );
+
+// Round robin: whoever was given a lead longest ago (or never) is next.
+const nextInTurn = [sql`(select max(l.assigned_at) from lead l where l.assigned_to = ${staff.id}) asc nulls first`, asc(staff.createdAt)];
+
 export type NewLead = {
   phoneE164: string;
   name: string;
@@ -68,6 +80,35 @@ export function createLeadsRepository(db: Db) {
       return row?.n ?? 0;
     },
 
+    /** Sales executives with their online switch, for the switches on the Leads page. */
+    salesTeam() {
+      return db
+        .select({ id: staff.id, name: staff.name, online: staff.leadsOnline, changedAt: staff.leadsOnlineChangedAt })
+        .from(staff)
+        .where(and(eq(staff.active, true), eq(staff.designation, SALES_DESIGNATION)))
+        .orderBy(asc(staff.name));
+    },
+
+    /**
+     * Turns someone's lead switch on or off. Coming online also shares out any leads that arrived while nobody was online,
+     * in turn, so nothing waits for a manager. Returns how many waiting leads were handed out.
+     */
+    setOnline(staffId: string, online: boolean, at: Date, audit: AuditEntry): Promise<number> {
+      return db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('lead_capture'))`);
+        await tx.update(staff).set({ leadsOnline: online, leadsOnlineChangedAt: at }).where(eq(staff.id, staffId));
+        await writeAudit(tx, audit);
+        if (!online) return 0;
+        const waiting = await tx.select({ id: lead.id }).from(lead).where(and(isNull(lead.assignedTo), open)).orderBy(asc(lead.createdAt));
+        for (const w of waiting) {
+          const [next] = await tx.select({ id: staff.id }).from(staff).where(takingLeads(at)).orderBy(...nextInTurn).limit(1);
+          if (!next) break;
+          await tx.update(lead).set({ assignedTo: next.id, assignedAt: at }).where(eq(lead.id, w.id));
+        }
+        return waiting.length;
+      });
+    },
+
     /** Active staff who can be given leads, sales executives first. */
     assignable() {
       return db
@@ -100,17 +141,7 @@ export function createLeadsRepository(db: Db) {
           if (booked) return { kind: "client" };
         }
 
-        // Round robin: the sales executive who was given a lead longest ago (or never) is next. Anyone on leave right now is skipped.
-        const [next] = await tx
-          .select({ id: staff.id })
-          .from(staff)
-          .where(and(
-            eq(staff.active, true),
-            eq(staff.designation, SALES_DESIGNATION),
-            sql`not exists (select 1 from time_off t where t.staff_id = ${staff.id} and t.starts_at <= ${n.at} and t.ends_at > ${n.at})`,
-          ))
-          .orderBy(sql`(select max(l.created_at) from lead l where l.assigned_to = ${staff.id}) asc nulls first`, asc(staff.createdAt))
-          .limit(1);
+        const [next] = await tx.select({ id: staff.id }).from(staff).where(takingLeads(n.at)).orderBy(...nextInTurn).limit(1);
 
         const [created] = await tx
           .insert(lead)
@@ -122,6 +153,7 @@ export function createLeadsRepository(db: Db) {
             adUrl: n.adUrl,
             notes: n.notes,
             assignedTo: next?.id ?? null,
+            assignedAt: next ? n.at : null,
             lastMessageAt: n.source === "manual" ? null : n.at,
             createdAt: n.at,
           })
@@ -134,7 +166,7 @@ export function createLeadsRepository(db: Db) {
 
     update(id: string, data: { status?: LeadStatus; followUpOn?: string | null; notes?: string | null; assignedTo?: string | null; closedAt?: Date | null }, audit: AuditEntry) {
       return db.transaction(async (tx) => {
-        const [row] = await tx.update(lead).set(data).where(eq(lead.id, id)).returning({ id: lead.id });
+        const [row] = await tx.update(lead).set(data.assignedTo !== undefined ? { ...data, assignedAt: new Date() } : data).where(eq(lead.id, id)).returning({ id: lead.id });
         if (row) await writeAudit(tx, audit);
         return Boolean(row);
       });

@@ -70,6 +70,24 @@ export function createLeadsService({ leadsRepo }: { leadsRepo: LeadsRepository }
 
     assignable: () => leadsRepo.assignable(),
 
+    /** The sales executives and whether each is taking leads, for the switches on the Leads page. */
+    async salesTeam(viewer: LeadViewer) {
+      if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see the sales team");
+      return leadsRepo.salesTeam();
+    },
+
+    /**
+     * Online means "give me new leads". Sales executives switch themselves; managers can switch anyone (someone forgot before
+     * leaving). Coming online picks up leads that arrived while nobody was online. Returns how many were handed out.
+     */
+    async setOnline(viewer: LeadViewer, staffId: string, online: boolean, now = new Date()): Promise<number> {
+      if (staffId !== viewer.id && !isManager(viewer)) throw new DomainError("forbidden", "You can only switch yourself online or offline");
+      if (!(await leadsRepo.salesTeam()).some((s) => s.id === staffId)) throw new DomainError("invalid", `Staff member ${staffId} is not an active sales executive`);
+      return leadsRepo.setOnline(staffId, online, now, {
+        actor: { staffId: viewer.id }, action: online ? "leads_online" : "leads_offline", entity: "staff", entityId: staffId,
+      });
+    },
+
     async update(viewer: LeadViewer, id: string, input: unknown, now = new Date()) {
       const current = await get(viewer, id);
       const d = leadUpdateInput.parse(input);
