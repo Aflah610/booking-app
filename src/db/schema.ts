@@ -273,6 +273,33 @@ export const clientTherapist = pgTable("client_therapist", {
   index("client_therapist_client_idx").on(t.clientId, t.startsAt),
 ]);
 
+/**
+ * Someone who got in touch (usually a Click-to-WhatsApp ad chat) and is being followed up by sales. Their name and
+ * number live on the client row; this holds only the sales side. Closed leads stay for the conversion reports.
+ */
+export const lead = pgTable("lead", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  /** whatsapp_ad = clicked an ad; whatsapp = messaged without an ad; manual = added by staff. */
+  source: text("source").$type<"whatsapp_ad" | "whatsapp" | "manual">().notNull(),
+  /** From the ad's referral on the first message: which ad, its headline and link. */
+  adId: text("ad_id"),
+  adHeadline: text("ad_headline"),
+  adUrl: text("ad_url"),
+  assignedTo: uuid("assigned_to").references(() => staff.id, { onDelete: "set null" }),
+  status: text("status").$type<"new" | "contacted" | "follow_up" | "converted" | "lost">().notNull().default("new"),
+  followUpOn: date("follow_up_on", { mode: "string" }),
+  notes: text("notes"),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  // One open lead per person, so a second message from the same number never makes a second lead.
+  uniqueIndex("lead_open_client_idx").on(t.clientId).where(sql`${t.status} not in ('converted', 'lost')`),
+  index("lead_assignee_idx").on(t.assignedTo, t.createdAt),
+]);
+
 const oneOf = (column: unknown, values: readonly string[]) => sql`${column} in (${sql.raw(values.map((v) => `'${v}'`).join(", "))})`;
 
 /** A client's clinical record: the intake assessment. Session notes hang off it. */

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { signOut } from "@/auth";
 import type { StaffDTO } from "@/features/staff/staff.dto";
+import { canUseLeads } from "@/features/leads/leads.service";
 import { hasRole } from "@/lib/session";
 import { Icon } from "./icons";
 import { NavLink } from "./NavLink";
@@ -21,6 +22,7 @@ export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNod
               <NavLink href="/admin/bookings" icon="list">Bookings</NavLink>
               <NavLink href="/admin/calendar" icon="calendar">Calendar</NavLink>
               <NavLink href={`/admin/staff/${me.id}`} icon="clock">Availability</NavLink>
+              {canUseLeads(me) && <NavLink href="/admin/leads" icon="inbox">Leads</NavLink>}
               {manager && <p className="nav-heading">Manage</p>}
               {manager && <NavLink href="/admin/services" icon="grid">Services</NavLink>}
               {manager && <NavLink href="/admin/staff" icon="users" exact>Staff</NavLink>}

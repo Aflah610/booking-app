@@ -1,0 +1,25 @@
+"use server";
+
+import { app } from "@/features/container";
+import { act, optional, str } from "@/lib/form-actions";
+import { requireStaff } from "@/lib/session";
+
+export async function addLeadAction(form: FormData) {
+  const me = await requireStaff();
+  await act("/admin/leads/new", "Lead added", async () => {
+    const lead = await app().leads.add(me, { name: str(form, "name"), phone: str(form, "phone"), notes: optional(form, "notes") });
+    return `/admin/leads/${lead.id}`;
+  });
+}
+
+export async function updateLeadAction(id: string, form: FormData) {
+  const me = await requireStaff();
+  await act(`/admin/leads/${id}`, "Saved", () =>
+    app().leads.update(me, id, { status: str(form, "status"), followUpOn: str(form, "followUpOn") || null, notes: optional(form, "notes") }),
+  );
+}
+
+export async function reassignLeadAction(id: string, form: FormData) {
+  const me = await requireStaff("manager");
+  await act(`/admin/leads/${id}`, "Reassigned", () => app().leads.reassign(me, id, str(form, "staffId")));
+}
