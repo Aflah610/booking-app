@@ -1,0 +1,1 @@
+ALTER TABLE "business" ADD COLUMN "staff_max_per_day" integer;

@@ -14,6 +14,7 @@ const columns = {
   minNoticeMin: business.minNoticeMin,
   maxNoticeDays: business.maxNoticeDays,
   clientCutoffMin: business.clientCutoffMin,
+  staffMaxPerDay: business.staffMaxPerDay,
   logoUrl: business.logoUrl,
   brandColor: business.brandColor,
   welcomeText: business.welcomeText,

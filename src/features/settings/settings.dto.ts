@@ -9,6 +9,8 @@ export type BusinessSettingsDTO = {
   maxNoticeDays: number;
   /** Clients can't cancel or reschedule through the website closer than this to the start. */
   clientCutoffMin: number;
+  /** Most sessions one person takes in a day, across all services; null = no limit. */
+  staffMaxPerDay: number | null;
   /** Public booking page look. */
   logoUrl: string | null;
   brandColor: string;

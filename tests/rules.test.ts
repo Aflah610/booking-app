@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { sql } from "drizzle-orm";
 import { c, db, reset } from "./helpers";
 import { createContainer } from "@/features/container";
 import { checkAnswers, formatQuestions, parseQuestions } from "@/features/catalog/questions";
@@ -69,6 +70,38 @@ describe("daily booking limit", () => {
     expect(await starts(svc.id, "2026-10-19")).toEqual([]);
     await c.bookings.cancel(desk, booking.id, {}, { now });
     expect((await starts(svc.id, "2026-10-19")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("daily limit per person", () => {
+  it("closes a person's day once they have the firm's limit of sessions, across services, while others stay open", async () => {
+    const { svc, staff } = await setup();
+    const couple = await c.catalog.create({}, { name: "Couple", durationMin: 30 });
+    const dev = await c.staff.create({}, { name: "Dev", email: "dev@firm.test" });
+    await c.staff.setServices({}, staff.id, [svc.id, couple.id]);
+    await c.staff.setServices({}, dev.id, [svc.id]);
+    await c.schedules.setWeeklyHours({}, dev.id, everyDay);
+    await db.execute(sql`update business set staff_max_per_day = 2`);
+
+    await c.bookings.create(desk, { serviceId: svc.id, staffId: staff.id, start: at("2026-10-19T10:00"), client: ravi }, { now });
+    await c.bookings.create(desk, { serviceId: couple.id, staffId: staff.id, start: at("2026-10-19T12:00"), client: { ...ravi, phone: "98765 11111" } }, { now });
+    const asha = async (serviceId: string, day: string) =>
+      (await c.availability.slots({ serviceId, staffId: staff.id, from: at(`${day}T00:00`), to: at(`${day}T23:59`) }, { now })).slots;
+    expect(await asha(svc.id, "2026-10-19")).toEqual([]);
+    expect(await asha(couple.id, "2026-10-19")).toEqual([]);
+    expect((await asha(svc.id, "2026-10-20")).length).toBeGreaterThan(0);
+    expect((await starts(svc.id, "2026-10-19")).length).toBeGreaterThan(0); // Dev is still free
+    await expect(c.bookings.create(desk, { serviceId: svc.id, staffId: staff.id, start: at("2026-10-19T15:00"), client: { ...ravi, phone: "98765 22222" } }, { now }))
+      .rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("keeps a 30-minute gap after each session when the service has one", async () => {
+    const { svc } = await setup({ durationMin: 60, bufferAfterMin: 30 });
+    await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-10-19T10:00"), client: ravi }, { now });
+    const free = await starts(svc.id, "2026-10-19");
+    expect(free).not.toContain(at("2026-10-19T11:00").toISOString());
+    expect(free).toContain(at("2026-10-19T11:30").toISOString());
+    expect(free).not.toContain(at("2026-10-19T09:00").toISOString()); // its own gap would run into the 10:00 session
   });
 });
 

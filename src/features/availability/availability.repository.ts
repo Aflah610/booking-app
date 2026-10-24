@@ -121,6 +121,28 @@ export function createAvailabilityRepository(db: Db) {
         .groupBy(sql`1`);
       return new Map(rows.map((r) => [r.day, r.n]));
     },
+
+    /** Live bookings per person per local day (in `timeZone`), across every service, for the firm's daily limit per person. */
+    async staffBookingsPerDay(staffIds: string[], window: { from: Date; to: Date; timeZone: string; excludeBookingId?: string }): Promise<Map<string, number>> {
+      if (staffIds.length === 0) return new Map();
+      const day = sql<string>`to_char(${booking.startsAt} at time zone ${window.timeZone}, 'YYYY-MM-DD')`;
+      const rows = await db
+        .select({ staffId: booking.staffId, day, n: sql<number>`count(*)::int` })
+        .from(booking)
+        .where(
+          and(
+            inArray(booking.staffId, staffIds),
+            ne(booking.status, "cancelled"),
+            eq(booking.slotReleased, false),
+            gt(booking.startsAt, window.from),
+            lt(booking.startsAt, window.to),
+            window.excludeBookingId ? ne(booking.id, window.excludeBookingId) : undefined,
+          ),
+        )
+        .groupBy(sql`1`, sql`2`);
+      // Keyed "staffId|YYYY-MM-DD".
+      return new Map(rows.map((r) => [`${r.staffId}|${r.day}`, r.n]));
+    },
   };
 }
 

@@ -41,6 +41,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div><label className="label" htmlFor="minNoticeMin">Minimum notice for online bookings (minutes)</label><input className="input" id="minNoticeMin" name="minNoticeMin" type="number" min={0} defaultValue={s.minNoticeMin} /></div>
           <div><label className="label" htmlFor="maxNoticeDays">Clients can book up to (days ahead)</label><input className="input" id="maxNoticeDays" name="maxNoticeDays" type="number" min={1} defaultValue={s.maxNoticeDays} /></div>
           <div><label className="label" htmlFor="clientCutoffHours">Online cancel or move allowed until (hours before)</label><input className="input" id="clientCutoffHours" name="clientCutoffHours" type="number" min={0} step={0.5} defaultValue={s.clientCutoffMin / 60} /></div>
+          <div><label className="label" htmlFor="staffMaxPerDay">Most sessions per psychologist per day</label><input className="input" id="staffMaxPerDay" name="staffMaxPerDay" type="number" min={1} max={48} defaultValue={s.staffMaxPerDay ?? ""} placeholder="No limit" /><p className="mt-1.5 text-xs text-zinc-600">Once someone has this many sessions in a day, they show no more free times that day.</p></div>
         </section>
         <section className="card grid gap-4 p-6">
           <h2 className="font-semibold">Email design</h2>

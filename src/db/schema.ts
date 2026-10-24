@@ -61,6 +61,8 @@ export const business = pgTable("business", {
   minNoticeMin: integer("min_notice_min").notNull().default(60),
   maxNoticeDays: integer("max_notice_days").notNull().default(60),
   clientCutoffMin: integer("client_cutoff_min").notNull().default(24 * 60),
+  /** Most sessions one person takes in a day, across all services; null = no limit. */
+  staffMaxPerDay: integer("staff_max_per_day"),
   /** Look of the public booking page. */
   logoUrl: text("logo_url"),
   brandColor: text("brand_color").notNull().default("#000000"),

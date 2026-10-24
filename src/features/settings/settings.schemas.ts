@@ -13,6 +13,7 @@ export const settingsInput = z.object({
   minNoticeMin: z.coerce.number().int().min(0).max(60 * 24 * 30),
   maxNoticeDays: z.coerce.number().int().min(1).max(730),
   clientCutoffMin: z.coerce.number().int().min(0).max(60 * 24 * 14),
+  staffMaxPerDay: emptyToNull(z.coerce.number().int().min(1, "Allow at least 1 session a day").max(48)),
   // Shown to clients, so a logo must be a web address and the colour a plain hex value (no CSS injection).
   logoUrl: emptyToNull(
     z.string().trim().url("Use a full web address starting with https://").max(500).refine((u) => u.startsWith("https://") || u.startsWith("http://localhost"), "Use an https:// address"),

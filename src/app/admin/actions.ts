@@ -187,6 +187,7 @@ export async function updateSettingsAction(form: FormData) {
       minNoticeMin: str(form, "minNoticeMin"),
       maxNoticeDays: str(form, "maxNoticeDays"),
       clientCutoffMin: Number(str(form, "clientCutoffHours")) * 60,
+      staffMaxPerDay: str(form, "staffMaxPerDay"),
       logoUrl: str(form, "logoUrl"),
       brandColor: str(form, "brandColor") || "#000000",
       welcomeText: str(form, "welcomeText"),

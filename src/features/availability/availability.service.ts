@@ -88,6 +88,18 @@ export function createAvailabilityService(deps: {
         }),
       };
     });
+    // A person who already has the firm's daily limit of sessions offers no more times that day. Checked again at booking time
+    // (freeStaffAt runs this too), so a list seen a minute ago can't push anyone over.
+    if (settings.staffMaxPerDay != null) {
+      const taken = await availabilityRepo.staffBookingsPerDay(staff.map((s) => s.id), {
+        from: new Date(from.getTime() - DAY),
+        to: new Date(to.getTime() + DAY),
+        timeZone: settings.timezone,
+        excludeBookingId: opts.exclude?.bookingId,
+      });
+      const max = settings.staffMaxPerDay;
+      for (const p of perStaff) p.starts = p.starts.filter((t) => (taken.get(`${p.staffId}|${localDate(t, settings.timezone)}`) ?? 0) < max);
+    }
     const all = unionSlots(perStaff).map(({ start, staffIds }) => ({
       start: new Date(start),
       end: new Date(start + svc.durationMin * MIN),
