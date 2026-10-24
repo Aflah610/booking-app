@@ -30,9 +30,6 @@ export const clientUpdateInput = z.object({
   notes: z.string().trim().max(5000).nullish(),
 });
 
-/** A client added by staff before any booking. */
-export const clientCreateInput = clientContactInput.extend({ notes: z.string().trim().max(5000).nullish().transform((v) => v || null) });
-
 /** A form box left empty means "not recorded". */
 const blank = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
 const text = (max: number) => z.preprocess(blank, z.string().trim().max(max).nullable().default(null));
@@ -50,21 +47,36 @@ const dateOfBirth = z.preprocess(
     .default(null),
 );
 
-/** Everything on the client's edit form. */
-export const clientProfileInput = clientUpdateInput.extend({
+const registeredAt = z.preprocess(
+  blank,
+  z.coerce.date().refine((d) => d.getTime() <= Date.now(), "Registration date can't be in the future").nullable().default(null),
+);
+
+/** The personal details on both the new-client and edit forms, as in the old case history system. */
+const profileFields = {
   dateOfBirth,
   gender: text(40),
   maritalStatus: text(40),
   occupation: text(120),
   education: text(120),
   location: text(120),
+  address: text(500),
+  age: z.preprocess(blank, z.coerce.number().int("Age must be a whole number").min(1, "Age must be between 1 and 120").max(120, "Age must be between 1 and 120").nullable().default(null)),
   languages: text(120),
   emergencyName: text(120),
   emergencyRelation: text(60),
   emergencyPhone: z.preprocess(blank, phone.nullable().default(null)),
   referralSource: text(120),
   consentSignedAt: z.preprocess(blank, z.coerce.date().nullable().default(null)),
-});
+  /** Moves when the client counts as registered, e.g. when they were registered on paper earlier. Empty keeps it. */
+  registeredAt,
+};
+
+/** Everything on the client's edit form. */
+export const clientProfileInput = clientUpdateInput.extend(profileFields);
+
+/** A client added by staff before any booking. */
+export const clientCreateInput = clientContactInput.extend({ notes: z.string().trim().max(5000).nullish().transform((v) => v || null), ...profileFields });
 
 export const assignTherapistInput = z.object({
   staffId: z.string().uuid(),

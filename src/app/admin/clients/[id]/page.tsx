@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
 import { clientStatus, type ClientStatus } from "@/features/clients/client-status";
-import { clientReference, type ClientDTO } from "@/features/clients/clients.dto";
+import { clientAge, clientReference, type ClientDTO } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
-import { allowed, requirePermission } from "@/lib/session";
+import { allowed } from "@/lib/session";
+import { requireClientAccess } from "@/lib/client-access";
 import { BookingRow } from "@/components/BookingRow";
 import { ClientCredits } from "@/components/ClientCredits";
 import { Notice } from "@/components/Notice";
@@ -20,13 +21,6 @@ const TABS = { case: "Case history", bookings: "Bookings", credits: "Credits" } 
 const BOOKING_VIEWS = { upcoming: "Upcoming", past: "Past", cancelled: "Cancelled" } as const;
 const STATUS_LABEL: Record<ClientStatus, string> = { not_started: "Not started", in_therapy: "In therapy", concluded: "Concluded" };
 
-/** Whole years between a YYYY-MM-DD birth date and today's date in the firm's time zone. */
-function age(dateOfBirth: string, today: string): number {
-  const [by, bm, bd] = dateOfBirth.split("-").map(Number);
-  const [ty, tm, td] = today.split("-").map(Number);
-  return ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
-}
-
 export default async function ClientPage({
   params,
   searchParams,
@@ -34,8 +28,11 @@ export default async function ClientPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string; tab?: string; bookings?: string }>;
 }) {
-  const me = await requirePermission("clients.view");
   const { id } = await params;
+  const me = await requireClientAccess(id);
+  // Psychologists open their own clients read-only, without contact details.
+  const manages = allowed(me, "clients.view");
+  const contact = allowed(me, "clients.contact");
   const sp = await searchParams;
   const tab = sp.tab && sp.tab in TABS ? (sp.tab as keyof typeof TABS) : "case";
   const view = sp.bookings && sp.bookings in BOOKING_VIEWS ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
@@ -44,12 +41,13 @@ export default async function ClientPage({
     if (isDomainError(err)) notFound();
     throw err;
   });
-  const [history, s, periods, team, caseView] = await Promise.all([
+  const [history, s, periods, team, caseView, therapistRoles] = await Promise.all([
     bookings.list({ view: "all", clientId: id, limit: 200 }),
     settings.get(),
     clients.therapistHistory(id),
     staff.list(),
     app().caseHistory.overview(me, id),
+    app().access.rolesWith("casenotes.write"),
   ]);
   const tz = s.timezone;
   const now = new Date();
@@ -63,19 +61,22 @@ export default async function ClientPage({
   // The reason and who made a change are stored on the period that replaced the old one (the next newer row).
   const previous = periods.slice(current ? 1 : 0).map((p) => ({ ...p, replacedBy: periods[periods.indexOf(p) - 1] ?? null }));
   const registeredBy = c.registeredBy ? team.find((m) => m.id === c.registeredBy)?.name : null;
-  const assignable = team.filter((m) => m.active && m.id !== current?.staffId);
+  const assignable = team.filter((m) => m.active && m.id !== current?.staffId && therapistRoles.includes(m.accessRole));
+  // Anyone with the clients list may assign the first psychologist; changing one is for managers.
+  const canAssign = manages && (!current || allowed(me, "clients.reassign"));
+  const age = clientAge(c, isoDay(now, tz));
 
   const keyRows: [string, string | null][] = [
-    ["Age · gender", [c.dateOfBirth ? String(age(c.dateOfBirth, isoDay(now, tz))) : null, c.gender].filter(Boolean).join(" · ") || null],
+    ["Age · gender", [age !== null ? String(age) : null, c.gender].filter(Boolean).join(" · ") || null],
     ["Occupation", c.occupation],
     ["Location", c.location],
-    ["Email", c.email],
-    ["Emergency", emergency(c)],
+    ...(contact ? ([["Email", c.email], ["Emergency", emergency(c)]] as [string, string | null][]) : []),
   ];
   const moreRows: [string, string | null][] = [
     ["Date of birth", c.dateOfBirth ? dateLabel(new Date(`${c.dateOfBirth}T12:00:00Z`), "UTC") : null],
     ["Marital status", c.maritalStatus],
     ["Education", c.education],
+    ...(contact ? ([["Address", c.address]] as [string, string | null][]) : []),
     ["Languages", c.languages],
     ["WhatsApp", c.whatsappOptIn ? "Updates on" : "Updates off"],
     ["Registered", `${dateLabel(c.createdAt, tz)}${registeredBy ? ` by ${registeredBy}` : ""}`],
@@ -142,14 +143,14 @@ export default async function ClientPage({
             </div>
             <div className="card px-4 py-3">
               <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Phone</dt>
-              <dd className="mt-1 whitespace-nowrap text-[15px] font-semibold tabular-nums">{phoneLabel(c.phoneE164)}</dd>
+              <dd className="mt-1 whitespace-nowrap text-[15px] font-semibold tabular-nums">{contact ? phoneLabel(c.phoneE164) : <span className="font-normal text-zinc-500">Hidden</span>}</dd>
             </div>
           </dl>
 
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">General info</h2>
-              <Link href={`/admin/clients/${id}/edit`} className="text-sm text-black underline-offset-4 hover:underline">Edit</Link>
+              {manages && <Link href={`/admin/clients/${id}/edit`} className="text-sm text-black underline-offset-4 hover:underline">Edit</Link>}
             </div>
             <InfoRows rows={keyRows} />
             <details className="group mt-3">
@@ -163,7 +164,7 @@ export default async function ClientPage({
 
           <section className="border-t border-zinc-200 pt-6">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Assigned therapist</h2>
+              <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Assigned psychologist</h2>
             </div>
             {current ? (
               <div className="flex items-center gap-3">
@@ -174,14 +175,14 @@ export default async function ClientPage({
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-zinc-600">No therapist assigned yet.</p>
+              <p className="text-sm text-zinc-600">No psychologist assigned yet.</p>
             )}
 
-            <details className="mt-4">
-              <summary className="cursor-pointer list-none text-sm font-medium underline underline-offset-4">{current ? "Reassign" : "Assign a therapist"}</summary>
+            {canAssign && <details className="mt-4">
+              <summary className="cursor-pointer list-none text-sm font-medium underline underline-offset-4">{current ? "Reassign" : "Assign a psychologist"}</summary>
               <form action={assignTherapistAction.bind(null, id)} className="mt-3 grid gap-3 rounded-lg border border-zinc-200 p-3">
                 <div>
-                  <label className="label" htmlFor="staffId">Therapist</label>
+                  <label className="label" htmlFor="staffId">Psychologist</label>
                   <select className="input" id="staffId" name="staffId" required>
                     {assignable.map((m) => <option key={m.id} value={m.id}>{m.name}{m.designation ? ` · ${m.designation}` : ""}</option>)}
                   </select>
@@ -189,12 +190,12 @@ export default async function ClientPage({
                 {current && (
                   <div>
                     <label className="label" htmlFor="reason">Reason</label>
-                    <input className="input" id="reason" name="reason" required placeholder="e.g. therapist left the firm" />
+                    <input className="input" id="reason" name="reason" required placeholder="e.g. psychologist left the firm" />
                   </div>
                 )}
                 <div><button className="btn" type="submit" disabled={assignable.length === 0}>{current ? "Reassign" : "Assign"}</button></div>
               </form>
-            </details>
+            </details>}
 
             {previous.length > 0 && (
               <div className="mt-6">

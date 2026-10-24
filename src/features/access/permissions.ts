@@ -18,6 +18,8 @@ export const PERMISSIONS = [
   "bookings.create",
   "clients.view",
   "clients.contact",
+  "clients.own",
+  "clients.reassign",
   "leads.own",
   "leads.all",
   "followups.own",
@@ -47,7 +49,9 @@ export const PERMISSION_GROUPS: { title: string; items: { key: Permission; label
     title: "Clients",
     items: [
       { key: "clients.view", label: "Clients list and profiles", hint: "Search clients and open their profile page." },
+      { key: "clients.own", label: "Own clients", hint: "See the clients they treat, read-only. For psychologists." },
       { key: "clients.contact", label: "See phone and email", hint: "Without this, contact details are hidden everywhere." },
+      { key: "clients.reassign", label: "Change a client’s psychologist", hint: "Anyone with the clients list can assign the first one." },
     ],
   },
   {
@@ -90,10 +94,10 @@ const all = new Set<Permission>(PERMISSIONS);
 export const DEFAULT_PERMISSIONS: Record<AccessRole, ReadonlySet<Permission>> = {
   admin: all,
   manager: new Set<Permission>([
-    "bookings.all", "clients.view", "clients.contact", "leads.all", "followups.all", "casenotes.pending",
+    "bookings.all", "clients.view", "clients.contact", "clients.reassign", "leads.all", "followups.all", "casenotes.pending",
     "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage",
   ]),
-  psychologist: new Set<Permission>(["followups.own", "casenotes.write"]),
+  psychologist: new Set<Permission>(["clients.own", "followups.own", "casenotes.write"]),
   bde: new Set<Permission>(["leads.own", "clients.contact"]),
   ccd: new Set<Permission>(["bookings.all", "bookings.create", "clients.view", "clients.contact", "followups.all"]),
 };

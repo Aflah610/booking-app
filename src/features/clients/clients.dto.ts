@@ -11,11 +11,14 @@ export type ClientDTO = {
   notes: string | null;
   /** YYYY-MM-DD. */
   dateOfBirth: string | null;
+  /** Age as told at registration; used only when there is no date of birth. */
+  age: number | null;
   gender: string | null;
   maritalStatus: string | null;
   occupation: string | null;
   education: string | null;
   location: string | null;
+  address: string | null;
   languages: string | null;
   emergencyName: string | null;
   emergencyRelation: string | null;
@@ -26,10 +29,44 @@ export type ClientDTO = {
   createdAt: Date;
 };
 
+/** Choices on the client forms; a value saved before these existed is still shown. */
+export const GENDERS = ["Female", "Male", "Non-binary", "Other", "Prefer not to say"];
+export const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed", "Separated", "Other"];
+
 /** CL-00142. */
 export function clientReference(number: number): string {
   return `CL-${String(number).padStart(5, "0")}`;
 }
+
+/** Whole years from a YYYY-MM-DD birth date to `today` (YYYY-MM-DD), or the age recorded at registration. */
+export function clientAge(c: Pick<ClientDTO, "dateOfBirth" | "age">, today: string): number | null {
+  if (!c.dateOfBirth) return c.age;
+  const [by, bm, bd] = c.dateOfBirth.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  return ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
+}
+
+/** A row of the clients directory: the client plus who treats them and how far their case history is. */
+export type ClientDirectoryRow = ClientDTO & {
+  bookings: number;
+  therapistId: string | null;
+  therapistName: string | null;
+  therapistActive: boolean | null;
+  assignedByName: string | null;
+  registeredByName: string | null;
+  /** Null until a case history is started. */
+  caseStatus: "intake_pending" | "in_treatment" | "concluded" | null;
+};
+
+export type ClientDirectoryFilters = {
+  q?: string;
+  /** A staff id, or "unassigned". */
+  therapist?: string;
+  /** Only clients this staff member treats now or has treated. */
+  treatedBy?: string;
+  from?: Date;
+  to?: Date;
+};
 
 /** One period a therapist was assigned to a client, newest first in lists. */
 export type TherapistPeriodDTO = {

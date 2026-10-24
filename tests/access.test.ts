@@ -115,3 +115,12 @@ describe("pending case notes", () => {
     await expect(c.caseHistory.pendingNotes(sana)).rejects.toMatchObject({ code: "forbidden" });
   });
 });
+
+describe("clients by role", () => {
+  it("lets psychologists see their own clients without contact details, and only managers reassign", () => {
+    expect(DEFAULT_PERMISSIONS.psychologist.has("clients.own")).toBe(true);
+    expect(DEFAULT_PERMISSIONS.psychologist.has("clients.view")).toBe(false);
+    expect(DEFAULT_PERMISSIONS.manager.has("clients.reassign")).toBe(true);
+    expect(DEFAULT_PERMISSIONS.ccd.has("clients.reassign")).toBe(false);
+  });
+});

@@ -10,6 +10,7 @@ import { act, optional, optionalNumber, str } from "@/lib/form-actions";
 import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
 import { zonedToUtc } from "@/lib/time";
+import { isoDay } from "@/lib/format";
 import { allowed, requirePermission, requireStaff, hasRole } from "@/lib/session";
 
 /** Staff may edit their own hours and time off; managers and admins may edit anyone's. */
@@ -198,16 +199,28 @@ export async function updateSettingsAction(form: FormData) {
 }
 
 const PROFILE_FIELDS = [
-  "dateOfBirth", "gender", "maritalStatus", "occupation", "education", "location", "languages",
+  "dateOfBirth", "age", "gender", "maritalStatus", "occupation", "education", "location", "address", "languages",
   "emergencyName", "emergencyRelation", "emergencyPhone", "referralSource", "consentSignedAt",
 ] as const;
+
+/**
+ * The form's registration date as the start of that day in the firm's time zone, or "" when it is the day the client
+ * already counts as registered (or today, for a new client), so an unchanged form keeps the exact time.
+ */
+async function registeredAt(form: FormData, current: Date): Promise<string> {
+  const day = str(form, "registeredOn");
+  const tz = (await app().settings.get()).timezone;
+  return !day || day === isoDay(current, tz) ? "" : zonedToUtc(`${day}T00:00`, tz).toISOString();
+}
 
 export async function updateClientProfileAction(clientId: string, form: FormData) {
   const me = await requirePermission("clients.view");
   const profile = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(form, k)]));
   // Saved: back to the client. Failed: stay on the form so nothing typed is lost from view.
   await act(`/admin/clients/${clientId}/edit`, "Client saved", async () => {
+    const current = await app().clients.get(clientId);
     await app().clients.updateProfile({ staffId: me.id }, clientId, {
+      registeredAt: await registeredAt(form, current.createdAt),
       name: str(form, "name"),
       email: optional(form, "email"),
       whatsappOptIn: form.get("whatsappOptIn") === "on",
@@ -227,6 +240,8 @@ export async function createClientAction(form: FormData) {
       email: optional(form, "email"),
       whatsappOptIn: form.get("whatsappOptIn") === "on",
       notes: optional(form, "notes"),
+      ...Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(form, k)])),
+      registeredAt: await registeredAt(form, new Date()),
     });
     if (str(form, "staffId")) await app().clients.assignTherapist({ staffId: me.id }, created.id, { staffId: str(form, "staffId") });
     return `/admin/clients/${created.id}`;
@@ -235,9 +250,13 @@ export async function createClientAction(form: FormData) {
 
 export async function assignTherapistAction(clientId: string, form: FormData) {
   const me = await requirePermission("clients.view");
-  await act(`/admin/clients/${clientId}`, "Therapist assigned", () =>
-    app().clients.assignTherapist({ staffId: me.id }, clientId, { staffId: str(form, "staffId"), reason: str(form, "reason") }),
-  );
+  await act(`/admin/clients/${clientId}`, "Psychologist assigned", async () => {
+    // Anyone with the clients list may assign the first psychologist; changing one needs "clients.reassign" (as in the old system).
+    if (!allowed(me, "clients.reassign") && (await app().clients.therapistHistory(clientId)).some((p) => !p.endsAt)) {
+      throw new DomainError("forbidden", "Only managers can change a client's psychologist");
+    }
+    await app().clients.assignTherapist({ staffId: me.id }, clientId, { staffId: str(form, "staffId"), reason: str(form, "reason") });
+  });
 }
 
 export type NewApiKeyState ={ key?: string; name?: string; error?: string } | null;

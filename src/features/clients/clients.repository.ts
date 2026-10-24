@@ -4,7 +4,7 @@ import type { Db, DbOrTx } from "@/db";
 import { booking, client, clientTherapist, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
-import type { ClientContact, ClientDTO, TherapistPeriodDTO } from "./clients.dto";
+import type { ClientContact, ClientDirectoryFilters, ClientDirectoryRow, ClientDTO, TherapistPeriodDTO } from "./clients.dto";
 
 export const clientColumns = {
   id: client.id,
@@ -15,11 +15,13 @@ export const clientColumns = {
   notes: client.notes,
   number: client.number,
   dateOfBirth: client.dateOfBirth,
+  age: client.age,
   gender: client.gender,
   maritalStatus: client.maritalStatus,
   occupation: client.occupation,
   education: client.education,
   location: client.location,
+  address: client.address,
   languages: client.languages,
   emergencyName: client.emergencyName,
   emergencyRelation: client.emergencyRelation,
@@ -31,7 +33,7 @@ export const clientColumns = {
 };
 
 /** The fields staff can edit on the client's page. */
-export type ClientProfileFields = Partial<Omit<ClientDTO, "id" | "number" | "phoneE164" | "registeredBy" | "createdAt">>;
+export type ClientProfileFields = Partial<Omit<ClientDTO, "id" | "number" | "phoneE164" | "registeredBy">>;
 
 const assigner = alias(staff, "assigner");
 
@@ -90,7 +92,7 @@ export function createClientsRepository(db: Db) {
         .limit(limit);
     },
 
-    create(data: ClientContact & { notes: string | null; registeredBy: string | null }, audit: Omit<AuditEntry, "entityId">) {
+    create(data: ClientContact & ClientProfileFields & { registeredBy: string | null }, audit: Omit<AuditEntry, "entityId">) {
       return db.transaction(async (tx) => {
         const [row] = await tx.insert(client).values(data).returning(clientColumns);
         await writeAudit(tx, { ...audit, entityId: row.id });
@@ -104,6 +106,50 @@ export function createClientsRepository(db: Db) {
         if (row) await writeAudit(tx, audit);
         return row ?? null;
       });
+    },
+
+    /**
+     * The clients directory, newest first: each client with their current therapist, who assigned them, who registered
+     * the client and the case history status. `q` matches name, phone, email or the client number.
+     */
+    async directory(f: ClientDirectoryFilters = {}, limit = 500): Promise<ClientDirectoryRow[]> {
+      const like = f.q ? `%${f.q.replace(/[%_\\]/g, "\\$&")}%` : null;
+      const digits = f.q?.replace(/\D/g, "") ?? "";
+      const rows = await db.execute(sql`
+        select c.id, c.name, c.phone_e164 as "phoneE164", c.email, c.whatsapp_opt_in as "whatsappOptIn", c.notes, c.number,
+          c.date_of_birth::text as "dateOfBirth", c.age, c.gender, c.marital_status as "maritalStatus", c.occupation, c.education,
+          c.location, c.address, c.languages, c.emergency_name as "emergencyName", c.emergency_relation as "emergencyRelation",
+          c.emergency_phone as "emergencyPhone", c.referral_source as "referralSource", c.consent_signed_at as "consentSignedAt",
+          c.registered_by as "registeredBy", c.created_at as "createdAt",
+          (select count(*)::int from booking b where b.client_id = c.id) as bookings,
+          t.staff_id as "therapistId", ts.name as "therapistName", ts.active as "therapistActive",
+          ab.name as "assignedByName", rb.name as "registeredByName", ch.status as "caseStatus"
+        from client c
+        left join client_therapist t on t.client_id = c.id and t.ends_at is null
+        left join staff ts on ts.id = t.staff_id
+        left join staff ab on ab.id = t.assigned_by
+        left join staff rb on rb.id = c.registered_by
+        left join case_history ch on ch.client_id = c.id
+        where ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
+          and ${f.therapist === "unassigned" ? sql`t.staff_id is null` : f.therapist ? sql`t.staff_id = ${f.therapist}` : sql`true`}
+          and ${f.treatedBy ? sql`(exists (select 1 from client_therapist x where x.client_id = c.id and x.staff_id = ${f.treatedBy})
+            or exists (select 1 from booking x where x.client_id = c.id and x.staff_id = ${f.treatedBy}))` : sql`true`}
+          and ${f.from ? sql`c.created_at >= ${f.from}` : sql`true`}
+          and ${f.to ? sql`c.created_at < ${f.to}` : sql`true`}
+        order by c.created_at desc, c.name
+        limit ${limit}`);
+      return (rows.rows as ClientDirectoryRow[]).map((r) => ({
+        ...r,
+        createdAt: new Date(r.createdAt),
+        consentSignedAt: r.consentSignedAt ? new Date(r.consentSignedAt) : null,
+      }));
+    },
+
+    /** True when the staff member treats or has treated the client (an assignment or a booking with them). */
+    async hasTreated(clientId: string, staffId: string): Promise<boolean> {
+      const rows = await db.execute(sql`select exists (select 1 from client_therapist where client_id = ${clientId} and staff_id = ${staffId})
+        or exists (select 1 from booking where client_id = ${clientId} and staff_id = ${staffId}) as yes`);
+      return Boolean((rows.rows[0] as { yes: boolean }).yes);
     },
 
     async staffIsActive(staffId: string): Promise<boolean | null> {

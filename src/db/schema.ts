@@ -245,11 +245,14 @@ export const client = pgTable("client", {
   /** The short running number staff quote, shown as CL-00142. */
   number: integer("number").generatedByDefaultAsIdentity().notNull().unique(),
   dateOfBirth: date("date_of_birth"),
+  /** Age in years as told at registration, for clients whose date of birth isn't known. */
+  age: integer("age"),
   gender: text("gender"),
   maritalStatus: text("marital_status"),
   occupation: text("occupation"),
   education: text("education"),
   location: text("location"),
+  address: text("address"),
   languages: text("languages"),
   emergencyName: text("emergency_name"),
   emergencyRelation: text("emergency_relation"),

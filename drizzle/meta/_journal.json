@@ -225,6 +225,13 @@
       "when": 1792852156970,
       "tag": "0031_access_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792866359600,
+      "tag": "0032_client_age_address",
+      "breakpoints": true
     }
   ]
 }

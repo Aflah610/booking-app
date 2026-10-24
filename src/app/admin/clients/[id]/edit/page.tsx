@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
-import { clientReference } from "@/features/clients/clients.dto";
+import { clientReference, GENDERS, MARITAL_STATUSES } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { isoDay, phoneLabel } from "@/lib/format";
 import { requirePermission } from "@/lib/session";
@@ -11,9 +11,6 @@ import { PageHeader } from "@/components/Shell";
 import { updateClientProfileAction } from "../../../actions";
 
 export const dynamic = "force-dynamic";
-
-const GENDERS = ["Female", "Male", "Non-binary", "Prefer not to say"];
-const MARITAL = ["Single", "Married", "Divorced", "Widowed", "Separated", "Other"];
 
 export default async function EditClientPage({
   params,
@@ -35,7 +32,7 @@ export default async function EditClientPage({
   const text = (name: keyof typeof c, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
       <label className="label" htmlFor={name}>{label}</label>
-      <input className="input" id={name} name={name} defaultValue={(c[name] as string | null) ?? ""} {...props} />
+      <input className="input" id={name} name={name} defaultValue={(c[name] as string | number | null) ?? ""} {...props} />
     </div>
   );
   const choice = (name: "gender" | "maritalStatus", label: string, options: string[]) => (
@@ -72,12 +69,17 @@ export default async function EditClientPage({
           <legend className="sr-only">Personal</legend>
           <h2 className="font-semibold sm:col-span-2">Personal</h2>
           {text("dateOfBirth", "Date of birth", { type: "date", min: "1900-01-01", max: today })}
+          {text("age", "Age", { type: "number", min: 1, max: 120, inputMode: "numeric", placeholder: "If the date of birth isn't known" })}
           {choice("gender", "Gender", GENDERS)}
-          {choice("maritalStatus", "Marital status", MARITAL)}
+          {choice("maritalStatus", "Marital status", MARITAL_STATUSES)}
           {text("occupation", "Occupation")}
           {text("education", "Education")}
-          {text("location", "Location", { placeholder: "City, state" })}
+          {text("location", "Current location", { placeholder: "City, state" })}
           {text("languages", "Languages", { placeholder: "e.g. Malayalam, English" })}
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="address">Address</label>
+            <textarea className="input" id="address" name="address" rows={2} defaultValue={c.address ?? ""} />
+          </div>
         </fieldset>
 
         <fieldset className="card grid gap-4 p-5 sm:grid-cols-3">
@@ -91,6 +93,10 @@ export default async function EditClientPage({
         <fieldset className="card grid gap-4 p-5 sm:grid-cols-2">
           <legend className="sr-only">Registration</legend>
           <h2 className="font-semibold sm:col-span-2">Registration</h2>
+          <div>
+            <label className="label" htmlFor="registeredOn">Registration date</label>
+            <input className="input" id="registeredOn" name="registeredOn" type="date" max={today} defaultValue={isoDay(c.createdAt, tz)} />
+          </div>
           {text("referralSource", "How they found us", { placeholder: "e.g. Instagram, a friend" })}
           <div>
             <label className="label" htmlFor="consentSignedAt">Therapy consent signed on</label>

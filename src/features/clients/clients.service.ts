@@ -1,7 +1,7 @@
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { clientReference, type ClientDTO } from "./clients.dto";
+import { clientReference, type ClientDirectoryFilters, type ClientDTO } from "./clients.dto";
 import type { ClientsRepository } from "./clients.repository";
 import { assignTherapistInput, clientCreateInput, clientProfileInput, clientUpdateInput } from "./clients.schemas";
 
@@ -10,6 +10,11 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     const row = isUuid(id) ? await clientsRepo.findById(id) : null;
     if (!row) throw new DomainError("not_found", `Client ${id} not found`);
     return row;
+  }
+
+  /** A registration time from the form becomes the time the client counts as registered; none keeps it. */
+  function withRegistration<T extends { registeredAt: Date | null }>({ registeredAt, ...rest }: T) {
+    return registeredAt ? { ...rest, createdAt: registeredAt } : rest;
   }
 
   async function save(actor: Actor, id: string, data: Record<string, unknown>) {
@@ -32,12 +37,23 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     list: (opts?: { q?: string; limit?: number; relevance?: boolean; from?: Date; to?: Date }) => clientsRepo.list(opts),
     therapistHistory: (clientId: string) => clientsRepo.therapistHistory(clientId),
 
+    /** The clients directory. A therapist filter that isn't a staff id (or "unassigned") is ignored. */
+    directory: (f: ClientDirectoryFilters = {}) =>
+      clientsRepo.directory({
+        ...f,
+        q: f.q?.trim() || undefined,
+        therapist: f.therapist === "unassigned" || (f.therapist && isUuid(f.therapist)) ? f.therapist : undefined,
+      }),
+
+    /** Whether a staff member treats or has treated this client; what a psychologist needs to open the client. */
+    hasTreated: (clientId: string, staffId: string) => (isUuid(clientId) ? clientsRepo.hasTreated(clientId, staffId) : Promise.resolve(false)),
+
     /** Adds a client by hand. Clients are matched by mobile number, so a number already on file is refused. */
     async create(actor: Actor, input: unknown): Promise<ClientDTO> {
       const data = clientCreateInput.parse(input);
       const existing = await clientsRepo.findByPhone(data.phone);
       if (existing) throw new DomainError("conflict", `A client with mobile ${data.phone} already exists: ${existing.name} (${clientReference(existing.number)})`);
-      const { phone, ...rest } = data;
+      const { phone, ...rest } = withRegistration(data);
       // Personal data: the audit row says a client was added, not who.
       return clientsRepo.create({ ...rest, email: rest.email ?? null, phoneE164: phone, registeredBy: actor.staffId ?? null },{ actor, action: "create", entity: "client" });
     },
@@ -46,7 +62,7 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     update: async (actor: Actor, id: string, input: unknown) => save(actor, id, clientUpdateInput.parse(input)),
 
     /** The full edit form: contact details plus every profile field. */
-    updateProfile: async (actor: Actor, id: string, input: unknown) => save(actor, id, clientProfileInput.parse(input)),
+    updateProfile: async (actor: Actor, id: string, input: unknown) => save(actor, id, withRegistration(clientProfileInput.parse(input))),
 
     async assignTherapist(actor: Actor, clientId: string, input: unknown, now = new Date()) {
       const { staffId, reason } = assignTherapistInput.parse(input);

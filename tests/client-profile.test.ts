@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { clientStatus } from "@/features/clients/client-status";
-import { clientReference } from "@/features/clients/clients.dto";
+import { clientAge, clientReference } from "@/features/clients/clients.dto";
 import { zonedToUtc } from "@/lib/time";
 import { c, db, reset } from "./helpers";
 
@@ -155,5 +155,42 @@ describe("client list date filter", () => {
     // 30 Sep 18:45 UTC is already 1 Oct in India (18:00 is not); 10 Oct 19:00 UTC is 11 Oct there.
     const names = (await c.clients.list({ ...dayRange("2026-10-01", "2026-10-10", "Asia/Kolkata") })).map((r) => r.name);
     expect(names.sort()).toEqual(["Early", "Inside"]);
+  });
+});
+
+describe("clients directory (as in the old case history system)", () => {
+  it("registers a client with age, address and an earlier registration date", async () => {
+    const shana = await c.staff.create({}, { name: "Shana", email: "shana@firm.test" });
+    const made = await c.clients.create({ staffId: shana.id }, {
+      ...contact, phone: "98765 11111", age: "34", gender: "Male", address: "12 MG Road, Kochi", registeredAt: "2026-05-01T00:00:00Z",
+    });
+    expect(made).toMatchObject({ age: 34, address: "12 MG Road, Kochi", registeredBy: shana.id });
+    expect(made.createdAt.toISOString()).toBe("2026-05-01T00:00:00.000Z");
+    expect(clientAge(made, "2026-10-25")).toBe(34);
+    expect(clientAge({ dateOfBirth: "1990-10-26", age: 34 }, "2026-10-25")).toBe(35);
+    await expect(c.clients.create({}, { ...contact, phone: "98765 22222", age: "200" })).rejects.toThrow();
+    // An empty registration date keeps the time the client was added.
+    await c.clients.updateProfile({}, made.id, { ...contact, age: "35", registeredAt: "" });
+    expect((await c.clients.get(made.id)).createdAt.toISOString()).toBe("2026-05-01T00:00:00.000Z");
+  });
+
+  it("lists each client with their psychologist, who assigned them and the case status, and filters by psychologist", async () => {
+    const { asha, dev, shana, clientId } = await setup();
+    const other = await c.clients.create({ staffId: shana.id }, { ...contact, name: "Meera", phone: "98765 33333" });
+    await c.clients.assignTherapist({ staffId: shana.id }, clientId, { staffId: asha.id });
+
+    const all = await c.clients.directory();
+    const ravi = all.find((r) => r.id === clientId)!;
+    expect(ravi).toMatchObject({ therapistName: "Asha", therapistActive: true, assignedByName: "Shana", bookings: 1, caseStatus: null });
+    expect(all.find((r) => r.id === other.id)).toMatchObject({ therapistId: null, registeredByName: "Shana" });
+
+    expect((await c.clients.directory({ therapist: asha.id })).map((r) => r.name)).toEqual(["Ravi"]);
+    expect((await c.clients.directory({ therapist: "unassigned" })).map((r) => r.name)).toEqual(["Meera"]);
+    expect((await c.clients.directory({ q: clientReference(other.number) })).map((r) => r.name)).toEqual(["Meera"]);
+    // A psychologist's own list: clients they treat or have seen, nobody else.
+    expect((await c.clients.directory({ treatedBy: asha.id })).map((r) => r.name)).toEqual(["Ravi"]);
+    expect(await c.clients.directory({ treatedBy: dev.id })).toEqual([]);
+    expect(await c.clients.hasTreated(clientId, asha.id)).toBe(true);
+    expect(await c.clients.hasTreated(other.id, asha.id)).toBe(false);
   });
 });
