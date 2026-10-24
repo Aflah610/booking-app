@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · shared system overview
+
+- Added `docs/OVERVIEW.md` with Aflah's ecosystem summary, completed work, pending
+  migrations, owner decisions and handover guidance; linked it from `AGENTS.md`.
+- Identical overview saved in the website repo. Documentation only; live behaviour unchanged.
+- Open: MCH export, dry run and Aflah's count review remain next. No migration run.
+
 ## 2026-10-25 · Claude Code · state at handover
 
 Live (main `1d37586`):

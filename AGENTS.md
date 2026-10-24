@@ -16,6 +16,8 @@ project for the same owner, Aflah.
 
 ## Mindlap facts
 
+- Shared ecosystem context and outstanding work: `docs/OVERVIEW.md`. Check the work log for newer updates.
+
 - Live at `https://book.mindlap.in` on an AWS Lightsail server in Mumbai with Lightsail Postgres. The server
   deploys `main` by itself every 5 minutes, **only after GitHub CI ("check": lint, typecheck, tests, build)
   passes**. Run `npm run lint` before pushing; a lint error stops the deploy.
