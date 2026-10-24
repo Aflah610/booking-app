@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { app } from "@/features/container";
 import { addDays } from "@/features/availability/slots";
-import { hasRole, requireStaff } from "@/lib/session";
+import { isFrontDesk, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { BookingsTable } from "@/components/BookingsTable";
 import { ColumnsManager } from "@/components/ColumnsManager";
@@ -32,7 +32,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const view: View = VIEWS.some(([v]) => v === sp.view) ? (sp.view as View) : "upcoming";
   // Managers and admins see the whole firm (or one person); other staff only their own diary.
-  const manager = hasRole(me, "manager");
+  const manager = isFrontDesk(me);
   const staffFilter = !manager ? me.id : sp.staff === "all" ? null : sp.staff || null;
   const { bookings, catalog, staff, settings, preferences } = app();
   const [people, services, s, savedColumns] = await Promise.all([
@@ -66,7 +66,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     limit: 200,
   });
   const columns = resolveColumns(savedColumns, "bookings");
-  const active = [serviceId, payment, packageBalance, fromDay, toDay, staffFilter && hasRole(me, "manager") ? staffFilter : undefined].filter(Boolean).length;
+  const active = [serviceId, payment, packageBalance, fromDay, toDay, staffFilter && manager ? staffFilter : undefined].filter(Boolean).length;
   const keep = { staff: staffFilter ?? "all", service: serviceId, payment, package: packageBalance, from: fromDay, to: toDay };
   const link = (v: View) => `/admin/bookings?${new URLSearchParams({ view: v, ...Object.fromEntries(Object.entries(keep).filter(([, x]) => x)) as Record<string, string> })}`;
 

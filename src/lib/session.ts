@@ -30,6 +30,11 @@ export function hasRole(member: Pick<StaffDTO, "role">, min: keyof typeof RANK) 
   return RANK[member.role] >= RANK[min];
 }
 
+/** Managers, admins and consultation coordinators (CCD) book and look after every psychologist's diary. */
+export function isFrontDesk(member: Pick<StaffDTO, "role" | "designation">) {
+  return hasRole(member, "manager") || member.designation === "Consultation Coordinator";
+}
+
 /** For pages and server actions: redirects to /login when not signed in or not allowed. */
 export async function requireStaff(min: keyof typeof RANK = "staff"): Promise<StaffDTO> {
   const member = await currentStaff();

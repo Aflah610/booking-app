@@ -1,7 +1,7 @@
 export type StaffRole = "admin" | "manager" | "staff";
 
 /** What the person does, as opposed to `role`, which says what they may do in the app. */
-export const DESIGNATIONS = ["Psychiatrist", "Psychologist", "Nutritionist", "Sales Executive"] as const;
+export const DESIGNATIONS = ["Psychiatrist", "Psychologist", "Nutritionist", "Sales Executive", "Consultation Coordinator"] as const;
 export type Designation = (typeof DESIGNATIONS)[number];
 
 export type StaffDTO = {

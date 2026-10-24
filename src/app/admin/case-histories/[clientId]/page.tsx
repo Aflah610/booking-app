@@ -110,6 +110,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
 
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <h2 className="pt-2 text-[11px] font-medium uppercase tracking-wider text-zinc-500">Sessions <span className="tabular-nums">{r.notes.length}</span></h2>
+        <Link href={`/admin/follow-ups/new?client=${clientId}`} className="btn-ghost ml-auto">Ask CCD to arrange next session</Link>
         <details className="group">
           <summary className="btn-ghost cursor-pointer list-none select-none">Send follow-up</summary>
           <form action={sendFollowUpAction.bind(null, clientId)} className="card mt-2 grid w-[min(28rem,calc(100vw-2rem))] gap-3 p-4">

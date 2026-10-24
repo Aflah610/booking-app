@@ -82,7 +82,7 @@ export const staff = pgTable("staff", {
   email: text("email").notNull(),
   role: staffRole("role").notNull().default("staff"),
   /** Profession shown beside their name; null = not set. The allowed values live in DESIGNATIONS (staff.dto.ts). */
-  designation: text("designation").$type<"Psychiatrist" | "Psychologist" | "Nutritionist" | "Sales Executive">(),
+  designation: text("designation").$type<"Psychiatrist" | "Psychologist" | "Nutritionist" | "Sales Executive" | "Consultation Coordinator">(),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
   active: boolean("active").notNull().default(true),
   /** May read and write every client's clinical record, not only the clients they treat. */
@@ -765,3 +765,43 @@ export const otpRequest = pgTable("otp_request", {
   index("otp_request_phone_idx").on(t.phoneE164, t.createdAt),
   index("otp_request_created_idx").on(t.createdAt),
 ]);
+
+/**
+ * A psychologist asking the consultation coordinators (CCD) to arrange a client's next session. The two talk it through in
+ * the request's messages. Scheduling only: clinical notes stay in the case history, which CCD can't open.
+ */
+export const followUpRequest = pgTable("follow_up_request", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  psychologistId: uuid("psychologist_id").notNull().references(() => staff.id),
+  createdBy: uuid("created_by").notNull().references(() => staff.id),
+  /** Roughly when, as the psychologist suggests it; the CCD agrees the real time with the client. */
+  suggestedOn: date("suggested_on", { mode: "string" }),
+  partOfDay: text("part_of_day").$type<"morning" | "afternoon" | "evening">(),
+  status: text("status").$type<"new" | "contacting" | "waiting_psychologist" | "booked" | "declined">().notNull().default("new"),
+  bookingId: uuid("booking_id").references(() => booking.id, { onDelete: "set null" }),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  // One open request per client, so the CCD never arranges the same session twice.
+  uniqueIndex("follow_up_request_open_idx").on(t.clientId).where(sql`${t.status} not in ('booked', 'declined')`),
+  index("follow_up_request_psychologist_idx").on(t.psychologistId, t.lastMessageAt),
+  index("follow_up_request_status_idx").on(t.status, t.lastMessageAt),
+]);
+
+export const followUpMessage = pgTable("follow_up_message", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requestId: uuid("request_id").notNull().references(() => followUpRequest.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").notNull().references(() => staff.id),
+  body: text("body").notNull(),
+  createdAt: createdAt(),
+}, (t) => [index("follow_up_message_request_idx").on(t.requestId, t.createdAt)]);
+
+/** When each person last opened a request, for the unread badge. */
+export const followUpRead = pgTable("follow_up_read", {
+  requestId: uuid("request_id").notNull().references(() => followUpRequest.id, { onDelete: "cascade" }),
+  staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
+  readAt: timestamp("read_at", { withTimezone: true }).notNull(),
+}, (t) => [primaryKey({ columns: [t.requestId, t.staffId] })]);

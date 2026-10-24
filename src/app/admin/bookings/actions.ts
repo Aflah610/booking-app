@@ -4,14 +4,14 @@ import { app } from "@/features/container";
 import type { PaymentStatus } from "@/features/bookings/bookings.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { act, answersFromForm, optional, str } from "@/lib/form-actions";
-import { hasRole, requireStaff } from "@/lib/session";
+import { isFrontDesk, requireStaff } from "@/lib/session";
 
 const deskActor = (staffId: string): BookingActor => ({ staffId, mode: "staff" });
 
-/** Managers and admins may change any booking; other staff only bookings in their own diary. */
+/** Managers, admins and coordinators may change any booking; other staff only bookings in their own diary. */
 async function requireBookingAccess(id: string) {
   const me = await requireStaff();
-  if (hasRole(me, "manager")) return me;
+  if (isFrontDesk(me)) return me;
   const b = await app().bookings.get(id);
   if (b.staffId !== me.id) throw new Error("You can only change bookings in your own diary.");
   return me;

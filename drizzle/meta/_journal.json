@@ -211,6 +211,13 @@
       "when": 1792848357223,
       "tag": "0029_leads_online",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792850312757,
+      "tag": "0030_follow_up_desk",
+      "breakpoints": true
     }
   ]
 }

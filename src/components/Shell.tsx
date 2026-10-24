@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { signOut } from "@/auth";
 import type { StaffDTO } from "@/features/staff/staff.dto";
+import { app } from "@/features/container";
+import { canUseFollowUps } from "@/features/follow-up-desk/follow-up-desk.service";
 import { canUseLeads } from "@/features/leads/leads.service";
 import { hasRole } from "@/lib/session";
 import { Icon } from "./icons";
@@ -8,8 +10,14 @@ import { NavLink } from "./NavLink";
 import { SidebarFrame } from "./SidebarFrame";
 
 /** App frame: a black sidebar on the left (cal.com style) and the page on the right. */
-export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNode }) {
+export async function Shell({ me, children }: { me: StaffDTO; children: React.ReactNode }) {
   const manager = hasRole(me, "manager");
+  // Sales and coordinators never open clinical records, so the menu doesn't offer them.
+  const clinical = me.designation !== "Sales Executive" && me.designation !== "Consultation Coordinator";
+  const [newLeads, followUpNews] = await Promise.all([
+    canUseLeads(me) ? app().leads.countNew(me) : 0,
+    canUseFollowUps(me) ? app().followUps.countUnread(me) : 0,
+  ]);
   return (
     <SidebarFrame
       sidebar={
@@ -22,13 +30,14 @@ export function Shell({ me, children }: { me: StaffDTO; children: React.ReactNod
               <NavLink href="/admin/bookings" icon="list">Bookings</NavLink>
               <NavLink href="/admin/calendar" icon="calendar">Calendar</NavLink>
               <NavLink href={`/admin/staff/${me.id}`} icon="clock">Availability</NavLink>
-              {canUseLeads(me) && <NavLink href="/admin/leads" icon="inbox">Leads</NavLink>}
+              {canUseLeads(me) && <NavLink href="/admin/leads" icon="inbox" count={newLeads}>Leads</NavLink>}
+              {canUseFollowUps(me) && <NavLink href="/admin/follow-ups" icon="chat" count={followUpNews}>Follow-ups</NavLink>}
               {manager && <p className="nav-heading">Manage</p>}
               {manager && <NavLink href="/admin/services" icon="grid">Services</NavLink>}
               {manager && <NavLink href="/admin/staff" icon="users" exact>Staff</NavLink>}
               {manager && <NavLink href="/admin/packages" icon="wallet">Packages</NavLink>}
               {manager && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}
-              <NavLink href="/admin/case-histories" icon="file">Case histories</NavLink>
+              {clinical && <NavLink href="/admin/case-histories" icon="file">Case histories</NavLink>}
               {manager && <NavLink href="/admin/reports" icon="chart">Reports</NavLink>}
               {manager && <NavLink href="/admin/workflows" icon="bolt">Workflows</NavLink>}
               {hasRole(me, "admin") && <NavLink href="/admin/otp" icon="shield">OTP Authentication</NavLink>}

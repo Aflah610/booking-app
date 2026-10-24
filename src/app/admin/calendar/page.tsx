@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { app } from "@/features/container";
 import { addDays } from "@/features/availability/slots";
-import { hasRole, requireStaff } from "@/lib/session";
+import { isFrontDesk, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { dayLabel, isoDay, timeLabel } from "@/lib/format";
 import { PageHeader } from "@/components/Shell";
@@ -25,7 +25,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const monday = mondayOf(sp.week && /^\d{4}-\d{2}-\d{2}$/.test(sp.week) ? sp.week : today);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   // Managers see everyone; other staff only their own diary.
-  const staffFilter = !hasRole(me, "manager") ? me.id : sp.staff === "all" ? null : sp.staff || null;
+  const staffFilter = !isFrontDesk(me) ? me.id : sp.staff === "all" ? null : sp.staff || null;
   const [rows, people] = await Promise.all([
     bookings.list({
       view: "all",

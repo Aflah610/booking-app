@@ -52,6 +52,8 @@ import { createCaseHistoryRepository } from "./case-history/case-history.reposit
 import { createCaseHistoryService } from "./case-history/case-history.service";
 import { createLeadsRepository } from "./leads/leads.repository";
 import { createLeadsService } from "./leads/leads.service";
+import { createFollowUpDeskRepository } from "./follow-up-desk/follow-up-desk.repository";
+import { createFollowUpDeskService } from "./follow-up-desk/follow-up-desk.service";
 
 /**
  * Wires repositories into services. This is the only place that picks the storage
@@ -100,9 +102,10 @@ export function createContainer(db: Db, opts: {
     secret: process.env.CALENDAR_ENCRYPTION_KEY || manageSecret,
   });
   const leads = createLeadsService({ leadsRepo: createLeadsRepository(db) });
+  const followUps = createFollowUpDeskService({ deskRepo: createFollowUpDeskRepository(db) });
   // Everything that reacts to a booking change. Each listener runs even if another fails.
   const onEvent = async (event: BookingEvent) => {
-    const results = await Promise.allSettled([workflows.onBookingEvent(event), calendar.onBookingEvent(event), leads.onBookingEvent(event)]);
+    const results = await Promise.allSettled([workflows.onBookingEvent(event), calendar.onBookingEvent(event), leads.onBookingEvent(event), followUps.onBookingEvent(event)]);
     for (const r of results) if (r.status === "rejected") console.error(`Listener for booking event ${event.type} failed`, r.reason);
     // Send what was just queued (the calendar event with its Meet link, the confirmation message) straight away instead of
     // waiting for the next scheduled run. The scheduler still covers reminders, timeouts and retries.
@@ -126,6 +129,7 @@ export function createContainer(db: Db, opts: {
     settings: createSettingsService({ settingsRepo }),
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
     leads,
+    followUps,
     caseHistory: createCaseHistoryService({
       caseRepo: createCaseHistoryRepository(db),
       senders: { email: senders.email, whatsapp: senders.whatsapp },
