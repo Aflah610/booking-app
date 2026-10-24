@@ -1,0 +1,7 @@
+[Unit]
+Description=Deploy the Mindlap booking app from GitHub
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/mindlap/src/deploy/aws/deploy.sh

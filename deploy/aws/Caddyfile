@@ -1,0 +1,4 @@
+book.mindlap.in {
+	encode gzip
+	reverse_proxy app:3000
+}

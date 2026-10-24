@@ -1,0 +1,27 @@
+# Production on the Lightsail server in Mumbai. The database is Lightsail PostgreSQL (DATABASE_URL in .env).
+# Caddy serves https://book.mindlap.in and renews its certificate itself.
+services:
+  app:
+    build: ../..
+    image: mindlap-booking:latest
+    env_file: /opt/mindlap/app.env
+    environment:
+      PORT: "3000"
+    restart: unless-stopped
+    expose:
+      - "3000"
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+volumes:
+  caddy_data:
+  caddy_config:
