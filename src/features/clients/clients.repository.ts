@@ -27,6 +27,7 @@ export const clientColumns = {
   emergencyRelation: client.emergencyRelation,
   emergencyPhone: client.emergencyPhone,
   referralSource: client.referralSource,
+  mchCode: client.mchCode,
   consentSignedAt: client.consentSignedAt,
   registeredBy: client.registeredBy,
   createdAt: client.createdAt,

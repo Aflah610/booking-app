@@ -20,18 +20,24 @@ const intakeColumns = {
   riskOthers: caseHistory.riskOthers, diagnosisCode: caseHistory.diagnosisCode, diagnosisLabel: caseHistory.diagnosisLabel,
   diagnosisSecondary: caseHistory.diagnosisSecondary, diagnosisSpecifiers: caseHistory.diagnosisSpecifiers, formulation: caseHistory.formulation,
   goalsShort: caseHistory.goalsShort, goalsLong: caseHistory.goalsLong, approach: caseHistory.approach, frequency: caseHistory.frequency,
-  planNotes: caseHistory.planNotes,
+  planNotes: caseHistory.planNotes, educationalHistory: caseHistory.educationalHistory, occupationalHistory: caseHistory.occupationalHistory,
+  relationshipHistory: caseHistory.relationshipHistory, socialHistory: caseHistory.socialHistory, mseBehaviour: caseHistory.mseBehaviour,
+  mseEyeContact: caseHistory.mseEyeContact, mseMoodAffect: caseHistory.mseMoodAffect, mseThoughtProcess: caseHistory.mseThoughtProcess,
+  mseThoughtContent: caseHistory.mseThoughtContent, mseInsightJudgement: caseHistory.mseInsightJudgement, clinicalObservation: caseHistory.clinicalObservation,
+  riskNotes: caseHistory.riskNotes, therapistNotes: caseHistory.therapistNotes, remarks: caseHistory.remarks,
 };
 
 const noteColumns = {
   id: sessionNote.id, number: sessionNote.number, bookingId: sessionNote.bookingId, sessionAt: sessionNote.sessionAt, authorId: sessionNote.authorId,
   authorName: staff.name, summary: sessionNote.summary, risk: sessionNote.risk, response: sessionNote.response, progress: sessionNote.progress,
   nextPlan: sessionNote.nextPlan, homework: sessionNote.homework, followUpOn: sessionNote.followUpOn, signedAt: sessionNote.signedAt,
+  durationText: sessionNote.durationText, clinicalObservation: sessionNote.clinicalObservation, progressNotes: sessionNote.progressNotes,
+  therapistSignature: sessionNote.therapistSignature,
   createdAt: sessionNote.createdAt, updatedAt: sessionNote.updatedAt,
 };
 
 export type NoteRow = Omit<SessionNoteDTO, "addenda" | "authorName"> & { caseHistoryId: string; clientId: string };
-export type NoteData = Pick<SessionNoteDTO, "summary" | "risk" | "response" | "progress" | "nextPlan" | "homework" | "followUpOn">;
+export type NoteData = Pick<SessionNoteDTO, "summary" | "risk" | "response" | "progress" | "nextPlan" | "homework" | "followUpOn" | "durationText" | "clinicalObservation" | "progressNotes" | "therapistSignature">;
 
 /** One row per client, before the reader's access is applied. */
 export type RawListRow = {

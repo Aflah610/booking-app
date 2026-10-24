@@ -24,6 +24,8 @@ export type ClientDTO = {
   emergencyRelation: string | null;
   emergencyPhone: string | null;
   referralSource: string | null;
+  /** Their old MCH client code (ML-CL-00042), for clients copied from MCH. */
+  mchCode: string | null;
   consentSignedAt: Date | null;
   registeredBy: string | null;
   createdAt: Date;

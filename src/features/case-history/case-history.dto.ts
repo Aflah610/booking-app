@@ -40,6 +40,20 @@ export type IntakeFields = {
   approach: string | null;
   frequency: string | null;
   planNotes: string | null;
+  educationalHistory: string | null;
+  occupationalHistory: string | null;
+  relationshipHistory: string | null;
+  socialHistory: string | null;
+  mseBehaviour: string | null;
+  mseEyeContact: string | null;
+  mseMoodAffect: string | null;
+  mseThoughtProcess: string | null;
+  mseThoughtContent: string | null;
+  mseInsightJudgement: string | null;
+  clinicalObservation: string | null;
+  riskNotes: string | null;
+  therapistNotes: string | null;
+  remarks: string | null;
 };
 
 export type AddendumDTO = { id: string; authorName: string; text: string; createdAt: Date };
@@ -60,6 +74,11 @@ export type SessionNoteDTO = {
   /** YYYY-MM-DD. */
   followUpOn: string | null;
   signedAt: Date | null;
+  /** Also recorded in MCH: e.g. "50 mins", observation and mental state, progress in words, the clinician's signature. */
+  durationText: string | null;
+  clinicalObservation: string | null;
+  progressNotes: string | null;
+  therapistSignature: string | null;
   createdAt: Date;
   updatedAt: Date;
   addenda: AddendumDTO[];

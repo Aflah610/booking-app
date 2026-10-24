@@ -14,6 +14,10 @@ const noteFields = (form: FormData) => ({
   nextPlan: str(form, "nextPlan"),
   homework: str(form, "homework"),
   followUpOn: str(form, "followUpOn"),
+  durationText: str(form, "durationText"),
+  clinicalObservation: str(form, "clinicalObservation"),
+  progressNotes: str(form, "progressNotes"),
+  therapistSignature: str(form, "therapistSignature"),
 });
 
 export async function addNoteAction(clientId: string, form: FormData) {

@@ -1,8 +1,9 @@
 import type { CaseStatus } from "@/features/case-history/case-history.dto";
 import { LABEL, type Risk } from "@/features/case-history/choices";
 
-// Red only where it marks something a clinician must notice (high risk), per the app's colour rule.
+// Red only where it marks something a clinician must notice (high or severe risk), per the app's colour rule.
 const riskTone: Record<Risk, string> = {
+  severe: "border-red-600 bg-red-600 font-semibold text-white",
   high: "border-red-300 bg-red-50 font-medium text-red-700",
   moderate: "border-zinc-400 text-black",
   low: "border-zinc-200 text-zinc-600",

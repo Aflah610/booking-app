@@ -22,16 +22,20 @@ function Choice({ name, label, values, value }: { name: string; label: string; v
 export function NoteFields({ note }: { note?: SessionNoteDTO }) {
   return (
     <>
-      <div className="sm:col-span-3">
-        <label className="label" htmlFor="summary">Session summary</label>
-        <textarea className="input" id="summary" name="summary" rows={5} required defaultValue={note?.summary ?? ""} placeholder="What was covered, what the client reported, observations." />
-      </div>
-      <Choice name="risk" label="Risk this session" values={RISK} value={note?.risk} />
-      <Choice name="response" label="Client's response" values={RESPONSE} value={note?.response} />
+      <div><label className="label" htmlFor="durationText">Duration</label><input className="input" id="durationText" name="durationText" placeholder="e.g. 50 mins" defaultValue={note?.durationText ?? ""} /></div>
+      <Choice name="risk" label="Risk level" values={RISK} value={note?.risk} />
       <Choice name="progress" label="Progress since last session" values={PROGRESS} value={note?.progress} />
-      <div className="sm:col-span-2"><label className="label" htmlFor="nextPlan">Next plan</label><input className="input" id="nextPlan" name="nextPlan" defaultValue={note?.nextPlan ?? ""} /></div>
-      <div><label className="label" htmlFor="followUpOn">Follow-up on</label><input className="input" id="followUpOn" name="followUpOn" type="date" defaultValue={note?.followUpOn ?? ""} /></div>
-      <div className="sm:col-span-3"><label className="label" htmlFor="homework">Homework</label><input className="input" id="homework" name="homework" defaultValue={note?.homework ?? ""} /></div>
+      <div className="sm:col-span-3">
+        <label className="label" htmlFor="summary">Session notes</label>
+        <textarea className="input" id="summary" name="summary" rows={5} required defaultValue={note?.summary ?? ""} placeholder="What was covered and what the client reported." />
+      </div>
+      <div className="sm:col-span-3"><label className="label" htmlFor="clinicalObservation">Clinical observation</label><textarea className="input" id="clinicalObservation" name="clinicalObservation" rows={2} defaultValue={note?.clinicalObservation ?? ""} /></div>
+      <div className="sm:col-span-3"><label className="label" htmlFor="progressNotes">Progress</label><textarea className="input" id="progressNotes" name="progressNotes" rows={2} placeholder="How the client is doing against the goals." defaultValue={note?.progressNotes ?? ""} /></div>
+      <Choice name="response" label="Client's response" values={RESPONSE} value={note?.response} />
+      <div className="sm:col-span-2"><label className="label" htmlFor="homework">Homework</label><input className="input" id="homework" name="homework" defaultValue={note?.homework ?? ""} /></div>
+      <div className="sm:col-span-2"><label className="label" htmlFor="nextPlan">Treatment recommendation</label><input className="input" id="nextPlan" name="nextPlan" defaultValue={note?.nextPlan ?? ""} /></div>
+      <div><label className="label" htmlFor="followUpOn">Follow-up date</label><input className="input" id="followUpOn" name="followUpOn" type="date" defaultValue={note?.followUpOn ?? ""} /></div>
+      <div className="sm:col-span-3"><label className="label" htmlFor="therapistSignature">Therapist signature</label><input className="input" id="therapistSignature" name="therapistSignature" placeholder="Your name and qualification" defaultValue={note?.therapistSignature ?? ""} /></div>
     </>
   );
 }
@@ -55,11 +59,15 @@ export function SessionNoteCard({ n, clientId, tz, meId }: { n: SessionNoteDTO; 
       </div>
 
       <p className="whitespace-pre-line text-sm leading-6">{n.summary}</p>
-      {(n.nextPlan || n.homework || n.followUpOn) && (
+      {n.clinicalObservation && <p className="whitespace-pre-line text-sm leading-6"><span className="text-zinc-600">Clinical observation: </span>{n.clinicalObservation}</p>}
+      {n.progressNotes && <p className="whitespace-pre-line text-sm leading-6"><span className="text-zinc-600">Progress: </span>{n.progressNotes}</p>}
+      {(n.nextPlan || n.homework || n.followUpOn || n.durationText || n.therapistSignature) && (
         <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-          {n.nextPlan && <div><dt className="inline text-zinc-600">Next plan: </dt><dd className="inline">{n.nextPlan}</dd></div>}
+          {n.durationText && <div><dt className="inline text-zinc-600">Duration: </dt><dd className="inline">{n.durationText}</dd></div>}
+          {n.nextPlan && <div><dt className="inline text-zinc-600">Recommendation: </dt><dd className="inline">{n.nextPlan}</dd></div>}
           {n.homework && <div><dt className="inline text-zinc-600">Homework: </dt><dd className="inline">{n.homework}</dd></div>}
           {n.followUpOn && <div><dt className="inline text-zinc-600">Follow-up: </dt><dd className="inline">{dateLabel(new Date(`${n.followUpOn}T12:00:00Z`), "UTC")}</dd></div>}
+          {n.therapistSignature && <div><dt className="inline text-zinc-600">Signed: </dt><dd className="inline">{n.therapistSignature}</dd></div>}
         </dl>
       )}
 

@@ -258,6 +258,9 @@ export const client = pgTable("client", {
   emergencyRelation: text("emergency_relation"),
   emergencyPhone: text("emergency_phone"),
   referralSource: text("referral_source"),
+  /** Their MCH client code (ML-CL-00042) and record id, kept for reference and for re-running the copy. */
+  mchCode: text("mch_code"),
+  mchId: integer("mch_id").unique(),
   consentSignedAt: timestamp("consent_signed_at", { withTimezone: true }),
   /** The staff member who added this client; null for clients who booked online. */
   registeredBy: uuid("registered_by").references(() => staff.id, { onDelete: "set null" }),
@@ -353,6 +356,23 @@ export const caseHistory = pgTable("case_history", {
   approach: text("approach"),
   frequency: text("frequency"),
   planNotes: text("plan_notes"),
+  // The rest of the case history as MCH kept it (moved here in 2026): life history, a written mental status exam and notes.
+  educationalHistory: text("educational_history"),
+  occupationalHistory: text("occupational_history"),
+  relationshipHistory: text("relationship_history"),
+  socialHistory: text("social_history"),
+  mseBehaviour: text("mse_behaviour"),
+  mseEyeContact: text("mse_eye_contact"),
+  mseMoodAffect: text("mse_mood_affect"),
+  mseThoughtProcess: text("mse_thought_process"),
+  mseThoughtContent: text("mse_thought_content"),
+  mseInsightJudgement: text("mse_insight_judgement"),
+  clinicalObservation: text("clinical_observation"),
+  riskNotes: text("risk_notes"),
+  therapistNotes: text("therapist_notes"),
+  remarks: text("remarks"),
+  /** The MCH record this was copied from, so the copy can be re-run without duplicates. */
+  mchId: integer("mch_id").unique(),
   intakeCompletedAt: timestamp("intake_completed_at", { withTimezone: true }),
   intakeCompletedBy: uuid("intake_completed_by").references(() => staff.id, { onDelete: "set null" }),
   updatedBy: uuid("updated_by").references(() => staff.id, { onDelete: "set null" }),
@@ -388,6 +408,12 @@ export const sessionNote = pgTable("session_note", {
   nextPlan: text("next_plan"),
   homework: text("homework"),
   followUpOn: date("follow_up_on"),
+  // Also recorded in MCH's session notes.
+  durationText: text("duration_text"),
+  clinicalObservation: text("clinical_observation"),
+  progressNotes: text("progress_notes"),
+  therapistSignature: text("therapist_signature"),
+  mchId: integer("mch_id").unique(),
   /** Null while a draft; once set the note can only be added to. */
   signedAt: timestamp("signed_at", { withTimezone: true }),
   createdAt: createdAt(),

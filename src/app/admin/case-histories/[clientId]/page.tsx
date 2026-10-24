@@ -60,7 +60,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/admin/clients/${clientId}`} className="btn-ghost">Client profile</Link>
-          <Link href={`/admin/case-histories/${clientId}/intake?step=1`} className="btn">{empty ? "Start intake" : "Edit intake"}</Link>
+          <Link href={`/admin/case-histories/${clientId}/intake?step=1`} className="btn">{empty ? "Start case history" : "Edit case history"}</Link>
         </div>
       </header>
 
@@ -68,41 +68,51 @@ export default async function CasePage({ params, searchParams }: { params: Promi
       {empty ? (
         <div className="card mb-10 px-6 py-10 text-center">
           <p className="font-medium">The intake hasn&apos;t been started</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-600">Six short steps: presenting problem, history, personal history, mental status, risk and diagnosis, and the plan. Each step saves on its own.</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-600">The same six steps as MCH: demographics, complaints, medical and family, life history, mental status, and diagnosis and plan. Each step saves on its own.</p>
         </div>
       ) : (
         <div className="mb-10 grid gap-4 lg:grid-cols-2">
-          <Section title="Presenting problem" step={1} clientId={clientId}>
+          <Section title="Complaints & HPI" step={2} clientId={clientId}>
             <Text value={r.presentingComplaints} />
             <Facts rows={[["Onset", v(r.onset)], ["Duration", r.duration], ["Severity", v(r.severity)]]} />
-            {r.historyPresent && <Text label="History of the present problem" value={r.historyPresent} />}
+            {r.historyPresent && <Text label="History of present illness" value={r.historyPresent} />}
           </Section>
-          <Section title="Diagnosis" step={5} clientId={clientId}>
-            {r.diagnosisLabel ? <p className="font-medium">{r.diagnosisLabel}{r.diagnosisCode && <span className="ml-2 text-sm font-normal text-zinc-600">{r.diagnosisCode}</span>}</p> : <p className="text-sm text-zinc-500">Not recorded</p>}
+          <Section title="Diagnosis" step={6} clientId={clientId}>
+            {r.diagnosisLabel ? <p className="font-medium">{r.diagnosisLabel}{r.diagnosisCode && !r.diagnosisLabel.startsWith(r.diagnosisCode) && <span className="ml-2 text-sm font-normal text-zinc-600">{r.diagnosisCode}</span>}</p> : <p className="text-sm text-zinc-500">Not recorded</p>}
             <Facts rows={[["Secondary", r.diagnosisSecondary], ["Specifiers", r.diagnosisSpecifiers]]} />
             {r.formulation && <Text label="Formulation" value={r.formulation} />}
           </Section>
-          <Section title="Mental status" step={4} clientId={clientId}>
+          <Section title="Mental status" step={5} clientId={clientId}>
             <Facts rows={[
-              ["Behaviour", v(r.mseCooperation)], ["Rapport", v(r.mseRapport)], ["Affect", v(r.mseAffect)], ["Mood", r.mseMood],
-              ["Insight", v(r.mseInsight)], ["Judgement", v(r.mseJudgement)], ["Appearance", r.mseAppearance], ["Speech", r.mseSpeech],
-              ["Thought", r.mseThought], ["Perception", r.msePerception], ["Cognition", r.mseCognition],
+              ["Appearance", r.mseAppearance], ["Behaviour", r.mseBehaviour ?? v(r.mseCooperation)], ["Eye contact", r.mseEyeContact], ["Rapport", v(r.mseRapport)],
+              ["Speech", r.mseSpeech], ["Mood & affect", r.mseMoodAffect ?? ([r.mseMood, v(r.mseAffect)].filter(Boolean).join(", ") || null)],
+              ["Thought process", r.mseThoughtProcess], ["Thought content", r.mseThoughtContent ?? r.mseThought], ["Perception", r.msePerception],
+              ["Cognition", r.mseCognition], ["Insight & judgement", r.mseInsightJudgement ?? ([v(r.mseInsight), v(r.mseJudgement)].filter(Boolean).join(", ") || null)],
             ]} />
+            {r.clinicalObservation && <Text label="Clinical observation" value={r.clinicalObservation} />}
           </Section>
-          <Section title="Risk" step={5} clientId={clientId}>
+          <Section title="Risk" step={6} clientId={clientId}>
             <dl className="grid gap-2 text-sm">
-              {([["Suicide", r.riskSuicide], ["Self-harm", r.riskSelfHarm], ["Harm to others", r.riskOthers]] as const).map(([label, value]) => (
+              {([["Suicide", r.riskSuicide], ["Self-harm", r.riskSelfHarm], ["Homicide", r.riskOthers]] as const).map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between gap-3"><dt className="text-zinc-600">{label}</dt><dd><RiskBadge risk={value} /></dd></div>
               ))}
             </dl>
+            {r.riskNotes && <Text label="Risk notes" value={r.riskNotes} />}
           </Section>
-          <Section title="Plan" step={6} clientId={clientId}>
-            <Facts rows={[["Approach", r.approach], ["Frequency", r.frequency], ["Short-term goals", r.goalsShort], ["Long-term goals", r.goalsLong], ["Notes", r.planNotes]]} />
-          </Section>
-          <Section title="History" step={2} clientId={clientId}>
+          <Section title="Treatment plan" step={6} clientId={clientId}>
             <Facts rows={[
-              ["Past psychiatric", r.pastPsychiatric], ["Medical", r.medicalHistory], ["Medication", r.medication], ["Family", r.familyHistory],
-              ["Personal", r.personalHistory], ["Substance use", r.substanceUse], ["Premorbid personality", r.premorbidPersonality],
+              ["Modality", r.approach], ["Frequency", r.frequency], ["Short-term goals", r.goalsShort], ["Long-term goals", r.goalsLong],
+              ["Overall strategy", r.planNotes], ["Therapist notes", r.therapistNotes], ["Remarks", r.remarks],
+            ]} />
+          </Section>
+          <Section title="Medical & family" step={3} clientId={clientId}>
+            <Facts rows={[["Medical", r.medicalHistory], ["Medication", r.medication], ["Past psychiatric", r.pastPsychiatric], ["Family", r.familyHistory]]} />
+          </Section>
+          <Section title="Life history" step={4} clientId={clientId}>
+            <Facts rows={[
+              ["Personal", r.personalHistory], ["Education", r.educationalHistory], ["Occupation", r.occupationalHistory],
+              ["Relationships", r.relationshipHistory], ["Substance use", r.substanceUse], ["Social & living", r.socialHistory],
+              ["Premorbid personality", r.premorbidPersonality],
             ]} />
           </Section>
         </div>

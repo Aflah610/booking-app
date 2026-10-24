@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AFFECT, COOPERATION, INSIGHT, JUDGEMENT, ONSET, PART_OF_DAY, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "./choices";
+import { PART_OF_DAY, PROGRESS, RESPONSE, RISK } from "./choices";
 import { ICD11 } from "./icd11";
 
 /** A form box left empty means "not recorded". */
@@ -7,39 +7,34 @@ const blank = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null :
 const text = (max = 10_000) => z.preprocess(blank, z.string().trim().max(max).nullable().default(null));
 const choice = <T extends readonly [string, ...string[]]>(values: T) => z.preprocess(blank, z.enum(values).nullable().default(null));
 
-/** The fields each intake step saves; a step only ever touches its own fields. */
+/**
+ * The fields each intake step saves, laid out as in MCH. Step 1 shows the client's details (edited on the client's page);
+ * a step only ever touches its own fields.
+ */
 export const intakeSteps = {
-  1: z.object({ presentingComplaints: text(), onset: choice(ONSET), duration: text(200), severity: choice(SEVERITY), historyPresent: text() }),
-  2: z.object({ pastPsychiatric: text(), medicalHistory: text(), medication: text(), familyHistory: text() }),
-  3: z.object({ personalHistory: text(), substanceUse: text(), premorbidPersonality: text() }),
+  2: z.object({ presentingComplaints: text(), historyPresent: text() }),
+  3: z.object({ medicalHistory: text(), pastPsychiatric: text(), familyHistory: text() }),
   4: z.object({
-    mseAppearance: text(500), mseCooperation: choice(COOPERATION), mseRapport: choice(RAPPORT), mseSpeech: text(500), mseMood: text(500),
-    mseAffect: choice(AFFECT), mseThought: text(), msePerception: text(), mseCognition: text(), mseInsight: choice(INSIGHT), mseJudgement: choice(JUDGEMENT),
+    personalHistory: text(), educationalHistory: text(), occupationalHistory: text(), relationshipHistory: text(),
+    substanceUse: text(), socialHistory: text(),
   }),
-  5: z
+  5: z.object({
+    mseAppearance: text(500), mseBehaviour: text(500), mseEyeContact: text(500), mseSpeech: text(500), mseMoodAffect: text(500),
+    mseThoughtProcess: text(500), mseThoughtContent: text(1000), msePerception: text(1000), mseCognition: text(1000),
+    mseInsightJudgement: text(500), clinicalObservation: text(),
+  }),
+  6: z
     .object({
-      riskSuicide: choice(RISK), riskSelfHarm: choice(RISK), riskOthers: choice(RISK),
-      // A code from the list, "other" with a written label, or nothing yet.
-      diagnosisCode: z.preprocess(blank, z.string().nullable().default(null)),
-      diagnosisLabel: text(200),
-      diagnosisSecondary: text(500), diagnosisSpecifiers: text(500), formulation: text(),
+      riskSuicide: choice(RISK), riskSelfHarm: choice(RISK), riskOthers: choice(RISK), riskNotes: text(2000),
+      // Written as the clinician puts it ("F41.1 Generalized Anxiety Disorder"); a code from the ICD-11 list is kept alongside.
+      diagnosisLabel: text(300),
+      diagnosisSecondary: text(500), diagnosisSpecifiers: text(500),
+      goalsShort: text(), goalsLong: text(), approach: text(300), planNotes: text(), therapistNotes: text(), remarks: text(),
     })
-    .transform((v, ctx) => {
-      if (v.diagnosisCode === "other") {
-        if (!v.diagnosisLabel) ctx.addIssue({ code: "custom", path: ["diagnosisLabel"], message: "Write the diagnosis when choosing Other" });
-        return { ...v, diagnosisCode: null };
-      }
-      if (v.diagnosisCode) {
-        const listed = ICD11.find((d) => d.code === v.diagnosisCode);
-        if (!listed) {
-          ctx.addIssue({ code: "custom", path: ["diagnosisCode"], message: `${v.diagnosisCode} is not on the ICD-11 list` });
-          return v;
-        }
-        return { ...v, diagnosisLabel: listed.title };
-      }
-      return { ...v, diagnosisLabel: null };
+    .transform((v) => {
+      const listed = v.diagnosisLabel ? ICD11.find((d) => v.diagnosisLabel!.toLowerCase().startsWith(d.code.toLowerCase() + " ") || v.diagnosisLabel!.toLowerCase() === d.title.toLowerCase()) : undefined;
+      return { ...v, diagnosisCode: listed?.code ?? null };
     }),
-  6: z.object({ goalsShort: text(), goalsLong: text(), approach: text(200), frequency: text(200), planNotes: text() }),
 } as const;
 export type IntakeStep = keyof typeof intakeSteps;
 
@@ -56,6 +51,11 @@ export const noteInput = z.object({
   nextPlan: text(2000),
   homework: text(2000),
   followUpOn: isoDate,
+  // As in MCH.
+  durationText: text(50),
+  clinicalObservation: text(5000),
+  progressNotes: text(5000),
+  therapistSignature: text(200),
 });
 
 export const noteEditInput = noteInput.omit({ bookingId: true, sessionOn: true });

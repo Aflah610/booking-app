@@ -28,7 +28,7 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
   const [rows, team, pending] = await Promise.all([app().caseHistory.list(me, base), app().staff.list(), app().caseHistory.pendingNotes(me, { staffId: me.id })]);
   const late = pending.filter((p) => p.overdue).length;
   const filters = [sp.therapist, risk, range.from || range.to].filter(Boolean).length;
-  const statusOf = (key: string) => (r: (typeof rows)[number]) => !key || (key === "high_risk" ? r.risk === "high" : r.status === (key as CaseStatus));
+  const statusOf = (key: string) => (r: (typeof rows)[number]) => !key || (key === "high_risk" ? r.risk === "high" || r.risk === "severe" : r.status === (key as CaseStatus));
   const status = CHIPS.some(([k]) => k === sp.status) ? sp.status ?? "" : "";
   const shown = rows.filter(statusOf(status));
   const href = (patch: Record<string, string>) => `?${new URLSearchParams(Object.entries({ ...sp, ...patch }).filter(([, v]) => v) as [string, string][])}`;

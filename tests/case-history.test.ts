@@ -28,7 +28,7 @@ async function setup() {
   return { asha, dev, manager, lead, book, clientId, first };
 }
 
-const noteFor = (bookingId: string) => ({ bookingId, summary: "Rapport building and history.", risk: "low", response: "engaged", progress: "same" });
+const noteFor = (bookingId: string) => ({ bookingId, summary: "Rapport building and history.", risk: "low", response: "engaged", progress: "same", durationText: "50 mins", therapistSignature: "Asha, MSc" });
 
 describe("who can open a case history", () => {
   it("lets the current therapist and a clinical admin in, refuses anyone else", async () => {
@@ -49,34 +49,37 @@ describe("who can open a case history", () => {
 });
 
 describe("intake", () => {
-  it("saves each step on its own, rejects values off the lists, and takes the diagnosis title from ICD-11", async () => {
+  it("saves each MCH step on its own, rejects risk levels off the list, and picks up an ICD-11 code from the diagnosis", async () => {
     const { asha, clientId } = await setup();
-    await c.caseHistory.saveIntake(asha, clientId, 1, { presentingComplaints: "Worry and poor sleep", onset: "gradual", duration: "6 months", severity: "moderate" });
-    await c.caseHistory.saveIntake(asha, clientId, 4, { mseCooperation: "cooperative", mseAffect: "anxious", mseInsight: "good" });
-    await c.caseHistory.saveIntake(asha, clientId, 5, { riskSuicide: "low", riskSelfHarm: "none", riskOthers: "none", diagnosisCode: "6B00" });
+    await c.caseHistory.saveIntake(asha, clientId, 2, { presentingComplaints: "Worry and poor sleep", historyPresent: "Six months, worse at exams" });
+    await c.caseHistory.saveIntake(asha, clientId, 4, { educationalHistory: "BCom", socialHistory: "Lives with parents" });
+    await c.caseHistory.saveIntake(asha, clientId, 5, { mseBehaviour: "Cooperative", mseMoodAffect: "Anxious, congruent", clinicalObservation: "Fidgety" });
+    await c.caseHistory.saveIntake(asha, clientId, 6, { riskSuicide: "low", riskSelfHarm: "none", riskOthers: "severe", riskNotes: "No intent", diagnosisLabel: "6B00 Generalised anxiety disorder", planNotes: "Weekly CBT" });
     const r = await c.caseHistory.open(asha, clientId);
-    expect(r).toMatchObject({ presentingComplaints: "Worry and poor sleep", severity: "moderate", mseCooperation: "cooperative", diagnosisLabel: "Generalised anxiety disorder", risk: "low" });
+    expect(r).toMatchObject({
+      presentingComplaints: "Worry and poor sleep", educationalHistory: "BCom", mseBehaviour: "Cooperative", clinicalObservation: "Fidgety",
+      riskOthers: "severe", riskNotes: "No intent", diagnosisCode: "6B00", diagnosisLabel: "6B00 Generalised anxiety disorder", planNotes: "Weekly CBT", risk: "severe",
+    });
 
-    await expect(c.caseHistory.saveIntake(asha, clientId, 4, { mseAffect: "happy" })).rejects.toThrow();
-    await expect(c.caseHistory.saveIntake(asha, clientId, 5, { diagnosisCode: "9Z99" })).rejects.toThrow(/not on the ICD-11 list/);
-    await expect(c.caseHistory.saveIntake(asha, clientId, 5, { diagnosisCode: "other" })).rejects.toThrow(/Write the diagnosis/);
-    await c.caseHistory.saveIntake(asha, clientId, 5, { diagnosisCode: "other", diagnosisLabel: "Exam stress" });
+    await expect(c.caseHistory.saveIntake(asha, clientId, 6, { riskSuicide: "extreme" })).rejects.toThrow();
+    await expect(c.caseHistory.saveIntake(asha, clientId, 1, { presentingComplaints: "x" })).rejects.toThrow(/does not exist/);
+    await c.caseHistory.saveIntake(asha, clientId, 6, { diagnosisLabel: "Exam stress" });
     expect(await c.caseHistory.open(asha, clientId)).toMatchObject({ diagnosisCode: null, diagnosisLabel: "Exam stress" });
   });
 
-  it("is complete only with presenting complaints and a risk rating, and then the client is in treatment", async () => {
+  it("is complete only with presenting complaints and a primary diagnosis, and then the client is in treatment", async () => {
     const { asha, clientId } = await setup();
     await expect(c.caseHistory.completeIntake(asha, clientId)).rejects.toThrow(/presenting complaints/);
-    await c.caseHistory.saveIntake(asha, clientId, 1, { presentingComplaints: "Low mood" });
-    await expect(c.caseHistory.completeIntake(asha, clientId)).rejects.toThrow(/risk/);
-    await c.caseHistory.saveIntake(asha, clientId, 5, { riskSuicide: "moderate" });
+    await c.caseHistory.saveIntake(asha, clientId, 2, { presentingComplaints: "Low mood" });
+    await expect(c.caseHistory.completeIntake(asha, clientId)).rejects.toThrow(/primary diagnosis/);
+    await c.caseHistory.saveIntake(asha, clientId, 6, { diagnosisLabel: "Adjustment disorder" });
     await c.caseHistory.completeIntake(asha, clientId);
     expect(await c.caseHistory.open(asha, clientId)).toMatchObject({ status: "in_treatment", intakeCompletedByName: "Asha" });
   });
 
   it("never writes clinical text into the audit log", async () => {
     const { asha, clientId } = await setup();
-    await c.caseHistory.saveIntake(asha, clientId, 1, { presentingComplaints: "Panic at work" });
+    await c.caseHistory.saveIntake(asha, clientId, 2, { presentingComplaints: "Panic at work" });
     const rows = (await db.execute(sql`select details::text as d from audit_log where entity = 'case_history'`)).rows as { d: string }[];
     expect(rows[0].d).toContain("presentingComplaints");
     expect(rows[0].d).not.toContain("Panic");
@@ -140,10 +143,10 @@ describe("session notes", () => {
 describe("the list", () => {
   it("hides diagnosis from readers without access and shows a therapist only their own clients", async () => {
     const { asha, dev, manager, lead, clientId } = await setup();
-    await c.caseHistory.saveIntake(asha, clientId, 5, { riskSuicide: "high", diagnosisCode: "6A70" });
+    await c.caseHistory.saveIntake(asha, clientId, 6, { riskSuicide: "high", diagnosisLabel: "6A70 Single episode depressive disorder" });
     // Managers see only which notes are pending (a separate page), never the case history list.
     expect(await c.caseHistory.list(manager)).toEqual([]);
-    expect((await c.caseHistory.list(lead))[0]).toMatchObject({ restricted: false, diagnosisLabel: "Single episode depressive disorder" });
+    expect((await c.caseHistory.list(lead))[0]).toMatchObject({ restricted: false, diagnosisLabel: "6A70 Single episode depressive disorder" });
     expect(await c.caseHistory.list(dev)).toEqual([]);
     expect((await c.caseHistory.list(asha)).map((r) => r.clientId)).toEqual([clientId]);
     expect((await c.caseHistory.list(lead, { status: "high_risk" })).length).toBe(1);
@@ -156,7 +159,7 @@ describe("the client page overview", () => {
     const { asha, manager, clientId } = await setup();
     expect(await c.caseHistory.overview(asha, clientId)).toEqual({ restricted: false, record: null });
     expect(await c.caseHistory.overview(manager, clientId)).toEqual({ restricted: true, status: null, risk: null });
-    await c.caseHistory.saveIntake(asha, clientId, 5, { riskSelfHarm: "moderate", diagnosisCode: "6B01" });
+    await c.caseHistory.saveIntake(asha, clientId, 6, { riskSelfHarm: "moderate", diagnosisLabel: "Panic disorder" });
     const mine = await c.caseHistory.overview(asha, clientId);
     expect(mine.restricted === false && mine.record?.diagnosisLabel).toBe("Panic disorder");
     expect(await c.caseHistory.overview(manager, clientId)).toEqual({ restricted: true, status: "intake_pending", risk: "moderate" });

@@ -99,9 +99,8 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
     async completeIntake(reader: Reader, clientId: string, now = new Date()) {
       const record = await open(reader, clientId);
       if (!record.presentingComplaints) throw new DomainError("invalid", `Write the presenting complaints for client ${clientId} before completing the intake`);
-      if (!overallRisk([record.riskSuicide, record.riskSelfHarm, record.riskOthers])) {
-        throw new DomainError("invalid", `Rate at least one risk for client ${clientId} before completing the intake`);
-      }
+      // As in MCH: the chief complaints and a primary diagnosis are the two things a completed intake must have.
+      if (!record.diagnosisLabel) throw new DomainError("invalid", `Write the primary diagnosis for client ${clientId} before completing the intake`);
       await caseRepo.updateIntake(record.id, { status: "in_treatment", intakeCompletedAt: now, intakeCompletedBy: reader.id, updatedBy: reader.id },
         audit(reader, "complete_intake", "case_history", record.id));
     },
@@ -250,7 +249,7 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
           };
         });
       return rows.filter((r) =>
-        (!f.status || (f.status === "high_risk" ? r.risk === "high" : r.status === f.status)) &&
+        (!f.status || (f.status === "high_risk" ? r.risk === "high" || r.risk === "severe" : r.status === f.status)) &&
         (!f.therapist || (f.therapist === "unassigned" ? !r.therapistId : r.therapistId === f.therapist)) &&
         (!f.risk || r.risk === f.risk) &&
         (!f.from || (r.lastNoteAt !== null && r.lastNoteAt >= f.from)) &&
