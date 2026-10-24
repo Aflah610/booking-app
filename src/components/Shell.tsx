@@ -1,22 +1,23 @@
+import { ACCESS_ROLE_LABEL } from "@/features/access/permissions";
 import Image from "next/image";
 import { signOut } from "@/auth";
-import type { StaffDTO } from "@/features/staff/staff.dto";
 import { app } from "@/features/container";
 import { canUseFollowUps } from "@/features/follow-up-desk/follow-up-desk.service";
 import { canUseLeads } from "@/features/leads/leads.service";
-import { hasRole } from "@/lib/session";
+import { allowed, type Me } from "@/lib/session";
 import { Icon } from "./icons";
 import { NavLink } from "./NavLink";
 import { SidebarFrame } from "./SidebarFrame";
 
 /** App frame: a black sidebar on the left (cal.com style) and the page on the right. */
-export async function Shell({ me, children }: { me: StaffDTO; children: React.ReactNode }) {
-  const manager = hasRole(me, "manager");
-  // Sales and coordinators never open clinical records, so the menu doesn't offer them.
-  const clinical = me.designation !== "Sales Executive" && me.designation !== "Consultation Coordinator";
-  const [newLeads, followUpNews] = await Promise.all([
+export async function Shell({ me, children }: { me: Me; children: React.ReactNode }) {
+  // Each item appears only for roles allowed to use it (Settings > Roles & access); the pages check again on their own.
+  const can = (p: Parameters<typeof allowed>[1]) => allowed(me, p);
+  const manages = ["clients.view", "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage"] as const;
+  const [newLeads, followUpNews, pendingNotes] = await Promise.all([
     canUseLeads(me) ? app().leads.countNew(me) : 0,
     canUseFollowUps(me) ? app().followUps.countUnread(me) : 0,
+    can("casenotes.pending") ? app().caseHistory.countOverdueNotes() : 0,
   ]);
   return (
     <SidebarFrame
@@ -32,16 +33,18 @@ export async function Shell({ me, children }: { me: StaffDTO; children: React.Re
               <NavLink href={`/admin/staff/${me.id}`} icon="clock">Availability</NavLink>
               {canUseLeads(me) && <NavLink href="/admin/leads" icon="inbox" count={newLeads}>Leads</NavLink>}
               {canUseFollowUps(me) && <NavLink href="/admin/follow-ups" icon="chat" count={followUpNews}>Follow-ups</NavLink>}
-              {manager && <p className="nav-heading">Manage</p>}
-              {manager && <NavLink href="/admin/services" icon="grid">Services</NavLink>}
-              {manager && <NavLink href="/admin/staff" icon="users" exact>Staff</NavLink>}
-              {manager && <NavLink href="/admin/packages" icon="wallet">Packages</NavLink>}
-              {manager && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}
-              {clinical && <NavLink href="/admin/case-histories" icon="file">Case histories</NavLink>}
-              {manager && <NavLink href="/admin/reports" icon="chart">Reports</NavLink>}
-              {manager && <NavLink href="/admin/workflows" icon="bolt">Workflows</NavLink>}
-              {hasRole(me, "admin") && <NavLink href="/admin/otp" icon="shield">OTP Authentication</NavLink>}
-              {hasRole(me, "admin") && <NavLink href="/admin/settings" icon="settings">Settings</NavLink>}
+              {(can("casenotes.write") || can("casenotes.read_all")) && <NavLink href="/admin/case-histories" icon="file" exact>Case histories</NavLink>}
+              {can("casenotes.pending") && <NavLink href="/admin/case-histories/pending" icon="clock" count={pendingNotes}>Pending case notes</NavLink>}
+              {manages.some(can) && <p className="nav-heading">Manage</p>}
+              {can("clients.view") && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}
+              {can("packages.manage") && <NavLink href="/admin/packages" icon="wallet">Packages</NavLink>}
+              {can("services.manage") && <NavLink href="/admin/services" icon="grid">Services</NavLink>}
+              {can("staff.manage") && <NavLink href="/admin/staff" icon="users" exact>Staff</NavLink>}
+              {can("reports.view") && <NavLink href="/admin/reports" icon="chart">Reports</NavLink>}
+              {can("workflows.manage") && <NavLink href="/admin/workflows" icon="bolt">Workflows</NavLink>}
+              {can("settings.manage") && <NavLink href="/admin/otp" icon="shield">OTP Authentication</NavLink>}
+              {can("settings.manage") && <NavLink href="/admin/settings" icon="settings" exact>Settings</NavLink>}
+              {me.accessRole === "admin" && <NavLink href="/admin/settings/access" icon="key">Roles &amp; access</NavLink>}
             </nav>
             {/* Closed by default: Sign out only appears after clicking the profile. Plain <details>, no script needed. */}
             <details className="group relative mt-auto hidden border-t border-zinc-200 pt-4 md:block">
@@ -51,7 +54,7 @@ export async function Shell({ me, children }: { me: StaffDTO; children: React.Re
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-black">{me.name}</span>
-                  <span className="block truncate text-xs capitalize text-zinc-600">{me.role}</span>
+                  <span className="block truncate text-xs text-zinc-600">{ACCESS_ROLE_LABEL[me.accessRole]}</span>
                 </span>
                 <span className="text-zinc-500 transition-transform group-open:rotate-180" aria-hidden="true">⌃</span>
               </summary>

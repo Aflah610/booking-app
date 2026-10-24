@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { ACCESS_ROLES, type AccessRole } from "@/features/access/permissions";
 import { revalidatePath } from "next/cache";
 import { app } from "@/features/container";
 import { DomainError, isDomainError } from "@/features/shared/errors";
@@ -9,27 +10,30 @@ import { act, optional, optionalNumber, str } from "@/lib/form-actions";
 import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
 import { zonedToUtc } from "@/lib/time";
-import { requireStaff, hasRole } from "@/lib/session";
+import { allowed, requirePermission, requireStaff, hasRole } from "@/lib/session";
 
 /** Staff may edit their own hours and time off; managers and admins may edit anyone's. */
 async function requireSelfOrManager(staffId: string) {
   const me = await requireStaff();
-  if (me.id !== staffId && !hasRole(me, "manager")) redirect("/?error=forbidden");
+  if (me.id !== staffId && !allowed(me, "staff.manage")) redirect("/?error=forbidden");
   return me;
 }
+
+/** The chosen role; anything unexpected becomes the least powerful one that treats clients. */
+const accessRoleOf = (form: FormData): AccessRole => ACCESS_ROLES.find((r) => r === str(form, "accessRole")) ?? "psychologist";
 
 /** The chosen designation, or null when none (or something that is not on the list) was sent. */
 const designationOf = (form: FormData) => DESIGNATIONS.find((d) => d === str(form, "designation")) ?? null;
 
 export async function createStaffAction(form: FormData) {
-  const me = await requireStaff("manager");
-  const role = str(form, "role") as "admin" | "manager" | "staff";
+  const me = await requirePermission("staff.manage");
+  const accessRole = accessRoleOf(form);
   await act("/admin/staff", "Staff member added", async () => {
-    if (role === "admin" && !hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can add admins");
+    if (accessRole === "admin" && !hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can add admins");
     await app().staff.create({ staffId: me.id }, {
       name: str(form, "name"),
       email: str(form, "email"),
-      role,
+      accessRole,
       designation: designationOf(form),
       timezone: str(form, "timezone") || "Asia/Kolkata",
     });
@@ -37,20 +41,20 @@ export async function createStaffAction(form: FormData) {
 }
 
 export async function updateStaffAction(staffId: string, form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("staff.manage");
   const path = `/admin/staff/${staffId}`;
   await act(path, "Saved", async () => {
     const target = await app().staff.get(staffId);
-    const role = str(form, "role") as "admin" | "manager" | "staff";
-    const changesAdmin = role !== target.role && (role === "admin" || target.role === "admin");
+    const accessRole = accessRoleOf(form);
+    const changesAdmin = accessRole !== target.accessRole && (accessRole === "admin" || target.accessRole === "admin");
     if (changesAdmin && !hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can change admin roles");
-    if (staffId === me.id && (role !== me.role || form.get("active") !== "on")) {
+    if (staffId === me.id && (accessRole !== me.accessRole || form.get("active") !== "on")) {
       throw new DomainError("invalid", "You can't change your own role or deactivate yourself");
     }
     await app().staff.update({ staffId: me.id }, staffId, {
       name: str(form, "name"),
       email: str(form, "email"),
-      role,
+      accessRole,
       designation: designationOf(form),
       timezone: str(form, "timezone"),
       active: form.get("active") === "on",
@@ -118,19 +122,19 @@ function serviceFields(form: FormData) {
 }
 
 export async function createServiceAction(form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("services.manage");
   await act("/admin/services", "Service added", () => app().catalog.create({ staffId: me.id }, serviceFields(form)));
 }
 
 export async function updateServiceAction(serviceId: string, form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("services.manage");
   await act(`/admin/services/${serviceId}`, "Saved", () =>
     app().catalog.update({ staffId: me.id }, serviceId, { ...serviceFields(form), active: form.get("active") === "on" }),
   );
 }
 
 export async function deleteServiceAction(serviceId: string) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("services.manage");
   await act(`/admin/services/${serviceId}`, "Service deleted", async () => {
     await app().catalog.remove({ staffId: me.id }, serviceId);
     return "/admin/services";
@@ -159,19 +163,19 @@ export async function removeDateOverrideAction(staffId: string, date: string) {
 }
 
 export async function sendTestEmailAction(form: FormData) {
-  await requireStaff("admin");
+  await requirePermission("settings.manage");
   const to = str(form, "to");
   await act("/admin/settings", `Test email sent to ${to}. Check that inbox (and spam).`, () => app().mail.sendTest(to));
 }
 
 export async function sendSampleEmailAction(form: FormData) {
-  await requireStaff("admin");
+  await requirePermission("settings.manage");
   const to = str(form, "to");
   await act("/admin/settings", `Sample email sent to ${to}. Open it to check the design.`, () => app().mail.sendSample(to));
 }
 
 export async function updateSettingsAction(form: FormData) {
-  const me = await requireStaff("admin");
+  const me = await requirePermission("settings.manage");
   await act("/admin/settings", "Settings saved", () =>
     app().settings.update({ staffId: me.id }, {
       name: str(form, "name"),
@@ -199,7 +203,7 @@ const PROFILE_FIELDS = [
 ] as const;
 
 export async function updateClientProfileAction(clientId: string, form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("clients.view");
   const profile = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(form, k)]));
   // Saved: back to the client. Failed: stay on the form so nothing typed is lost from view.
   await act(`/admin/clients/${clientId}/edit`, "Client saved", async () => {
@@ -215,7 +219,7 @@ export async function updateClientProfileAction(clientId: string, form: FormData
 }
 
 export async function createClientAction(form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("clients.view");
   await act("/admin/clients/new", "Client added", async () => {
     const created = await app().clients.create({ staffId: me.id }, {
       name: str(form, "name"),
@@ -230,7 +234,7 @@ export async function createClientAction(form: FormData) {
 }
 
 export async function assignTherapistAction(clientId: string, form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("clients.view");
   await act(`/admin/clients/${clientId}`, "Therapist assigned", () =>
     app().clients.assignTherapist({ staffId: me.id }, clientId, { staffId: str(form, "staffId"), reason: str(form, "reason") }),
   );
@@ -240,7 +244,7 @@ export type NewApiKeyState ={ key?: string; name?: string; error?: string } | nu
 
 /** Returns the raw key to the form instead of redirecting, so it never lands in a URL or the server logs. */
 export async function createApiKeyAction(_prev: NewApiKeyState, form: FormData): Promise<NewApiKeyState> {
-  await requireStaff("admin");
+  await requirePermission("settings.manage");
   try {
     // Only these two can be issued from the screen; "staff" keys stay a command-line job.
     const scope = str(form, "scope") === "otp" ? "otp" : "website";
@@ -255,18 +259,18 @@ export async function createApiKeyAction(_prev: NewApiKeyState, form: FormData):
 }
 
 export async function revokeApiKeyAction(id: string) {
-  await requireStaff("admin");
+  await requirePermission("settings.manage");
   await app().apiKeys.revoke(id);
   redirect("/admin/settings/api?ok=" + encodeURIComponent("API key revoked. Sites using it stop working now"));
 }
 
 export async function addHolidayAction(form: FormData) {
-  const me = await requireStaff("admin");
+  const me = await requirePermission("settings.manage");
   await act("/admin/settings/holidays", "Holiday added", () => app().holidays.add({ staffId: me.id }, { date: str(form, "date"), name: str(form, "name") }));
 }
 
 export async function removeHolidayAction(id: string) {
-  const me = await requireStaff("admin");
+  const me = await requirePermission("settings.manage");
   await act("/admin/settings/holidays", "Holiday removed", () => app().holidays.remove({ staffId: me.id }, id));
 }
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { app } from "@/features/container";
 import { addDays } from "@/features/availability/slots";
-import { requireStaff } from "@/lib/session";
+import { withoutContact } from "@/lib/contact";
+import { allowed, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel } from "@/lib/format";
 import { BookingsTable } from "@/components/BookingsTable";
@@ -22,13 +23,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const today = isoDay(new Date(), tz);
   const from = zonedToUtc(`${today}T00:00`, tz);
   const to = zonedToUtc(`${addDays(today, 1)}T00:00`, tz);
-  const [mine, everyone, next, savedColumns] = await Promise.all([
+  const [mineAll, everyone, nextAll, savedColumns] = await Promise.all([
     bookings.list({ view: "all", staffId: me.id, from, to, limit: 100 }),
     bookings.list({ view: "all", from, to, limit: 500 }),
     // From tomorrow on: today's sessions are already shown under "My day".
     bookings.list({ view: "upcoming", staffId: me.id, from: to, limit: 5 }),
     preferences.get(me.id, columnPrefKey("today")),
   ]);
+  // Psychologists don't see clients' phone or email (Settings > Roles & access).
+  const [mine, next] = [withoutContact(me, mineAll), withoutContact(me, nextAll)];
   const columns = resolveColumns(savedColumns, "today");
   const live = (list: typeof mine) => list.filter((b) => b.status !== "cancelled" && !b.slotReleased);
   const stats = [
@@ -43,7 +46,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <PageHeader
         title={`Hello, ${me.name.split(" ")[0]}`}
         subtitle={longDayLabel(new Date(), tz)}
-        action={<Link href="/admin/bookings/new" className="btn"><Icon name="plus" /> New booking</Link>}
+        action={allowed(me, "bookings.create") ? <Link href="/admin/bookings/new" className="btn"><Icon name="plus" /> New booking</Link> : undefined}
       />
       <div className="mb-10 grid gap-3 sm:grid-cols-3">
         {stats.map((x) => (

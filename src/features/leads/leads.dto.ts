@@ -1,3 +1,4 @@
+import type { AccessHolder } from "@/features/access/permissions";
 export const LEAD_STATUSES = ["new", "contacted", "follow_up", "converted", "lost"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export type LeadSource = "whatsapp_ad" | "whatsapp" | "manual";
@@ -19,8 +20,6 @@ export const LEAD_SOURCE_LABEL: Record<LeadSource, string> = {
   manual: "Added by staff",
 };
 
-/** The designation whose holders share new leads between them. */
-export const SALES_DESIGNATION = "Sales Executive";
 
 export type LeadDTO = {
   id: string;
@@ -49,4 +48,4 @@ export type CaptureResult =
   | { kind: "client" };
 
 /** Who is looking at leads. Sales executives see their own; managers and admins see everyone's. */
-export type LeadViewer = { id: string; role: "staff" | "manager" | "admin"; designation: string | null };
+export type LeadViewer = { id: string } & AccessHolder;

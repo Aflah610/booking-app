@@ -54,6 +54,8 @@ import { createLeadsRepository } from "./leads/leads.repository";
 import { createLeadsService } from "./leads/leads.service";
 import { createFollowUpDeskRepository } from "./follow-up-desk/follow-up-desk.repository";
 import { createFollowUpDeskService } from "./follow-up-desk/follow-up-desk.service";
+import { createAccessRepository } from "./access/access.repository";
+import { createAccessService } from "./access/access.service";
 
 /**
  * Wires repositories into services. This is the only place that picks the storage
@@ -101,8 +103,10 @@ export function createContainer(db: Db, opts: {
     appUrl,
     secret: process.env.CALENDAR_ENCRYPTION_KEY || manageSecret,
   });
-  const leads = createLeadsService({ leadsRepo: createLeadsRepository(db) });
-  const followUps = createFollowUpDeskService({ deskRepo: createFollowUpDeskRepository(db) });
+  const access = createAccessService({ accessRepo: createAccessRepository(db) });
+  // Who gets a share of leads, and who counts as a psychologist, follow Settings > Roles & access.
+  const leads = createLeadsService({ leadsRepo: createLeadsRepository(db), salesRoles: () => access.rolesWith("leads.own") });
+  const followUps = createFollowUpDeskService({ deskRepo: createFollowUpDeskRepository(db), clinicianRoles: () => access.rolesWith("followups.own") });
   // Everything that reacts to a booking change. Each listener runs even if another fails.
   const onEvent = async (event: BookingEvent) => {
     const results = await Promise.allSettled([workflows.onBookingEvent(event), calendar.onBookingEvent(event), leads.onBookingEvent(event), followUps.onBookingEvent(event)]);
@@ -130,10 +134,12 @@ export function createContainer(db: Db, opts: {
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
     leads,
     followUps,
+    access,
     caseHistory: createCaseHistoryService({
       caseRepo: createCaseHistoryRepository(db),
       senders: { email: senders.email, whatsapp: senders.whatsapp },
       firmName: async () => (await settingsRepo.get()).name,
+      writerRoles: () => access.rolesWith("casenotes.write"),
     }),
     availability,
     bookings: createBookingsService({

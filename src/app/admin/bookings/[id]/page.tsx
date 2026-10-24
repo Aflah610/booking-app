@@ -5,7 +5,7 @@ import { bookingReference } from "@/features/bookings/bookings.dto";
 import { addDays } from "@/features/availability/slots";
 import { isDomainError } from "@/features/shared/errors";
 import { isOnlineSession } from "@/features/bookings/meeting";
-import { isFrontDesk, requireStaff } from "@/lib/session";
+import { allowed, isFrontDesk, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, NO_SHOW_BY_LABEL, PAYMENT_LABEL, timeLabel } from "@/lib/format";
 import { Notice } from "@/components/Notice";
@@ -70,7 +70,7 @@ export default async function BookingPage({
           <dl className="grid gap-5 p-6 sm:grid-cols-2">
             <div><dt className="text-xs uppercase tracking-wider text-zinc-600">When</dt><dd className="mt-1">{longDayLabel(b.startsAt, tz)}<br />{timeLabel(b.startsAt, tz)} – {timeLabel(b.endsAt, tz)}</dd></div>
             <div><dt className="text-xs uppercase tracking-wider text-zinc-600">With</dt><dd className="mt-1"><Link className="hover:underline" href={`/admin/staff/${b.staffId}`}>{b.staffName}</Link></dd></div>
-            <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client</dt><dd className="mt-1"><Link className="hover:underline" href={`/admin/clients/${b.clientId}`}>{b.clientName}</Link><br /><span className="text-zinc-600">{b.clientPhone}</span></dd></div>
+            <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client</dt><dd className="mt-1">{allowed(me, "clients.view") ? <Link className="hover:underline" href={`/admin/clients/${b.clientId}`}>{b.clientName}</Link> : b.clientName}{allowed(me, "clients.contact") && <><br /><span className="text-zinc-600">{b.clientPhone}</span></>}</dd></div>
             <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Service</dt><dd className="mt-1">{b.serviceName}</dd></div>
             {b.status === "no_show" && (
               <div className="sm:col-span-2"><dt className="text-xs font-medium uppercase tracking-wider text-red-700">No-show by</dt><dd className="mt-1 text-red-700">{b.noShowBy ? NO_SHOW_BY_LABEL[b.noShowBy] : "Not recorded"}</dd></div>

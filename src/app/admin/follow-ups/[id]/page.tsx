@@ -5,7 +5,7 @@ import { PARTS_OF_DAY, REQUEST_STATUSES, REQUEST_STATUS_LABEL } from "@/features
 import { canUseFollowUps, seesAllFollowUps } from "@/features/follow-up-desk/follow-up-desk.service";
 import { isDomainError } from "@/features/shared/errors";
 import { dateLabel, dayLabel, phoneLabel, timeLabel } from "@/lib/format";
-import { isFrontDesk, requireStaff } from "@/lib/session";
+import { allowed, requireStaff } from "@/lib/session";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Notice } from "@/components/Notice";
 import { postFollowUpMessageAction, setFollowUpStatusAction } from "../actions";
@@ -47,7 +47,7 @@ export default async function FollowUpPage({ params, searchParams }: { params: P
             <div>
               <h1 className="text-lg font-semibold tracking-tight">{r.clientName}</h1>
               <p className="text-sm text-zinc-600">
-                {phoneLabel(r.clientPhone)} · with {r.psychologistName}
+                {allowed(me, "clients.contact") && <>{phoneLabel(r.clientPhone)} · </>}with {r.psychologistName}
                 {when && <> · suggested {when}</>}
               </p>
             </div>
@@ -66,7 +66,7 @@ export default async function FollowUpPage({ params, searchParams }: { params: P
               {r.bookingId ? (
                 <Link className="btn-ghost text-sm" href={`/admin/bookings/${r.bookingId}`}>View booking</Link>
               ) : (
-                isFrontDesk(me) && !closed && <Link className="btn text-sm" href={bookHref}>Book session</Link>
+                allowed(me, "bookings.create") && !closed && <Link className="btn text-sm" href={bookHref}>Book session</Link>
               )}
             </div>
           </header>

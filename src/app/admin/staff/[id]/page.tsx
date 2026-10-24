@@ -1,3 +1,4 @@
+import { ACCESS_ROLES, ACCESS_ROLE_LABEL } from "@/features/access/permissions";
 import { notFound, redirect } from "next/navigation";
 import { app } from "@/features/container";
 import { DESIGNATIONS } from "@/features/staff/staff.dto";
@@ -182,11 +183,9 @@ export default async function StaffDetail({
               </select>
             </div>
             <div>
-              <label className="label" htmlFor="role">Role</label>
-              <select className="input" id="role" name="role" defaultValue={member.role}>
-                <option value="staff">Staff</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
+              <label className="label" htmlFor="accessRole">Role</label>
+              <select className="input" id="accessRole" name="accessRole" defaultValue={member.accessRole}>
+                {ACCESS_ROLES.filter((r) => r !== "admin" || hasRole(me, "admin") || member.accessRole === "admin").map((r) => <option key={r} value={r}>{ACCESS_ROLE_LABEL[r]}</option>)}
               </select>
             </div>
             <div><label className="label" htmlFor="timezone">Time zone</label><TimezoneSelect value={member.timezone} /></div>

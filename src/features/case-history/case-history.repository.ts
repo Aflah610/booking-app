@@ -4,7 +4,7 @@ import type { Db } from "@/db";
 import { booking, caseHistory, client, clientTherapist, followUp, service, sessionNote, sessionNoteAddendum, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
-import type { CaseRecordDTO, Delivery, FollowUpDTO, IntakeFields, NoteableBooking, SessionNoteDTO } from "./case-history.dto";
+import type { CaseRecordDTO, Delivery, FollowUpDTO, IntakeFields, NoteableBooking, PendingNoteRow, SessionNoteDTO } from "./case-history.dto";
 import { overallRisk, type Risk } from "./choices";
 
 const completedBy = alias(staff, "completed_by");
@@ -182,6 +182,31 @@ export function createCaseHistoryRepository(db: Db) {
         .where(and(eq(booking.clientId, clientId), isNull(sessionNote.id), sql`${booking.status} <> 'cancelled'`, sql`${booking.startsAt} <= ${now}`))
         .orderBy(desc(booking.startsAt))
         .limit(50);
+    },
+
+    /**
+     * Held sessions that still have no session note, oldest first: past sessions not cancelled or missed, with someone in a
+     * role that writes case notes, since `from`. `staffId` limits to one psychologist.
+     */
+    pendingNotes({ now, from, roles, staffId }: { now: Date; from: Date; roles: readonly string[]; staffId?: string }): Promise<PendingNoteRow[]> {
+      if (!roles.length) return Promise.resolve([]);
+      return db
+        .select({ bookingId: booking.id, clientId: booking.clientId, clientName: client.name, staffId: booking.staffId, staffName: staff.name, serviceName: service.name, startsAt: booking.startsAt, endsAt: booking.endsAt })
+        .from(booking)
+        .innerJoin(client, eq(client.id, booking.clientId))
+        .innerJoin(staff, eq(staff.id, booking.staffId))
+        .innerJoin(service, eq(service.id, booking.serviceId))
+        .leftJoin(sessionNote, eq(sessionNote.bookingId, booking.id))
+        .where(and(
+          isNull(sessionNote.id),
+          inArray(booking.status, ["upcoming", "completed"]),
+          sql`${booking.endsAt} <= ${now}`,
+          sql`${booking.startsAt} >= ${from}`,
+          inArray(staff.accessRole, [...roles] as ("admin" | "manager" | "psychologist" | "bde" | "ccd")[]),
+          staffId ? eq(booking.staffId, staffId) : undefined,
+        ))
+        .orderBy(asc(booking.endsAt))
+        .limit(500);
     },
 
     /** Every client with their record's headline facts, newest client first; `q` matches name, phone or client number. */

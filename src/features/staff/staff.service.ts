@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { accessRoleFrom, rankFor } from "@/features/access/permissions";
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { decoyHash, hashPassword, verifyPassword } from "@/lib/password";
@@ -25,7 +26,10 @@ export function createStaffService({
   }
 
   async function create(actor: Actor, input: StaffInput): Promise<StaffDTO> {
-    const data = staffInput.parse(input);
+    const parsed = staffInput.parse(input);
+    // The access role decides; the older rank follows it. Without one, it comes from rank and designation.
+    const accessRole = parsed.accessRole ?? accessRoleFrom(parsed.role, parsed.designation ?? null);
+    const data = { ...parsed, accessRole, role: rankFor(accessRole) };
     if (await staffRepo.findByEmail(data.email)) {
       throw new DomainError("conflict", `A staff member with email ${data.email} already exists`);
     }
@@ -33,13 +37,18 @@ export function createStaffService({
       actor,
       action: "create",
       entity: "staff",
-      details: { email: data.email, role: data.role },
+      details: { email: data.email, role: data.role, accessRole },
     });
   }
 
   async function update(actor: Actor, id: string, input: Partial<StaffInput>): Promise<StaffDTO> {
-    const data = staffInput.partial().parse(input);
-    await get(id);
+    const parsed = staffInput.partial().parse(input);
+    const current = await get(id);
+    // Keep the access role and the older rank in step: whichever was given wins, a change of designation re-derives it.
+    const accessRole = parsed.accessRole ?? (parsed.role !== undefined || parsed.designation !== undefined
+      ? accessRoleFrom(parsed.role ?? current.role, parsed.designation !== undefined ? parsed.designation : current.designation)
+      : undefined);
+    const data = accessRole ? { ...parsed, accessRole, role: rankFor(accessRole) } : parsed;
     if (data.email) {
       const other = await staffRepo.findByEmail(data.email);
       if (other && other.id !== id) {

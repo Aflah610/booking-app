@@ -5,7 +5,8 @@ import { LABEL, RISK, type Risk } from "@/features/case-history/choices";
 import { clientReference } from "@/features/clients/clients.dto";
 import { dayRange } from "@/lib/day-range";
 import { dateLabel } from "@/lib/format";
-import { requireStaff } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { allowed, requireStaff } from "@/lib/session";
 import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +16,17 @@ const CHIPS: [string, string][] = [["", "All"], ["intake_pending", "Intake pendi
 
 export default async function CaseHistoriesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; therapist?: string; risk?: string; from?: string; to?: string }> }) {
   const me = await requireStaff();
+  // Managers see only which notes are pending, never the records themselves.
+  if (!allowed(me, "casenotes.write") && !allowed(me, "casenotes.read_all") && !me.clinicalAdmin) {
+    redirect(allowed(me, "casenotes.pending") ? "/admin/case-histories/pending" : "/?error=forbidden");
+  }
   const sp = await searchParams;
   const risk = RISK.includes(sp.risk as Risk) ? (sp.risk as Risk) : undefined;
   const s = await app().settings.get();
   const range = dayRange(sp.from, sp.to, s.timezone);
   const base: CaseListFilters = { q: sp.q, therapist: sp.therapist || undefined, risk, ...range };
-  const [rows, team] = await Promise.all([app().caseHistory.list(me, base), app().staff.list()]);
+  const [rows, team, pending] = await Promise.all([app().caseHistory.list(me, base), app().staff.list(), app().caseHistory.pendingNotes(me, { staffId: me.id })]);
+  const late = pending.filter((p) => p.overdue).length;
   const filters = [sp.therapist, risk, range.from || range.to].filter(Boolean).length;
   const statusOf = (key: string) => (r: (typeof rows)[number]) => !key || (key === "high_risk" ? r.risk === "high" : r.status === (key as CaseStatus));
   const status = CHIPS.some(([k]) => k === sp.status) ? sp.status ?? "" : "";
@@ -35,6 +41,23 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
           Intake, diagnosis, risk and session notes. {me.clinicalAdmin ? "As a clinical admin you see every record." : "You can open the records of the clients you treat."}
         </p>
       </div>
+
+      {pending.length > 0 && (
+        <section className={`card mb-6 p-4 ${late ? "border-red-300 bg-red-50" : ""}`} aria-label="Your pending session notes">
+          <p className="text-sm font-medium">
+            {late ? `${late} session note${late === 1 ? " is" : "s are"} overdue` : "Session notes to write"} · write each within 24 hours of the session
+          </p>
+          <ul className="mt-2 grid gap-1 text-sm">
+            {pending.slice(0, 8).map((p) => (
+              <li key={p.bookingId} className="flex flex-wrap items-center gap-2">
+                <Link className="font-medium underline-offset-4 hover:underline" href={`/admin/case-histories/${p.clientId}`}>{p.clientName}</Link>
+                <span className="text-zinc-600">{dateLabel(p.startsAt, s.timezone)}</span>
+                {p.overdue ? <span className="badge border-red-300 text-red-700">Overdue</span> : <span className="badge">Due {dateLabel(p.dueAt, s.timezone)}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <nav className="tabs" aria-label="Status">
         {CHIPS.map(([key, label]) => (

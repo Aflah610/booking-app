@@ -1,6 +1,7 @@
+import { ACCESS_ROLES, ACCESS_ROLE_LABEL } from "@/features/access/permissions";
 import Link from "next/link";
 import { app } from "@/features/container";
-import { requireStaff, hasRole } from "@/lib/session";
+import { hasRole, requirePermission } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
@@ -8,7 +9,7 @@ import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { createStaffAction } from "../actions";
 
 export default async function StaffPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("staff.manage");
   const { error, ok } = await searchParams;
   const rows = await app().staff.list();
   return (
@@ -26,7 +27,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                 <td><Link className="row-link-target font-medium" href={`/admin/staff/${s.id}`}>{s.name}</Link></td>
                 <td className="text-zinc-600">{s.email}</td>
                 <td className="text-zinc-600">{s.designation ?? "–"}</td>
-                <td className="capitalize">{s.role}</td>
+                <td>{ACCESS_ROLE_LABEL[s.accessRole]}</td>
                 <td className="text-zinc-600">{s.timezone}</td>
                 <td><span className="badge">{s.active ? "Active" : "Inactive"}</span></td>
               </tr>
@@ -48,12 +49,11 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
             </select>
           </div>
           <div>
-            <label className="label" htmlFor="role">Role</label>
-            <select className="input" id="role" name="role" defaultValue="staff">
-              <option value="staff">Staff</option>
-              <option value="manager">Manager</option>
-              {hasRole(me, "admin") && <option value="admin">Admin</option>}
+            <label className="label" htmlFor="accessRole">Role</label>
+            <select className="input" id="accessRole" name="accessRole" defaultValue={"psychologist"}>
+              {ACCESS_ROLES.filter((r) => r !== "admin" || hasRole(me, "admin")).map((r) => <option key={r} value={r}>{ACCESS_ROLE_LABEL[r]}</option>)}
             </select>
+            <p className="mt-1 text-xs text-zinc-500">Decides what they can see and do. <span className="whitespace-nowrap">Admins change it under Roles &amp; access.</span></p>
           </div>
           <div><label className="label" htmlFor="timezone">Time zone</label><TimezoneSelect /></div>
           <div className="sm:col-span-2"><button className="btn" type="submit">Add staff member</button></div>

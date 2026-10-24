@@ -127,3 +127,20 @@ export type CaseListFilters = {
 
 /** A past booking a note can be written for. */
 export type NoteableBooking = { id: string; startsAt: Date; serviceName: string; staffName: string };
+
+/** A held session with no session note yet. */
+export type PendingNoteRow = {
+  bookingId: string;
+  clientId: string;
+  clientName: string;
+  staffId: string;
+  staffName: string;
+  serviceName: string;
+  startsAt: Date;
+  endsAt: Date;
+};
+
+/** Pending once due: a note is expected within this long after the session ends. */
+export const NOTE_DUE_HOURS = 24;
+
+export type PendingNoteDTO = PendingNoteRow & { dueAt: Date; overdue: boolean };

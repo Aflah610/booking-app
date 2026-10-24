@@ -1,3 +1,5 @@
+import type { AccessRole } from "@/features/access/permissions";
+
 export type StaffRole = "admin" | "manager" | "staff";
 
 /** What the person does, as opposed to `role`, which says what they may do in the app. */
@@ -9,6 +11,8 @@ export type StaffDTO = {
   name: string;
   email: string;
   role: StaffRole;
+  /** What they may do in the app; `role` is the older rank kept in step with it. */
+  accessRole: AccessRole;
   designation: Designation | null;
   timezone: string;
   active: boolean;

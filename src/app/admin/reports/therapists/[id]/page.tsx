@@ -6,7 +6,7 @@ import { PERIODS } from "@/features/performance/performance.dto";
 import type { ClientRow, SessionOutcome } from "@/features/performance/performance.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { dayLabel, timeLabel } from "@/lib/format";
-import { hasRole, requireStaff } from "@/lib/session";
+import { allowed, requireStaff } from "@/lib/session";
 import { PageHeader } from "@/components/Shell";
 import { PrintButton } from "@/components/PrintButton";
 
@@ -40,7 +40,7 @@ export default async function TherapistPage({ params, searchParams }: { params: 
   const { id } = await params;
   const { period } = await searchParams;
   const me = await requireStaff();
-  if (me.id !== id && !hasRole(me, "manager")) redirect("/?error=forbidden");
+  if (me.id !== id && !allowed(me, "reports.view")) redirect("/?error=forbidden");
   const [d, firm] = await Promise.all([
     app().performance.therapist({ staffId: id, period }).catch((err) => {
       if (isDomainError(err) && err.code === "not_found") notFound();

@@ -2,7 +2,7 @@
 
 import { app } from "@/features/container";
 import { act, optional, str } from "@/lib/form-actions";
-import { requireStaff } from "@/lib/session";
+import { requirePermission, requireStaff } from "@/lib/session";
 
 export async function addLeadAction(form: FormData) {
   const me = await requireStaff();
@@ -20,7 +20,7 @@ export async function updateLeadAction(id: string, form: FormData) {
 }
 
 export async function reassignLeadAction(id: string, form: FormData) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("leads.all");
   await act(`/admin/leads/${id}`, "Reassigned", () => app().leads.reassign(me, id, str(form, "staffId")));
 }
 

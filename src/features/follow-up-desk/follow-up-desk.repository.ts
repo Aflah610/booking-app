@@ -4,6 +4,7 @@ import type { Db } from "@/db";
 import { booking, client, clientTherapist, followUpMessage, followUpRead, followUpRequest, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
+import type { AccessRole } from "@/features/access/permissions";
 import type { FollowUpListItem, FollowUpMessageDTO, FollowUpRequestDTO, PartOfDay, RequestStatus } from "./follow-up-desk.dto";
 
 const psychologist = alias(staff, "psychologist");
@@ -160,12 +161,12 @@ export function createFollowUpDeskRepository(db: Db) {
         .limit(1000);
     },
 
-    /** Active staff who see clients (everyone except sales and coordinators), for choosing the psychologist. */
-    psychologists() {
+    /** Active staff in a role that treats clients (has "followups.own"), for choosing the psychologist. */
+    psychologists(roles: readonly AccessRole[]) {
       return db
         .select({ id: staff.id, name: staff.name })
         .from(staff)
-        .where(and(eq(staff.active, true), or(isNull(staff.designation), notInArray(staff.designation, ["Sales Executive", "Consultation Coordinator"]))))
+        .where(and(eq(staff.active, true), roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`))
         .orderBy(asc(staff.name));
     },
   };

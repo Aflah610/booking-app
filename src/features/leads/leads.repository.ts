@@ -3,7 +3,8 @@ import type { Db } from "@/db";
 import { booking, client, lead, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
-import { SALES_DESIGNATION, type CaptureResult, type LeadDTO, type LeadSource, type LeadStatus } from "./leads.dto";
+import type { AccessRole } from "@/features/access/permissions";
+import { type CaptureResult, type LeadDTO, type LeadSource, type LeadStatus } from "./leads.dto";
 
 const columns = {
   id: lead.id,
@@ -26,11 +27,11 @@ const columns = {
 
 const open = notInArray(lead.status, ["converted", "lost"]);
 
-/** Sales executives who can be given a lead at `at`: active, switched online, and not on leave. */
-const takingLeads = (at: Date) =>
+/** People who can be given a lead at `at`: active, in a role that works leads, switched online, and not on leave. */
+const takingLeads = (at: Date, roles: readonly AccessRole[]) =>
   and(
     eq(staff.active, true),
-    eq(staff.designation, SALES_DESIGNATION),
+    inArray(staff.accessRole, [...roles]),
     eq(staff.leadsOnline, true),
     sql`not exists (select 1 from time_off t where t.staff_id = ${staff.id} and t.starts_at <= ${at} and t.ends_at > ${at})`,
   );
@@ -49,6 +50,8 @@ export type NewLead = {
   at: Date;
   /** Staff adding a lead by hand open one even for someone who has booked before. */
   evenForClients: boolean;
+  /** The roles that get a share of new leads. */
+  salesRoles: readonly AccessRole[];
 };
 
 export function createLeadsRepository(db: Db) {
@@ -81,11 +84,11 @@ export function createLeadsRepository(db: Db) {
     },
 
     /** Sales executives with their online switch, for the switches on the Leads page. */
-    salesTeam() {
+    salesTeam(roles: readonly AccessRole[]) {
       return db
         .select({ id: staff.id, name: staff.name, online: staff.leadsOnline, changedAt: staff.leadsOnlineChangedAt })
         .from(staff)
-        .where(and(eq(staff.active, true), eq(staff.designation, SALES_DESIGNATION)))
+        .where(and(eq(staff.active, true), roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`))
         .orderBy(asc(staff.name));
     },
 
@@ -93,7 +96,7 @@ export function createLeadsRepository(db: Db) {
      * Turns someone's lead switch on or off. Coming online also shares out any leads that arrived while nobody was online,
      * in turn, so nothing waits for a manager. Returns how many waiting leads were handed out.
      */
-    setOnline(staffId: string, online: boolean, at: Date, audit: AuditEntry): Promise<number> {
+    setOnline(staffId: string, online: boolean, at: Date, roles: readonly AccessRole[], audit: AuditEntry): Promise<number> {
       return db.transaction(async (tx) => {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext('lead_capture'))`);
         await tx.update(staff).set({ leadsOnline: online, leadsOnlineChangedAt: at }).where(eq(staff.id, staffId));
@@ -101,7 +104,7 @@ export function createLeadsRepository(db: Db) {
         if (!online) return 0;
         const waiting = await tx.select({ id: lead.id }).from(lead).where(and(isNull(lead.assignedTo), open)).orderBy(asc(lead.createdAt));
         for (const w of waiting) {
-          const [next] = await tx.select({ id: staff.id }).from(staff).where(takingLeads(at)).orderBy(...nextInTurn).limit(1);
+          const [next] = await tx.select({ id: staff.id }).from(staff).where(takingLeads(at, roles)).orderBy(...nextInTurn).limit(1);
           if (!next) break;
           await tx.update(lead).set({ assignedTo: next.id, assignedAt: at }).where(eq(lead.id, w.id));
         }
@@ -110,12 +113,12 @@ export function createLeadsRepository(db: Db) {
     },
 
     /** Active staff who can be given leads, sales executives first. */
-    assignable() {
+    assignable(roles: readonly AccessRole[]) {
       return db
         .select({ id: staff.id, name: staff.name, designation: staff.designation })
         .from(staff)
         .where(eq(staff.active, true))
-        .orderBy(sql`case when ${staff.designation} = ${SALES_DESIGNATION} then 0 else 1 end`, asc(staff.name));
+        .orderBy(sql`case when ${roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`} then 0 else 1 end`, asc(staff.name));
     },
 
     /**
@@ -141,7 +144,7 @@ export function createLeadsRepository(db: Db) {
           if (booked) return { kind: "client" };
         }
 
-        const [next] = await tx.select({ id: staff.id }).from(staff).where(takingLeads(n.at)).orderBy(...nextInTurn).limit(1);
+        const [next] = await tx.select({ id: staff.id }).from(staff).where(n.salesRoles.length ? takingLeads(n.at, n.salesRoles) : sql`false`).orderBy(...nextInTurn).limit(1);
 
         const [created] = await tx
           .insert(lead)

@@ -1,20 +1,22 @@
 import type { BookingEvent } from "@/features/bookings/bookings.dto";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { COORDINATOR, OPEN_REQUEST_STATUSES, type DeskViewer, type FollowUpRequestDTO, type RequestStatus } from "./follow-up-desk.dto";
+import { can, type AccessRole } from "@/features/access/permissions";
+import { OPEN_REQUEST_STATUSES, type DeskViewer, type FollowUpRequestDTO, type RequestStatus } from "./follow-up-desk.dto";
 import type { FollowUpDeskRepository } from "./follow-up-desk.repository";
 import { messageInput, requestInput, statusInput } from "./follow-up-desk.schemas";
 
-const RANK = { staff: 0, manager: 1, admin: 2 } as const;
-const isManager = (v: DeskViewer) => RANK[v.role] >= RANK.manager;
+/** Coordinators (CCD) work every request; managers and admins see them all too ("followups.all"). */
+export const seesAllFollowUps = (v: DeskViewer) => can(v, "followups.all");
 
-/** Coordinators (CCD) work every request; managers and admins can see them all too. */
-export const seesAllFollowUps = (v: DeskViewer) => isManager(v) || v.designation === COORDINATOR;
+/** Psychologists use the desk for their own clients ("followups.own"). */
+export const canUseFollowUps = (v: DeskViewer) => seesAllFollowUps(v) || can(v, "followups.own");
 
-/** Everyone who treats clients uses the desk for their own clients; sales executives don't. */
-export const canUseFollowUps = (v: DeskViewer) => seesAllFollowUps(v) || v.designation !== "Sales Executive";
-
-export function createFollowUpDeskService({ deskRepo }: { deskRepo: FollowUpDeskRepository }) {
+export function createFollowUpDeskService({ deskRepo, clinicianRoles }: {
+  deskRepo: FollowUpDeskRepository;
+  /** The roles that treat clients (those with "followups.own"). */
+  clinicianRoles: () => Promise<AccessRole[]>;
+}) {
   async function get(viewer: DeskViewer, id: string): Promise<FollowUpRequestDTO> {
     if (!canUseFollowUps(viewer)) throw new DomainError("forbidden", "Sales executives don't use the follow-up desk");
     const row = isUuid(id) ? await deskRepo.findById(id) : null;
@@ -52,7 +54,7 @@ export function createFollowUpDeskService({ deskRepo }: { deskRepo: FollowUpDesk
       if (!canUseFollowUps(viewer)) throw new DomainError("forbidden", "Sales executives don't use the follow-up desk");
       const d = requestInput.parse(input);
       if (!seesAllFollowUps(viewer) && d.psychologistId !== viewer.id) throw new DomainError("forbidden", "You can only ask about your own clients");
-      if (!(await deskRepo.psychologists()).some((p) => p.id === d.psychologistId)) throw new DomainError("invalid", `Staff member ${d.psychologistId} doesn't see clients`);
+      if (!(await deskRepo.psychologists(await clinicianRoles())).some((p) => p.id === d.psychologistId)) throw new DomainError("invalid", `Staff member ${d.psychologistId} doesn't see clients`);
       if (!seesAllFollowUps(viewer) && !(await deskRepo.clientsOf(viewer.id)).some((c) => c.id === d.clientId)) {
         throw new DomainError("forbidden", "You can only ask about your own clients");
       }
@@ -88,7 +90,7 @@ export function createFollowUpDeskService({ deskRepo }: { deskRepo: FollowUpDesk
     },
 
     clientsOf: (staffId: string) => deskRepo.clientsOf(staffId),
-    psychologists: () => deskRepo.psychologists(),
+    psychologists: async () => deskRepo.psychologists(await clinicianRoles()),
 
     /** Booking the client with the request's psychologist closes the request as booked. */
     async onBookingEvent(event: BookingEvent) {

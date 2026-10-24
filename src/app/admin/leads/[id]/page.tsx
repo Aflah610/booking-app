@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import { LEAD_SOURCE_LABEL, LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/features/leads/leads.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { dateLabel, dayLabel, phoneLabel, timeLabel } from "@/lib/format";
-import { hasRole, requireStaff } from "@/lib/session";
+import { allowed, requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { reassignLeadAction, updateLeadAction } from "../actions";
 
@@ -22,7 +22,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     if (isDomainError(err)) notFound();
     throw err;
   });
-  const manager = hasRole(me, "manager");
+  const manager = allowed(me, "leads.all");
   const [team, s] = await Promise.all([manager ? app().leads.assignable() : Promise.resolve([]), app().settings.get()]);
   const tz = s.timezone;
   const first = l.clientName.split(/\s+/)[0];

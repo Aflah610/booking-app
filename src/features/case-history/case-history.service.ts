@@ -1,16 +1,23 @@
+import { can, type AccessHolder, type AccessRole } from "@/features/access/permissions";
 import { DomainError } from "@/features/shared/errors";
 import { PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import { isUuid } from "@/features/shared/validation";
 import type { StaffDTO } from "@/features/staff/staff.dto";
 import { NotConfigured, type Sender } from "@/features/workflows/workflows.dto";
 import { dayLabel } from "@/lib/format";
-import type { CaseListFilters, CaseListRow, CaseRecordDTO, Delivery } from "./case-history.dto";
+import { NOTE_DUE_HOURS, type CaseListFilters, type CaseListRow, type CaseRecordDTO, type Delivery, type PendingNoteDTO } from "./case-history.dto";
 import type { CaseHistoryRepository, NoteRow } from "./case-history.repository";
 import { addendumInput, followUpInput, intakeSteps, noteEditInput, noteInput, type IntakeStep } from "./case-history.schemas";
 import { LABEL, overallRisk, type Risk } from "./choices";
 
 /** Who is asking: a signed-in staff member. */
-export type Reader = Pick<StaffDTO, "id" | "role" | "clinicalAdmin"> & { name?: string };
+export type Reader = Pick<StaffDTO, "id" | "clinicalAdmin"> & AccessHolder & { name?: string };
+
+/** Case history (and its notes) open to everyone's clients: a clinical admin, or a role allowed to read them all. */
+const readsAll = (r: Reader) => r.clinicalAdmin || can(r, "casenotes.read_all");
+
+/** Session notes are expected from this date on; older sessions (before case history moved here) are not chased. */
+export const CASE_NOTES_REQUIRED_FROM = new Date("2026-10-25T00:00:00+05:30");
 
 /** The WhatsApp template Meta must approve for follow-ups (see docs/whatsapp-templates.md). */
 export const FOLLOW_UP_TEMPLATE = "follow_up_suggestion";
@@ -19,13 +26,15 @@ const noSender: Sender = async () => {
   throw new NotConfigured("not wired");
 };
 
-export function createCaseHistoryService({ caseRepo, senders = { email: noSender, whatsapp: noSender }, firmName = async () => "" }: {
+export function createCaseHistoryService({ caseRepo, senders = { email: noSender, whatsapp: noSender }, firmName = async () => "", writerRoles = async () => ["psychologist"] }: {
   caseRepo: CaseHistoryRepository;
+  /** The roles that write case notes ("casenotes.write"); their sessions are the ones chased for a note. */
+  writerRoles?: () => Promise<AccessRole[]>;
   senders?: { email: Sender; whatsapp: Sender };
   firmName?: () => Promise<string>;
 }) {
   async function canRead(reader: Reader, clientId: string): Promise<boolean> {
-    if (reader.clinicalAdmin) return true;
+    if (readsAll(reader)) return true;
     return (await caseRepo.currentTherapistId(clientId)) === reader.id;
   }
 
@@ -54,7 +63,29 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
   const audit = (reader: Reader, action: string, entity: string, entityId: string, details?: Record<string, unknown>) =>
     ({ actor: { staffId: reader.id }, action, entity, entityId, details });
 
+  /** Sessions still without a note, each with when the note was due (24 hours after the session ended). */
+  async function pending(staffId: string | undefined, now: Date): Promise<PendingNoteDTO[]> {
+    const rows = await caseRepo.pendingNotes({ now, from: CASE_NOTES_REQUIRED_FROM, roles: await writerRoles(), staffId });
+    return rows.map((r) => {
+      const dueAt = new Date(r.endsAt.getTime() + NOTE_DUE_HOURS * 3600_000);
+      return { ...r, dueAt, overdue: dueAt <= now };
+    });
+  }
+
   return {
+    /**
+     * Pending case notes. Whoever may see pending notes (managers) gets everyone's; a psychologist only their own. No clinical
+     * content: just which session, with whom, and since when.
+     */
+    async pendingNotes(viewer: Reader, opts: { staffId?: string } = {}, now = new Date()): Promise<PendingNoteDTO[]> {
+      if (can(viewer, "casenotes.pending") || readsAll(viewer)) return pending(opts.staffId, now);
+      if (can(viewer, "casenotes.write")) return pending(viewer.id, now);
+      throw new DomainError("forbidden", "Only managers and psychologists can see pending case notes");
+    },
+
+    /** For the menu badge: notes now more than 24 hours late, across the practice. */
+    countOverdueNotes: async (now = new Date()) => (await pending(undefined, now)).filter((p) => p.overdue).length,
+
     canRead,
     open,
 
@@ -199,15 +230,14 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
     },
 
     /**
-     * The list, with clinical fields blanked where the reader may not see them. A therapist who is neither a clinical admin
-     * nor a manager sees only their own clients.
+     * The list. Someone allowed to read every case history sees all clients; a psychologist sees only their own clients.
      */
     async list(reader: Reader, f: CaseListFilters = {}): Promise<CaseListRow[]> {
-      const seesEveryone = reader.clinicalAdmin || reader.role !== "staff";
+      const seesEveryone = readsAll(reader);
       const rows = (await caseRepo.list(f.q?.trim() || undefined))
         .filter((r) => seesEveryone || r.therapistId === reader.id)
         .map((r): CaseListRow => {
-          const restricted = !(reader.clinicalAdmin || r.therapistId === reader.id);
+          const restricted = !(readsAll(reader) || r.therapistId === reader.id);
           return {
             clientId: r.clientId, clientName: r.clientName, clientNumber: r.clientNumber, clientPhone: r.clientPhone,
             status: r.status ?? "intake_pending",

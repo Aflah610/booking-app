@@ -81,6 +81,8 @@ export const staff = pgTable("staff", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   role: staffRole("role").notNull().default("staff"),
+  /** What they may do in the app (admin, manager, psychologist, bde, ccd); see features/access/permissions.ts. */
+  accessRole: text("access_role").$type<"admin" | "manager" | "psychologist" | "bde" | "ccd">().notNull().default("psychologist"),
   /** Profession shown beside their name; null = not set. The allowed values live in DESIGNATIONS (staff.dto.ts). */
   designation: text("designation").$type<"Psychiatrist" | "Psychologist" | "Nutritionist" | "Sales Executive" | "Consultation Coordinator">(),
   timezone: text("timezone").notNull().default("Asia/Kolkata"),
@@ -805,3 +807,11 @@ export const followUpRead = pgTable("follow_up_read", {
   staffId: uuid("staff_id").notNull().references(() => staff.id, { onDelete: "cascade" }),
   readAt: timestamp("read_at", { withTimezone: true }).notNull(),
 }, (t) => [primaryKey({ columns: [t.requestId, t.staffId] })]);
+
+/** An admin's change to a role's default permissions (features/access/permissions.ts); a role without a row uses the default. */
+export const rolePermission = pgTable("role_permission", {
+  accessRole: text("access_role").notNull(),
+  permission: text("permission").notNull(),
+  allowed: boolean("allowed").notNull(),
+  updatedAt: updatedAt(),
+}, (t) => [primaryKey({ columns: [t.accessRole, t.permission] })]);

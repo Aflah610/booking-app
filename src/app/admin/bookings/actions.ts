@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import type { PaymentStatus } from "@/features/bookings/bookings.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { act, answersFromForm, optional, str } from "@/lib/form-actions";
-import { isFrontDesk, requireStaff } from "@/lib/session";
+import { isFrontDesk, requirePermission, requireStaff } from "@/lib/session";
 
 const deskActor = (staffId: string): BookingActor => ({ staffId, mode: "staff" });
 
@@ -18,7 +18,7 @@ async function requireBookingAccess(id: string) {
 }
 
 export async function createBookingAction(form: FormData) {
-  const me = await requireStaff();
+  const me = await requirePermission("bookings.create");
   const back = `/admin/bookings/new?${new URLSearchParams({
     service: str(form, "serviceId"),
     staff: str(form, "staffId"),

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { app } from "@/features/container";
 import { addDays } from "@/features/availability/slots";
-import { isFrontDesk, requireStaff } from "@/lib/session";
+import { withoutContact } from "@/lib/contact";
+import { allowed, isFrontDesk, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { BookingsTable } from "@/components/BookingsTable";
 import { ColumnsManager } from "@/components/ColumnsManager";
@@ -55,7 +56,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   if (view === "upcoming" && from && from <= now) from = null;
   if (view === "past" && to && to >= now) to = null;
 
-  const rows = await bookings.list({
+  const rows = withoutContact(me, await bookings.list({
     view,
     staffId: staffFilter,
     serviceId,
@@ -64,7 +65,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     from,
     to,
     limit: 200,
-  });
+  }));
   const columns = resolveColumns(savedColumns, "bookings");
   const active = [serviceId, payment, packageBalance, fromDay, toDay, staffFilter && manager ? staffFilter : undefined].filter(Boolean).length;
   const keep = { staff: staffFilter ?? "all", service: serviceId, payment, package: packageBalance, from: fromDay, to: toDay };
@@ -75,7 +76,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       <PageHeader
         title="Bookings"
         subtitle="See upcoming and past appointments, or book one for a client."
-        action={<Link href="/admin/bookings/new" className="btn"><Icon name="plus" /> New booking</Link>}
+        action={allowed(me, "bookings.create") ? <Link href="/admin/bookings/new" className="btn"><Icon name="plus" /> New booking</Link> : undefined}
       />
       <Notice error={sp.error} ok={sp.ok} />
       {/* The Filters button is a label for a hidden checkbox, so the panel opens and closes without any script. It stays open while filters are on. */}

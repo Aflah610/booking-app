@@ -141,8 +141,8 @@ describe("the list", () => {
   it("hides diagnosis from readers without access and shows a therapist only their own clients", async () => {
     const { asha, dev, manager, lead, clientId } = await setup();
     await c.caseHistory.saveIntake(asha, clientId, 5, { riskSuicide: "high", diagnosisCode: "6A70" });
-    const forManager = await c.caseHistory.list(manager);
-    expect(forManager[0]).toMatchObject({ clientId, restricted: true, diagnosisLabel: null, risk: "high", therapistName: "Asha" });
+    // Managers see only which notes are pending (a separate page), never the case history list.
+    expect(await c.caseHistory.list(manager)).toEqual([]);
     expect((await c.caseHistory.list(lead))[0]).toMatchObject({ restricted: false, diagnosisLabel: "Single episode depressive disorder" });
     expect(await c.caseHistory.list(dev)).toEqual([]);
     expect((await c.caseHistory.list(asha)).map((r) => r.clientId)).toEqual([clientId]);

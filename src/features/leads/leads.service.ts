@@ -2,19 +2,24 @@ import type { Actor } from "@/features/audit/audit.types";
 import type { BookingEvent } from "@/features/bookings/bookings.dto";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { OPEN_STATUSES, SALES_DESIGNATION, type CaptureResult, type LeadDTO, type LeadStatus, type LeadViewer } from "./leads.dto";
+import { can, type AccessRole } from "@/features/access/permissions";
+import { OPEN_STATUSES, type CaptureResult, type LeadDTO, type LeadStatus, type LeadViewer } from "./leads.dto";
 import type { LeadsRepository } from "./leads.repository";
 import { captureInput, leadUpdateInput, type CaptureInput } from "./leads.schemas";
 
-const RANK = { staff: 0, manager: 1, admin: 2 } as const;
-const isManager = (v: LeadViewer) => RANK[v.role] >= RANK.manager;
+/** Sees every lead, reassigns, and switches others online ("leads.all"). */
+const isManager = (v: LeadViewer) => can(v, "leads.all");
 
-/** Sales executives work their own leads; managers and admins see and reassign all of them. */
+/** BDEs work their own leads; whoever runs sales sees and reassigns all of them (Settings > Roles & access). */
 export function canUseLeads(v: LeadViewer): boolean {
-  return isManager(v) || v.designation === SALES_DESIGNATION;
+  return isManager(v) || can(v, "leads.own");
 }
 
-export function createLeadsService({ leadsRepo }: { leadsRepo: LeadsRepository }) {
+export function createLeadsService({ leadsRepo, salesRoles }: {
+  leadsRepo: LeadsRepository;
+  /** The roles that get a share of new leads (those with "leads.own"). */
+  salesRoles: () => Promise<AccessRole[]>;
+}) {
   async function get(viewer: LeadViewer, id: string): Promise<LeadDTO> {
     if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can open leads");
     const row = isUuid(id) ? await leadsRepo.findById(id) : null;
@@ -36,6 +41,7 @@ export function createLeadsService({ leadsRepo }: { leadsRepo: LeadsRepository }
         notes: d.notes ?? null,
         at: d.at ?? new Date(),
         evenForClients,
+        salesRoles: await salesRoles(),
       },
       // The audit row says a lead was opened and for whom it is; the person's details stay on the client row.
       { actor, action: "create", entity: "lead" },
@@ -68,12 +74,12 @@ export function createLeadsService({ leadsRepo }: { leadsRepo: LeadsRepository }
     /** For the menu: new leads waiting for this person (or for anyone, for managers). */
     countNew: (viewer: LeadViewer) => (canUseLeads(viewer) ? leadsRepo.countNew(isManager(viewer) ? undefined : viewer.id) : Promise.resolve(0)),
 
-    assignable: () => leadsRepo.assignable(),
+    assignable: async () => leadsRepo.assignable(await salesRoles()),
 
     /** The sales executives and whether each is taking leads, for the switches on the Leads page. */
     async salesTeam(viewer: LeadViewer) {
       if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see the sales team");
-      return leadsRepo.salesTeam();
+      return leadsRepo.salesTeam(await salesRoles());
     },
 
     /**
@@ -82,8 +88,8 @@ export function createLeadsService({ leadsRepo }: { leadsRepo: LeadsRepository }
      */
     async setOnline(viewer: LeadViewer, staffId: string, online: boolean, now = new Date()): Promise<number> {
       if (staffId !== viewer.id && !isManager(viewer)) throw new DomainError("forbidden", "You can only switch yourself online or offline");
-      if (!(await leadsRepo.salesTeam()).some((s) => s.id === staffId)) throw new DomainError("invalid", `Staff member ${staffId} is not an active sales executive`);
-      return leadsRepo.setOnline(staffId, online, now, {
+      if (!(await leadsRepo.salesTeam(await salesRoles())).some((s) => s.id === staffId)) throw new DomainError("invalid", `Staff member ${staffId} is not an active sales executive`);
+      return leadsRepo.setOnline(staffId, online, now, await salesRoles(), {
         actor: { staffId: viewer.id }, action: online ? "leads_online" : "leads_offline", entity: "staff", entityId: staffId,
       });
     },
@@ -103,7 +109,7 @@ export function createLeadsService({ leadsRepo }: { leadsRepo: LeadsRepository }
     async reassign(viewer: LeadViewer, id: string, staffId: string) {
       if (!isManager(viewer)) throw new DomainError("forbidden", "Only managers and admins can reassign leads");
       const current = await get(viewer, id);
-      if (!(await leadsRepo.assignable()).some((s) => s.id === staffId)) throw new DomainError("invalid", `Staff member ${staffId} can't be given leads`);
+      if (!(await leadsRepo.assignable(await salesRoles())).some((s) => s.id === staffId)) throw new DomainError("invalid", `Staff member ${staffId} can't be given leads`);
       if (current.assignedTo === staffId) return;
       await leadsRepo.update(id, { assignedTo: staffId }, {
         actor: { staffId: viewer.id }, action: "reassign", entity: "lead", entityId: id, details: { staffId, previousStaffId: current.assignedTo },

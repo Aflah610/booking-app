@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import { LEAD_SOURCE_LABEL, LEAD_STATUS_LABEL } from "@/features/leads/leads.dto";
 import { canUseLeads } from "@/features/leads/leads.service";
 import { dateLabel, dayLabel, phoneLabel, timeLabel } from "@/lib/format";
-import { hasRole, requireStaff } from "@/lib/session";
+import { allowed, requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { setLeadsOnlineAction } from "./actions";
@@ -19,7 +19,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   if (!canUseLeads(me)) redirect("/?error=forbidden");
   const sp = await searchParams;
   const view = sp.view && sp.view in VIEWS ? (sp.view as keyof typeof VIEWS) : "open";
-  const manager = hasRole(me, "manager");
+  const manager = allowed(me, "leads.all");
   const [rows, team, s, sales] = await Promise.all([
     app().leads.list(me, { view, q: sp.q?.trim() || undefined, assignedTo: sp.staff || undefined }),
     manager ? app().leads.assignable() : Promise.resolve([]),

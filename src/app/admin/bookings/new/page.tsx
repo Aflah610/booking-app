@@ -2,7 +2,7 @@ import Link from "next/link";
 import { app } from "@/features/container";
 import { isUuid } from "@/features/shared/validation";
 import { addDays } from "@/features/availability/slots";
-import { isFrontDesk, requireStaff } from "@/lib/session";
+import { isFrontDesk, requirePermission } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, timeLabel } from "@/lib/format";
 import { ClientFields } from "@/components/ClientFields";
@@ -21,7 +21,8 @@ export default async function NewBookingPage({
 }: {
   searchParams: Promise<{ service?: string; staff?: string; date?: string; start?: string; client?: string; error?: string }>;
 }) {
-  const me = await requireStaff();
+  // Booking for clients is the coordinators' job ("bookings.create"); others send the client the booking link.
+  const me = await requirePermission("bookings.create");
   const sp = await searchParams;
   const { catalog, staff, availability, settings } = app();
   const [services, s] = await Promise.all([catalog.list({ activeOnly: true }), settings.get()]);

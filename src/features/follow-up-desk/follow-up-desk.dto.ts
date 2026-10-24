@@ -1,6 +1,5 @@
-import type { Designation, StaffDTO } from "@/features/staff/staff.dto";
-
-export const COORDINATOR: Designation = "Consultation Coordinator";
+import type { AccessHolder } from "@/features/access/permissions";
+import type { Designation } from "@/features/staff/staff.dto";
 
 export const REQUEST_STATUSES = ["new", "contacting", "waiting_psychologist", "booked", "declined"] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
@@ -18,7 +17,7 @@ export const PARTS_OF_DAY = ["morning", "afternoon", "evening"] as const;
 export type PartOfDay = (typeof PARTS_OF_DAY)[number];
 
 /** Who is looking: the permission rules only need these. */
-export type DeskViewer = Pick<StaffDTO, "id" | "role" | "designation">;
+export type DeskViewer = { id: string } & AccessHolder;
 
 export type FollowUpRequestDTO = {
   id: string;

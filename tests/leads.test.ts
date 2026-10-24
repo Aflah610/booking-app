@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { AccessRole } from "@/features/access/permissions";
 import type { LeadViewer } from "@/features/leads/leads.dto";
 import { incomingMessages, signatureValid } from "@/features/leads/whatsapp-webhook";
 import { c, reset } from "./helpers";
@@ -10,7 +11,7 @@ let n = 0;
 const sales = (name: string) => c.staff.create({}, { name, email: `${name.toLowerCase()}${++n}@firm.test`, designation: "Sales Executive" });
 const message = (phone: string, at: string, ad = false) =>
   c.leads.receive({ phone, name: "Someone", source: ad ? "whatsapp_ad" : "whatsapp", adHeadline: ad ? "Anxiety reel" : null, at: new Date(at) });
-const asViewer = (s: { id: string; role: "staff" | "manager" | "admin"; designation: string | null }): LeadViewer => s;
+const asViewer = (s: { id: string; accessRole: AccessRole }): LeadViewer => s;
 
 describe("sharing new leads", () => {
   it("gives new leads to the sales executives in turn", async () => {

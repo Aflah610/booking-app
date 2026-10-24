@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import { clientStatus, type ClientStatus } from "@/features/clients/client-status";
 import { clientReference, type ClientDTO } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
-import { requireStaff } from "@/lib/session";
+import { allowed, requirePermission } from "@/lib/session";
 import { BookingRow } from "@/components/BookingRow";
 import { ClientCredits } from "@/components/ClientCredits";
 import { Notice } from "@/components/Notice";
@@ -34,7 +34,7 @@ export default async function ClientPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string; tab?: string; bookings?: string }>;
 }) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("clients.view");
   const { id } = await params;
   const sp = await searchParams;
   const tab = sp.tab && sp.tab in TABS ? (sp.tab as keyof typeof TABS) : "case";
@@ -103,7 +103,7 @@ export default async function ClientPage({
                 {next && <> · next session {dayLabel(next.startsAt, tz)}, {timeLabel(next.startsAt, tz)}</>}
               </p>
             </div>
-            <Link href={`/admin/bookings/new?${new URLSearchParams({ client: id, ...(current ? { staff: current.staffId } : {}) })}`} className="btn">New booking</Link>
+            {allowed(me, "bookings.create") && <Link href={`/admin/bookings/new?${new URLSearchParams({ client: id, ...(current ? { staff: current.staffId } : {}) })}`} className="btn">New booking</Link>}
           </div>
 
           <nav className="tabs" aria-label="Client sections">

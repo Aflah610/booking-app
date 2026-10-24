@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { app } from "@/features/container";
-import { requireStaff } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { BookingPrefixField } from "@/components/BookingPrefixField";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
@@ -10,7 +10,7 @@ import { sendSampleEmailAction, sendTestEmailAction, updateSettingsAction } from
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
-  const me = await requireStaff("admin");
+  const me = await requirePermission("settings.manage");
   const { error, ok } = await searchParams;
   const mail = app().mail.status();
   const [s, nextNumber] = await Promise.all([app().settings.get(), app().bookings.nextNumber()]);

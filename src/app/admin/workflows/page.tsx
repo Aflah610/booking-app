@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { app } from "@/features/container";
 import { CHANNEL_LABEL, KIND_LABEL, kindOf, whenLabel, type WorkflowKind } from "@/features/workflows/workflows.dto";
-import { hasRole, requireStaff } from "@/lib/session";
+import { hasRole, requirePermission } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { toggleWorkflowAction } from "./actions";
@@ -9,7 +9,7 @@ import { toggleWorkflowAction } from "./actions";
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowsPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string; type?: string }> }) {
-  const me = await requireStaff("manager");
+  const me = await requirePermission("workflows.manage");
   const { error, ok, type } = await searchParams;
   const kind: WorkflowKind = type === "system" ? "system" : "notification";
   const [all, services] = await Promise.all([app().workflows.list(), app().catalog.list()]);
