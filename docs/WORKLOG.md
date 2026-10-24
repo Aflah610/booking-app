@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · cross-project security review
+
+- Added `docs/SECURITY-REVIEW-2026-10-25.md` in both projects. Three high-priority
+  findings: manager can edit an existing admin login email, booking mutations
+  bypass booking permission, and Worker capture failures still confirm paid status.
+- Four medium findings cover clinical permission revocation, contact lookup,
+  workflow internal destinations and missing booking-app browser security headers.
+- Six offline synthetic probes confirmed the paths; script is in the website repo
+  at `tools/security/review-checks.cjs`. No production data or real payments touched.
+- Live sampled private routes denied unauthenticated access; production npm audit
+  reported no known advisories, full audit found four moderate affected dev packages
+  in one esbuild chain. AWS/network/backups and legacy services need separate verification.
+- All findings open. No live behaviour changed. Prioritise S1-S3 before further import.
+
 ## 2026-10-25 · Codex · shared system overview
 
 - Added `docs/OVERVIEW.md` with Aflah's ecosystem summary, completed work, pending
