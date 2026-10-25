@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · Google Calendar + Meet switched on
+
+- Google Cloud project `mindlap-booking` (owner admin@mindlap.in): Calendar API on, consent screen Internal
+  (only @mindlap.in accounts), OAuth web client "Mindlap booking app" with redirects
+  `/api/calendar/google/callback` and `/api/auth/callback/google` on book.mindlap.in.
+- Server `/opt/mindlap/app.env`: GOOGLE_CALENDAR_CLIENT_ID/SECRET and CALENDAR_ENCRYPTION_KEY added (backup
+  `app.env.bak-*`), app recreated, health ok. AUTH_GOOGLE_* (Google sign-in) NOT set.
+- Live data: business.meet_enabled = true; both services meeting_type = google_meet.
+- Open: each psychologist connects Google Calendar (Staff > their page > Connect) with their @mindlap.in account.
+  Staff login emails are still the old Gmail addresses (not changed). MCH dry run done (283 clients / 198 case
+  histories / 394 notes would copy, 20 clients held back for shared/invalid phones); real copy waits for Aflah.
+  Neon and Catalyst deleted. Workspace: 16 users, support@mindlap.in group with send-as.
+
 ## 2026-10-25 · Codex · cross-project security review
 
 - Added `docs/SECURITY-REVIEW-2026-10-25.md` in both projects. Three high-priority
