@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · CCD activation investigation and Meta support draft
+
+- CCD is labelled WhatsApp Business app in Business Settings and remains Offline in WhatsApp Manager.
+  Business Support Home lists four other platform messaging accounts without issues; CCD is absent.
+  This is evidence of an onboarding gap, not proof of a policy ban or an App Review root cause.
+- App Quickstart shows business verification completed and Tech Provider App Review incomplete. The provider
+  enrolment flow requires Tech Provider Terms and describes messaging for client businesses. Did not accept
+  those terms or enrol Mindlap as a provider for its own internal integration.
+- Opened Meta Direct Support via app Resources > Review open support tickets. Prepared Dev: Onboarding /
+  Onboarding Status Pending case asking for the exact template restriction reason and supported self-owned
+  Coexistence activation route. Draft is filled, NOT submitted; await explicit approval to contact Meta.
+- Billing remains funded; no token, server setting, template approval or test delivery completed. No app code
+  changed. Preserve the support form while awaiting approval. Private review copy is outside the repository.
+
 ## 2026-10-25 · Codex · Meta refuses CCD template management; phone Offline
 
 - Aflah supplied Meta's explicit error: WABA not allowed to manage templates; this WABA is not allowed to create
