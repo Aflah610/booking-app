@@ -43,7 +43,7 @@ describe("S1: only admins change an admin", () => {
   it("refuses a manager changing an admin's email or switching them off, and leaves the admin unchanged", async () => {
     const admin = await c.staff.create({}, { name: "Owner", email: "owner@firm.test", accessRole: "admin" });
     const manager = await c.staff.create({}, { name: "Mona", email: "mona@firm.test", accessRole: "manager" });
-    const takeover = form({ name: "Owner", email: "attacker@firm.test", accessRole: "admin", active: "on" });
+    const takeover = form({ name: "Owner", email: "attacker@firm.test", accessRole: "admin", active: "on", timezone: "Asia/Kolkata" });
     expect(await as(manager.id, () => updateStaffAction(admin.id, takeover))).toMatch(/error=Only admins can change an admin's details/);
     expect(await as(manager.id, () => updateStaffAction(admin.id, form({ name: "Owner", email: "owner@firm.test", accessRole: "admin" })))).toMatch(/error=/);
     expect(await c.staff.get(admin.id)).toMatchObject({ email: "owner@firm.test", active: true });
@@ -57,7 +57,7 @@ describe("S1: only admins change an admin", () => {
     const second = await c.staff.create({}, { name: "Partner", email: "partner@firm.test", accessRole: "admin" });
     const manager = await c.staff.create({}, { name: "Mona", email: "mona@firm.test", accessRole: "manager" });
     const psych = await c.staff.create({}, { name: "Asha", email: "asha@firm.test", designation: "Psychologist" });
-    expect(await as(manager.id, () => updateStaffAction(psych.id, form({ name: "Asha K", email: "asha@firm.test", accessRole: "psychologist", active: "on" })))).toMatch(/ok=Saved/);
+    expect(await as(manager.id, () => updateStaffAction(psych.id, form({ name: "Asha K", email: "asha@firm.test", accessRole: "psychologist", active: "on", timezone: "Asia/Kolkata" })))).toMatch(/ok=Saved/);
     expect((await c.staff.get(psych.id)).name).toBe("Asha K");
     await c.staff.update({ staffId: admin.id }, second.id, { name: "Partner Two" });
     expect((await c.staff.get(second.id)).name).toBe("Partner Two");
@@ -71,8 +71,8 @@ describe("S2: only the booking role moves, cancels or takes payment", () => {
     await c.staff.setServices({}, psych.id, [therapy.id]);
     await c.schedules.setWeeklyHours({}, psych.id, [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startTime: "09:00", endTime: "17:00" })));
     const { booking } = await c.bookings.create({ mode: "staff" }, {
-      serviceId: therapy.id, staffId: psych.id, start: zonedToUtc("2030-01-07T10:00", "Asia/Kolkata"), client: { name: "Ravi", phone: "98765 43210" },
-    });
+      serviceId: therapy.id, staffId: psych.id, start: zonedToUtc("2026-11-16T10:00", "Asia/Kolkata"), client: { name: "Ravi", phone: "98765 43210" },
+    }, { now: zonedToUtc("2026-10-26T09:00", "Asia/Kolkata") });
     return { psych, booking };
   }
 
