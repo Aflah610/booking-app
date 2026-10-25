@@ -202,7 +202,7 @@ describe("registered clients versus failed online attempts", () => {
     const online = await c.bookings.create({ mode: "client" }, {
       serviceId: (await c.catalog.list())[0].id, staffId: asha.id,
       start: at("2026-09-04T10:00"), client: { name: "Unpaid checkout", phone: "98000 00001" }, useCredits: false,
-    }, { now: at("2026-09-01T08:00") });
+    }, { now: at("2026-09-01T08:00"), idempotencyKey: "directory-unpaid-checkout" });
     const id = online.booking.clientId;
     const manual = await c.clients.create({ staffId: shana.id }, { name: "Manual registration", phone: "98000 00002" });
     // Simply opening a clinical page must not promote a failed checkout into the Clients directory.
