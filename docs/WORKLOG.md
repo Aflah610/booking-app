@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · Meta refuses CCD template management; phone Offline
+
+- Aflah supplied Meta's explicit error: WABA not allowed to manage templates; this WABA is not allowed to create
+  or update templates. An enabled editor/Submit button was not proof of account eligibility. No approved CCD template
+  or successful submission has been established. Do not retry unchanged template content to fix this account-level error.
+- Read-only check in CCD WhatsApp Manager > Phone numbers shows ending 91552 as Offline. Settings exposes only Profile;
+  profile editing controls are disabled. Phone number ID was read directly from that UI: 776524275555070.
+  Account/asset ID remains 1584174005895546. These are distinct IDs; neither was written to booking settings.
+- This differs from Business settings' prior Connected phone/portfolio link and funded billing. Combined with absence from
+  app API Setup sender list, it supports incomplete API activation as a lead. It does not prove Meta's exact restriction
+  reason or a policy violation. Next: complete/diagnose Coexistence Cloud API onboarding and account permissions, then
+  resubmit templates only once Meta permits it. No test message sent, token created or server credential used.
+- Explicit approval for the specific server-key use is still pending. User's error screenshot is not such approval.
+
 ## 2026-10-25 · Codex · CCD template drafts ready; API and server access still pending
 
 - In the CCD account 1584174005895546, prepared three English Utility forms with synthetic samples:
