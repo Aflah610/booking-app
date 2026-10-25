@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Claude Code · Nida added as BDE
+
+- Live data only, no code: staff member Nida (nida@mindlap.in, Sales Executive, role BDE) added through Staff.
+  She shows Online under "Taking new leads" next to Nihla, so new leads now split between the two.
+- Her Google Workspace account nida@mindlap.in was set up by Aflah in Google Admin; she signs in with Google.
+
 ## 2026-10-26 · Codex · registered Clients directory fixed and verified live
 
 - Aflah reported failed online checkouts still appearing in Clients. The prior case-history filter did not filter
