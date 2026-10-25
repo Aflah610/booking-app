@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Codex · S7 browser protections prepared
+
+- Added nosniff, no-referrer, HSTS and Permissions-Policy headers across responses. HTML uses a per-request
+  cryptographic script nonce, passed to Next's renderer through Proxy; production scripts do not use unsafe-inline
+  or unsafe-eval. Root rendering is dynamic so nonces cannot be cached into static HTML.
+- Staff/login/clinical pages deny framing. /book embeds remain allowed from mindlap.in and www.mindlap.in.
+  CSP retains Meta signup connections/frames and Google/Microsoft sign-in redirects; inline styles remain allowed
+  for current UI compatibility. Eight header-policy tests passed; 36 combined offline S6/S7 tests passed.
+- Not live yet: production build and CI validation pending. S4/S5 PR #2, S6 PR #3; each change is separately reviewable.
+  The server must deploy a passing main revision before these protections are called live.
+
 ## 2026-10-26 · Codex · S6 webhook destinations restricted to public HTTPS
 
 - Removed the localhost HTTP exception. Saved URLs reject credentials, fragments, loopback/private literals and

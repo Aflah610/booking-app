@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   // Self-contained server bundle for the Docker image (AppSail, AWS or your own server).
   output: "standalone",
   poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "no-referrer" },
+      { key: "Strict-Transport-Security", value: "max-age=31536000" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+    ] }];
+  },
   experimental: {
     serverActions: {
       // Catalyst's proxy sends "x-forwarded-host: <host>:443" but the browser's Origin has no port, so Next's request-forgery check
