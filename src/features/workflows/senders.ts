@@ -54,14 +54,18 @@ function emailSender(env: Env): Sender {
   };
 }
 
-/** WhatsApp Cloud API. Business-started chats must use a template Meta has approved. */
-function whatsappSender(env: Env): Sender {
+/**
+ * WhatsApp Cloud API. The connected CCD number takes precedence over the legacy environment setting.
+ * Business-started chats must use a template Meta has approved.
+ */
+function whatsappSender(env: Env, messagesNumber: () => Promise<string | null>): Sender {
   return async (msg) => {
     if (msg.channel !== "whatsapp") throw new Error("Wrong channel");
-    if (!env.WHATSAPP_PHONE_NUMBER_ID || !env.WHATSAPP_ACCESS_TOKEN) {
-      throw new NotConfigured("WhatsApp isn't set up yet. Set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.");
+    const from = (await messagesNumber()) || env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!from || !env.WHATSAPP_ACCESS_TOKEN) {
+      throw new NotConfigured("WhatsApp isn't set up yet. Connect the messages number in Settings > WhatsApp and set WHATSAPP_ACCESS_TOKEN.");
     }
-    const res = await fetch(`https://graph.facebook.com/v21.0/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${from}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -97,6 +101,6 @@ function webhookSender(env: Env): Sender {
   };
 }
 
-export function createSenders(env: Env = process.env): Senders {
-  return { email: emailSender(env), whatsapp: whatsappSender(env), webhook: webhookSender(env) };
+export function createSenders(env: Env = process.env, messagesNumber: () => Promise<string | null> = async () => null): Senders {
+  return { email: emailSender(env), whatsapp: whatsappSender(env, messagesNumber), webhook: webhookSender(env) };
 }

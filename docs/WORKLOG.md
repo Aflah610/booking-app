@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · CCD WhatsApp continuation
+
+- Took over Claude's interrupted ccd-number branch at Aflah's request. Separate leads and CCD connection cards,
+  migration 0037 and CCD workflow sender routing; existing OTP settings unchanged. Connected CCD sender takes priority
+  over the legacy environment number. CCD/OTP replies cannot create leads when sales is not connected.
+- Fixed shared Meta SDK loading and signup event handling for two cards; reject a duplicate number before Meta calls,
+  with a database constraint as a concurrency backstop. Added real-database signed webhook and sender regression tests.
+- Validation: lint and typecheck pass. Local Turbopack build blocked by pre-existing node_modules junction;
+  webpack build and CI validation in progress. Windows test launcher unavailable locally; CI uses disposable Postgres.
+- Not live yet. No real messages sent, workflows enabled or production records changed. See docs/whatsapp-ccd-handover.md
+  for template drafts and activation: Meta billing, CCD phone signup, permanent sending token and template approval.
+- Still open: coordinated Meta app-secret rotation, 774/Zoho cutover with Aflah, staff Calendar connections,
+  MCH real import (approval pending), and the security-review findings. Do not import clinical data before S1-S3 fixes.
+
 ## 2026-10-25 · Claude Code · Meta app live, webhook verified
 
 - Meta app "Mindlap Messaging" (1528505165963496) published (live). App domain mindlap.in, privacy/terms/data

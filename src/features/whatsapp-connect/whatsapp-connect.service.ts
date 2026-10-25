@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { can, type AccessHolder } from "@/features/access/permissions";
 import { DomainError } from "@/features/shared/errors";
-import type { MetaGraph, SignupResult } from "./whatsapp-connect.dto";
+import { WHATSAPP_PURPOSES, type MetaGraph, type SignupResult, type WhatsAppPurpose } from "./whatsapp-connect.dto";
 import type { WhatsAppConnectRepository } from "./whatsapp-connect.repository";
 
 const metaId = z.string().trim().regex(/^\d{5,25}$/, "Meta sent an id that isn't a number");
@@ -41,16 +41,20 @@ export function createWhatsAppConnectService({ repo, graph }: { repo: WhatsAppCo
 
     /**
      * Finishes Meta's embedded sign-up (Coexistence: the number stays on the phone's WhatsApp Business app). Subscribes our
-     * app to the account so new chats become leads, then remembers which number is the leads number.
+     * app to the account so its chats reach the webhook, then remembers the number as the leads or the messages number.
      */
-    async connect(viewer: { id: string } & AccessHolder, input: SignupResult, now = new Date()) {
+    async connect(viewer: { id: string } & AccessHolder, purpose: WhatsAppPurpose, input: SignupResult, now = new Date()) {
       if (!can(viewer, "settings.manage")) throw new DomainError("forbidden", "Only admins can connect WhatsApp");
+      if (!WHATSAPP_PURPOSES.includes(purpose)) throw new DomainError("invalid", `Unknown WhatsApp number "${purpose}"`);
       const d = signupInput.parse(input);
+      const other = (await repo.get())[purpose === "leads" ? "messages" : "leads"];
+      if (other.phoneNumberId === d.phoneNumberId) throw new DomainError("conflict", "That number is already connected for the other use. Leads and messages need two different numbers.");
       const token = await graph.exchangeCode(d.code);
       await graph.subscribeApp(d.wabaId, token);
       await repo.save(
+        purpose,
         { wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, at: now },
-        { actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { wabaId: d.wabaId, phoneNumberId: d.phoneNumberId } },
+        { actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { purpose, wabaId: d.wabaId, phoneNumberId: d.phoneNumberId } },
       );
     },
   };

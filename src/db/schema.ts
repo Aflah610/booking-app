@@ -79,8 +79,15 @@ export const business = pgTable("business", {
   whatsappWabaId: text("whatsapp_waba_id"),
   whatsappPhoneNumberId: text("whatsapp_phone_number_id"),
   whatsappConnectedAt: timestamp("whatsapp_connected_at", { withTimezone: true }),
+  /** The number automatic messages (reminders, confirmations) are sent from; the CCD answers replies on it. */
+  whatsappMsgWabaId: text("whatsapp_msg_waba_id"),
+  whatsappMsgPhoneNumberId: text("whatsapp_msg_phone_number_id"),
+  whatsappMsgConnectedAt: timestamp("whatsapp_msg_connected_at", { withTimezone: true }),
   updatedAt: updatedAt(),
-}, (t) => [check("business_single_row", sql`${t.id} = 1`)]);
+}, (t) => [
+  check("business_single_row", sql`${t.id} = 1`),
+  check("whatsapp_distinct_numbers", sql`${t.whatsappPhoneNumberId} IS NULL OR ${t.whatsappMsgPhoneNumberId} IS NULL OR ${t.whatsappPhoneNumberId} <> ${t.whatsappMsgPhoneNumberId}`),
+]);
 
 export const staff = pgTable("staff", {
   id: uuid("id").primaryKey().defaultRandom(),

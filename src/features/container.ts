@@ -89,7 +89,8 @@ export function createContainer(db: Db, opts: {
     staffRepo,
     settingsRepo,
   });
-  const senders = opts.senders ?? createSenders();
+  const whatsappConnect = createWhatsAppConnectService({ repo: createWhatsAppConnectRepository(db), graph: opts.metaGraph ?? createMetaGraph() });
+  const senders = opts.senders ?? createSenders(process.env, async () => (await whatsappConnect.status()).messages.phoneNumberId);
   const workflows = createWorkflowsService({
     // The client's page for moving or cancelling a booking, for use in messages.
     manageToken: (id) => (manageSecret ? manageToken(id, manageSecret) : null),
@@ -138,7 +139,7 @@ export function createContainer(db: Db, opts: {
     settings: createSettingsService({ settingsRepo }),
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
     leads,
-    whatsappConnect: createWhatsAppConnectService({ repo: createWhatsAppConnectRepository(db), graph: opts.metaGraph ?? createMetaGraph() }),
+    whatsappConnect,
     followUps,
     access,
     caseHistory: createCaseHistoryService({

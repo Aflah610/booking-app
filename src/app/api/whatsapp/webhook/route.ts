@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Bad JSON", { status: 400 });
   }
   // The leads number: set by Settings > WhatsApp, or by the environment on older setups.
-  const leadsNumber = process.env.WHATSAPP_LEADS_PHONE_NUMBER_ID || (await app().whatsappConnect.status()).phoneNumberId || undefined;
+  const leadsNumber = process.env.WHATSAPP_LEADS_PHONE_NUMBER_ID || (await app().whatsappConnect.status()).leads.phoneNumberId || undefined;
+  // A CCD or OTP reply must never become a sales lead before the leads number is connected.
+  if (!leadsNumber) return NextResponse.json({ ok: true });
   for (const message of incomingMessages(payload, leadsNumber)) {
     try {
       await app().leads.receive(message);
