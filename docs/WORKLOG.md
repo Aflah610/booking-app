@@ -9,11 +9,12 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   Verified its linked phone row shows Connected under consultation coordinator MindLap (selected Meta asset 1584174005895546).
   This resolves the prior missing-account blocker. It does not establish Cloud API onboarding or booking-app connectivity.
 - Opened Payment settings for that exact account. No payment method and no spending. Continued the location setup with
-  India, Indian Rupee, Kolkata; form now offers debit/credit card or UPI. Asked Aflah to choose; no payment details entered,
+  India, Indian Rupee, Kolkata. Aflah chose UPI; selected it and continued. Meta now requires legal business name/address
+  and a business/tax declaration before payment setup. Left that form for Aflah to complete directly. No payment details entered,
   payment method saved, funds added or charges authorised. Meta says later payment-method changes require support.
 - Booking app Settings > WhatsApp still shows messages number unconnected. Keep this separate from the Connected status
   of the phone's WhatsApp Business app in Meta. Do not put a Meta asset/account ID into a phone-number-ID field by guess.
-- Next: Aflah chooses and enters the payment method directly in Meta, verify saved billing status, then resolve Cloud API
+- Next: Aflah completes legal billing details, then UPI setup directly in Meta; verify saved billing status, then resolve Cloud API
   signup/configuration, permanent sending token and approved templates before sending a test. Prior signup findings remain
   investigative leads; linking in Business settings worked without completing that embedded signup path.
 
