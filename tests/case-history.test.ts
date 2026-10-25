@@ -52,7 +52,7 @@ describe("who can open a case history", () => {
     await expect(c.caseHistory.updateDraft(revoked, id, { summary: "Denied" })).rejects.toMatchObject({ code: "forbidden" });
     await expect(c.caseHistory.signNote(revoked, id)).rejects.toMatchObject({ code: "forbidden" });
     await expect(c.caseHistory.deleteDraft(revoked, id)).rejects.toMatchObject({ code: "forbidden" });
-    await expect(c.caseHistory.sendFollowUp(revoked, clientId, { suggestedOn: "2027-01-01", whatsapp: true })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.sendFollowUp(revoked, clientId, { suggestedOn: "2027-01-01", whatsapp: true, email: false })).rejects.toMatchObject({ code: "forbidden" });
     expect((await c.caseHistory.open(asha, clientId)).notes[0].summary).toBe(noteFor(first.id).summary);
   });
 
@@ -178,7 +178,7 @@ describe("the list", () => {
     const { asha, dev, manager, lead, clientId } = await setup();
     await c.caseHistory.saveIntake(asha, clientId, 6, { riskSuicide: "high", diagnosisLabel: "6A70 Single episode depressive disorder" });
     // Managers see only which notes are pending (a separate page), never the case history list.
-    expect(await c.caseHistory.list(manager)).toEqual([]);
+    await expect(c.caseHistory.list(manager)).rejects.toMatchObject({ code: "forbidden" });
     expect((await c.caseHistory.list(lead))[0]).toMatchObject({ restricted: false, diagnosisLabel: "6A70 Single episode depressive disorder" });
     expect(await c.caseHistory.list(dev)).toEqual([]);
     expect((await c.caseHistory.list(asha)).map((r) => r.clientId)).toEqual([clientId]);
