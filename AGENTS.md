@@ -29,6 +29,8 @@ project for the same owner, Aflah.
 - Booking rules (live data, not code): psychologists 9:00 to 23:00, 30-minute gap after every session,
   at most 7 sessions per psychologist per day (Settings > Booking rules). Individual therapy 60 min,
   couple therapy 90 min.
+- Clients lists registered clients: successful paid/free online bookings, staff registrations, imports or existing care/credits.
+  Unpaid online booking attempts stay in Bookings; sales-only contacts stay in Leads. A blank case record is not registration.
 - Case history mirrors the old system MCH (6 steps). MCH data is copied with `scripts/import-mch.ts`
   (dry run by default). Never print or log clients' clinical text.
 - The website (`mindlap.in`, repo `mindlap-therapy`) talks to this app through its Cloudflare Worker.

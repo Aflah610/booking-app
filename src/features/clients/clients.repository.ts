@@ -59,6 +59,26 @@ export async function upsertClient(tx: DbOrTx, c: ClientContact): Promise<string
   return row.id;
 }
 
+/** Contact rows also support abandoned checkouts and leads; only established registrations belong in Clients. */
+export function registeredClientWhere(alias: "client" | "c" = "client") {
+  const c = sql.identifier(alias);
+  return sql`(
+    ${c}.registered_by is not null or ${c}.mch_code is not null or ${c}.mch_id is not null
+    or exists (select 1 from booking b where b.client_id = ${c}.id and (
+      b.payment_status = 'paid' or b.source = 'staff'
+      or (b.payment_status = 'not_required' and b.status <> 'cancelled' and not b.slot_released)
+    ))
+    or exists (select 1 from client_package cp where cp.client_id = ${c}.id)
+    or exists (select 1 from wallet_lot wl where wl.client_id = ${c}.id)
+    or exists (select 1 from client_therapist ct where ct.client_id = ${c}.id)
+    or exists (select 1 from case_history ch where ch.client_id = ${c}.id and (
+      ch.status <> 'intake_pending' or ch.intake_completed_at is not null
+      or nullif(trim(ch.presenting_complaints), '') is not null or nullif(trim(ch.diagnosis_label), '') is not null
+      or exists (select 1 from session_note sn where sn.case_history_id = ch.id)
+    ))
+  )`;
+}
+
 export function createClientsRepository(db: Db) {
   return {
     async findById(id: string): Promise<ClientDTO | null> {
@@ -132,7 +152,8 @@ export function createClientsRepository(db: Db) {
         left join staff ab on ab.id = t.assigned_by
         left join staff rb on rb.id = c.registered_by
         left join case_history ch on ch.client_id = c.id
-        where ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
+        where ${registeredClientWhere("c")}
+          and ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
           and ${f.therapist === "unassigned" ? sql`t.staff_id is null` : f.therapist ? sql`t.staff_id = ${f.therapist}` : sql`true`}
           and ${f.treatedBy ? sql`(exists (select 1 from client_therapist x where x.client_id = c.id and x.staff_id = ${f.treatedBy})
             or exists (select 1 from booking x where x.client_id = c.id and x.staff_id = ${f.treatedBy}))` : sql`true`}

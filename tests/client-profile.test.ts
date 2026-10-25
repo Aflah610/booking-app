@@ -194,3 +194,45 @@ describe("clients directory (as in the old case history system)", () => {
     expect(await c.clients.hasTreated(other.id, asha.id)).toBe(false);
   });
 });
+
+
+describe("registered clients versus failed online attempts", () => {
+  it("excludes unpaid attempts and empty case histories from Clients, search, filters and CSV until payment succeeds", async () => {
+    const { asha, shana, clientId } = await setup();
+    const online = await c.bookings.create({ mode: "client" }, {
+      serviceId: (await c.catalog.list())[0].id, staffId: asha.id,
+      start: at("2026-09-04T10:00"), client: { name: "Unpaid checkout", phone: "98000 00001" }, useCredits: false,
+    }, { now: at("2026-09-01T08:00") });
+    const id = online.booking.clientId;
+    const manual = await c.clients.create({ staffId: shana.id }, { name: "Manual registration", phone: "98000 00002" });
+    // Simply opening a clinical page must not promote a failed checkout into the Clients directory.
+    await db.execute(sql`insert into case_history (client_id) values (${id})`);
+    for (const status of ["pending", "failed"] as const) {
+      await db.execute(sql`update booking set payment_status = ${status}, payment_due_at = now() + interval '10 minutes', slot_released = ${status === "failed"} where id = ${online.booking.id}`);
+      expect((await c.clients.directory()).map((r) => r.id).sort()).toEqual([clientId, manual.id].sort());
+      expect(await c.clients.directory({ q: "Unpaid checkout" })).toEqual([]);
+      expect(await c.clients.directory({ therapist: "unassigned", q: "9800000001" })).toEqual([]);
+      expect(await c.clients.directory({ treatedBy: asha.id, q: "Unpaid" })).toEqual([]);
+      expect(await c.reports.clientsCsv()).not.toContain("Unpaid checkout");
+    }
+    // Retain the attempt and contact so payment can be retried: no data deletion or payment changes by this filter.
+    expect((await c.clients.get(id)).name).toBe("Unpaid checkout");
+    expect((await c.bookings.get(online.booking.id)).clientId).toBe(id);
+    await db.execute(sql`update booking set payment_status = 'paid', slot_released = false where id = ${online.booking.id}`);
+    expect((await c.clients.directory()).map((r) => r.id)).toContain(id);
+    expect(await c.reports.clientsCsv()).toContain("Unpaid checkout");
+    // A paid client remains registered even if that appointment is later cancelled.
+    await db.execute(sql`update booking set status = 'cancelled' where id = ${online.booking.id}`);
+    expect((await c.clients.directory()).map((r) => r.id)).toContain(id);
+  });
+
+  it("keeps paid credit customers without bookings and imported clients", async () => {
+    const credited = await c.packages.topUpFromPayment({}, { client: { name: "Credit customer", phone: "98000 00003", whatsappOptIn: false }, amountPaise: 10000, razorpayPaymentId: "pay_directory_synthetic" });
+    const imported = await c.clients.create({}, { name: "Imported client", phone: "98000 00004" });
+    await db.execute(sql`update client set mch_code = 'ML-CL-TEST' where id = ${imported.id}`);
+    const rows = await c.clients.directory();
+    expect(rows.map((r) => r.id)).toContain(imported.id);
+    expect(rows.map((r) => r.name)).toContain("Credit customer");
+    expect(credited).toBeTruthy();
+  });
+});

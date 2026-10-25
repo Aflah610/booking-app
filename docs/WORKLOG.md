@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Codex · exclude unpaid website attempts from Clients
+
+- Aflah reported failed online checkouts still appearing in Clients. The prior case-history filter did not filter
+  the Clients directory: contact rows are created before payment to support retries, and the directory listed all rows.
+- Directory and client CSV now use the same registration predicate: paid bookings, valid free bookings, staff bookings/
+  registrations, MCH imports, credits or existing clinical care. Pending/failed website-only attempts and sales-only
+  contacts do not qualify. An empty case-history row from opening a page does not register a client.
+- Filtering happens before search, psychologist/date filters and limits. Existing paid clients remain registered
+  when a booking is cancelled or a later attempt fails. Contact/booking history is retained for retries and audit;
+  no production records deleted and no payment status changed by this fix.
+- Added integration regressions covering pending/failed checkout visibility, blank case records, search/filter/CSV,
+  appearance after payment, paid cancellation, manual registration, credits and imports. Local lint/typecheck pass;
+  CI and live verification pending. AGENTS.md now records the directory rule.
+
 ## 2026-10-26 · Codex · S3 deployed; S4-S7 merged and CI passed
 
 - S3 Worker is live, version d9d18226-56c0-44d7-8a6c-e50e9f682407; GET /api/services 200, six synthetic tests passed.

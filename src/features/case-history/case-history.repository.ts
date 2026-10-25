@@ -237,7 +237,7 @@ export function createCaseHistoryRepository(db: Db) {
         left join staff la on la.id = n.last_author
         where ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} ${digits.length >= 3 ? sql`or c.phone_e164 like ${`%${digits}%`} or c.number::text = ${digits}` : sql``})` : sql`true`}
           -- Only people in treatment: a confirmed or paid session, a psychologist, or clinical writing. Someone who only started
-          -- a website booking and never paid, or only messaged sales, stays in Clients and Leads.
+          -- a website booking and never paid stays in Bookings; sales-only contacts stay in Leads.
           and (
             t.staff_id is not null
             or coalesce(n.notes, 0) > 0

@@ -1,3 +1,4 @@
+import { registeredClientWhere } from "@/features/clients/clients.repository";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { booking, client, service, staff } from "@/db/schema";
@@ -131,6 +132,7 @@ export function createReportsRepository(db: Db) {
           createdAt: client.createdAt,
         })
         .from(client)
+        .where(registeredClientWhere())
         .orderBy(asc(client.name))
         .limit(20_000);
     },

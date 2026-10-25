@@ -37,7 +37,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       <PageHeader
         title={everyone ? "Clients" : "My clients"}
         subtitle={everyone
-          ? "Registrations, personal details and who each client sees. Clients are matched by mobile number."
+          ? "Registered clients and their psychologists. Unpaid online booking attempts are kept in Bookings."
           : "The clients you treat or have treated. Contact details are kept with the front desk."}
         action={everyone && <Link href="/admin/clients/new" className="btn">Register new client</Link>}
       />
