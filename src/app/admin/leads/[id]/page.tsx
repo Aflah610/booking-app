@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
-import { LEAD_SOURCE_LABEL, LEAD_STATUSES, LEAD_STATUS_LABEL } from "@/features/leads/leads.dto";
+import { LEAD_SOURCE_LABEL, LEAD_STATUSES, LEAD_STATUS_LABEL, LOST_REASONS, LOST_REASON_LABEL } from "@/features/leads/leads.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { dateLabel, dayLabel, phoneLabel, timeLabel } from "@/lib/format";
 import { allowed, requireStaff } from "@/lib/session";
@@ -62,6 +62,23 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             <label className="label" htmlFor="followUpOn">Follow up on</label>
             <input className="input" id="followUpOn" name="followUpOn" type="date" defaultValue={l.followUpOn ?? ""} />
           </div>
+          <div>
+            <label className="label" htmlFor="lostReason">If lost, why</label>
+            <select className="input" id="lostReason" name="lostReason" defaultValue={l.lostReason ?? ""}>
+              <option value="">–</option>
+              {LOST_REASONS.map((r) => <option key={r} value={r}>{LOST_REASON_LABEL[r]}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="dealAmount">If converted, amount (₹)</label>
+            <input className="input" id="dealAmount" name="dealAmount" type="number" min={0} step="1" inputMode="numeric"
+              defaultValue={l.dealAmountPaise != null ? Math.round(l.dealAmountPaise / 100) : ""} placeholder={l.dealWhat ? "Filled in from the booking" : "e.g. 5400"} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label" htmlFor="dealNote">If converted, what they bought</label>
+            <input className="input" id="dealNote" name="dealNote" defaultValue={l.dealNote ?? ""} placeholder={l.dealWhat ?? "e.g. 4-session package, paid by UPI"} />
+            <p className="mt-1.5 text-xs text-zinc-600">A booking or payment on the website converts the lead and fills this in by itself. Use these for deals closed by phone or cash.</p>
+          </div>
           <div className="sm:col-span-2">
             <label className="label" htmlFor="notes">Notes</label>
             <textarea className="input" id="notes" name="notes" rows={5} defaultValue={l.notes ?? ""} placeholder="What they are looking for, what was offered, when to call back" />
@@ -75,6 +92,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             {l.adHeadline && <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Ad</dt><dd className="mt-1">{l.adUrl ? <a className="underline" href={l.adUrl} target="_blank" rel="noopener">{l.adHeadline}</a> : l.adHeadline}</dd></div>}
             {l.lastMessageAt && <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Last message</dt><dd className="mt-1">{dayLabel(l.lastMessageAt, tz)}, {timeLabel(l.lastMessageAt, tz)}</dd></div>}
             {closed && l.closedAt && <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Closed</dt><dd className="mt-1">{dateLabel(l.closedAt, tz)}</dd></div>}
+            {l.status === "converted" && (l.dealWhat || l.dealAmountPaise != null) && (
+              <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Deal</dt><dd className="mt-1">{[l.dealWhat ?? l.dealNote, l.dealAmountPaise != null ? `₹${(l.dealAmountPaise / 100).toLocaleString("en-IN")}` : null].filter(Boolean).join(" · ")}</dd></div>
+            )}
+            {l.status === "lost" && l.lostReason && <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Lost because</dt><dd className="mt-1">{LOST_REASON_LABEL[l.lostReason]}</dd></div>}
             {manager && <div><Link className="underline" href={`/admin/clients/${l.clientId}`}>Client record →</Link></div>}
           </dl>
           {manager && (

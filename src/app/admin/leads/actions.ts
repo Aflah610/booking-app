@@ -15,7 +15,14 @@ export async function addLeadAction(form: FormData) {
 export async function updateLeadAction(id: string, form: FormData) {
   const me = await requireStaff();
   await act(`/admin/leads/${id}`, "Saved", () =>
-    app().leads.update(me, id, { status: str(form, "status"), followUpOn: str(form, "followUpOn") || null, notes: optional(form, "notes") }),
+    app().leads.update(me, id, {
+      status: str(form, "status"),
+      followUpOn: str(form, "followUpOn") || null,
+      notes: optional(form, "notes"),
+      lostReason: str(form, "lostReason"),
+      dealAmount: str(form, "dealAmount"),
+      dealNote: str(form, "dealNote"),
+    }),
   );
 }
 

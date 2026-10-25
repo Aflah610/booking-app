@@ -3,7 +3,8 @@ import type { BookingEvent } from "@/features/bookings/bookings.dto";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
 import { can, type AccessRole } from "@/features/access/permissions";
-import { OPEN_STATUSES, type CaptureResult, type LeadDTO, type LeadStatus, type LeadViewer } from "./leads.dto";
+import { zonedToUtc } from "@/lib/time";
+import { OPEN_STATUSES, type CaptureResult, type LeadDTO, type LeadFilters, type LeadStatus, type LeadViewer } from "./leads.dto";
 import type { LeadsRepository } from "./leads.repository";
 import { captureInput, leadUpdateInput, type CaptureInput } from "./leads.schemas";
 
@@ -14,6 +15,10 @@ const isManager = (v: LeadViewer) => can(v, "leads.all");
 export function canUseLeads(v: LeadViewer): boolean {
   return isManager(v) || can(v, "leads.own");
 }
+
+/** The instant a YYYY-MM-DD day begins in the firm's time zone. */
+const dayStart = (day: string, timeZone: string) => zonedToUtc(`${day}T00:00`, timeZone);
+const nextDay = (day: string) => new Date(Date.parse(`${day}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 
 export function createLeadsService({ leadsRepo, salesRoles }: {
   leadsRepo: LeadsRepository;
@@ -64,11 +69,38 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
     },
 
     // Async, so a refusal comes back as a rejected promise like every other failure.
-    async list(viewer: LeadViewer, opts: { assignedTo?: string; view?: "open" | "closed" | "all"; q?: string } = {}) {
+    async list(viewer: LeadViewer, opts: LeadFilters = {}, timeZone = "Asia/Kolkata") {
       if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see leads");
-      const statuses: readonly LeadStatus[] | undefined =
-        opts.view === "closed" ? ["converted", "lost"] : opts.view === "all" ? undefined : OPEN_STATUSES;
-      return leadsRepo.list({ assignedTo: isManager(viewer) ? opts.assignedTo : viewer.id, statuses, q: opts.q });
+      const statuses: readonly LeadStatus[] | undefined = opts.status
+        ? [opts.status]
+        : opts.view === "closed" ? ["converted", "lost"] : opts.view === "all" ? undefined : OPEN_STATUSES;
+      return leadsRepo.list({
+        assignedTo: isManager(viewer) ? opts.assignedTo : viewer.id,
+        statuses,
+        source: opts.source,
+        from: opts.from ? dayStart(opts.from, timeZone) : undefined,
+        to: opts.to ? dayStart(nextDay(opts.to), timeZone) : undefined,
+        followUpBy: opts.followUpBy,
+        q: opts.q,
+      });
+    },
+
+    /** Converted leads, newest deal first, closed within [from, to] (YYYY-MM-DD, both days included). */
+    async closedDeals(viewer: LeadViewer, opts: { from?: string; to?: string; assignedTo?: string } = {}, timeZone = "Asia/Kolkata") {
+      if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see deals");
+      return leadsRepo.list({
+        assignedTo: isManager(viewer) ? opts.assignedTo : viewer.id,
+        statuses: ["converted"],
+        from: opts.from ? dayStart(opts.from, timeZone) : undefined,
+        to: opts.to ? dayStart(nextDay(opts.to), timeZone) : undefined,
+        byClosed: true,
+      });
+    },
+
+    /** Managers' summary per sales executive for the days [from, to] in the firm's time zone. */
+    async summary(viewer: LeadViewer, from: string, to: string, timeZone = "Asia/Kolkata") {
+      if (!isManager(viewer)) throw new DomainError("forbidden", "Only managers and admins see the sales summary");
+      return leadsRepo.summary(dayStart(from, timeZone), dayStart(nextDay(to), timeZone));
     },
 
     /** For the menu: new leads waiting for this person (or for anyone, for managers). */
@@ -99,9 +131,20 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
       const d = leadUpdateInput.parse(input);
       const closing = d.status === "converted" || d.status === "lost";
       if (d.status === "follow_up" && !d.followUpOn) throw new DomainError("invalid", "Choose the date to follow up on");
+      if (d.status === "lost" && !d.lostReason) throw new DomainError("invalid", "Choose why the lead was lost");
+      const converted = d.status === "converted";
       await leadsRepo.update(
         id,
-        { status: d.status, followUpOn: closing ? null : d.followUpOn, notes: d.notes, closedAt: closing ? (current.closedAt ?? now) : null },
+        {
+          status: d.status,
+          followUpOn: closing ? null : d.followUpOn,
+          notes: d.notes,
+          closedAt: closing ? (current.status === d.status && current.closedAt ? current.closedAt : now) : null,
+          lostReason: d.status === "lost" ? d.lostReason : null,
+          // A deal closed by phone or cash is recorded by hand; a booking fills these in by itself.
+          dealAmountPaise: converted ? (d.dealAmount != null ? Math.round(d.dealAmount * 100) : current.dealAmountPaise) : null,
+          dealNote: converted ? d.dealNote : null,
+        },
         { actor: { staffId: viewer.id }, action: "update", entity: "lead", entityId: id, details: { status: d.status, previousStatus: current.status } },
       );
     },

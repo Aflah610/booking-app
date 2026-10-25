@@ -307,6 +307,12 @@ export const lead = pgTable("lead", {
   notes: text("notes"),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  /** Why a lost lead was lost; see LOST_REASONS in leads.dto.ts. */
+  lostReason: text("lost_reason"),
+  /** A converted lead's deal: the booking that converted it (if any), what it was worth and a short note. */
+  dealBookingId: uuid("deal_booking_id").references(() => booking.id, { onDelete: "set null" }),
+  dealAmountPaise: integer("deal_amount_paise"),
+  dealNote: text("deal_note"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { toE164 } from "@/features/shared/phone";
-import { LEAD_STATUSES } from "./leads.dto";
+import { LEAD_STATUSES, LOST_REASONS } from "./leads.dto";
 
 const phone = z.string().transform((raw, ctx) => {
   const e164 = toE164(raw);
@@ -26,8 +26,14 @@ export const captureInput = z.object({
 });
 export type CaptureInput = z.input<typeof captureInput>;
 
+const blank = (v: unknown) => (v === "" || v === undefined ? null : v);
+
 export const leadUpdateInput = z.object({
   status: z.enum(LEAD_STATUSES),
   followUpOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-11-03").nullable().or(z.literal("").transform(() => null)),
   notes: text(4000).nullable(),
+  lostReason: z.preprocess(blank, z.enum(LOST_REASONS).nullable()).default(null),
+  /** Rupees as typed; stored in paise. */
+  dealAmount: z.preprocess(blank, z.coerce.number().min(0, "The amount can't be negative").max(10_000_000).nullable()).default(null),
+  dealNote: z.preprocess(blank, z.string().trim().max(300).nullable()).default(null),
 });

@@ -98,10 +98,22 @@ describe("working the leads", () => {
     await expect(c.leads.update(asViewer(asha), r.lead.id, { status: "follow_up", followUpOn: null, notes: null })).rejects.toMatchObject({ code: "invalid" });
     await c.leads.update(asViewer(asha), r.lead.id, { status: "follow_up", followUpOn: "2026-10-25", notes: "Call after 6pm" });
     expect(await c.leads.get(asViewer(asha), r.lead.id)).toMatchObject({ status: "follow_up", followUpOn: "2026-10-25", notes: "Call after 6pm", closedAt: null });
-    await c.leads.update(asViewer(asha), r.lead.id, { status: "lost", followUpOn: "2026-10-25", notes: null }, new Date("2026-10-22T00:00:00Z"));
-    expect(await c.leads.get(asViewer(asha), r.lead.id)).toMatchObject({ status: "lost", followUpOn: null, closedAt: new Date("2026-10-22T00:00:00Z") });
-    // Closed, so the next message opens a fresh lead.
-    expect((await message("98000 00001", "2026-10-23T05:00:00Z")).kind).toBe("created");
+    await expect(c.leads.update(asViewer(asha), r.lead.id, { status: "lost", followUpOn: null, notes: null })).rejects.toThrow(/why the lead was lost/);
+    await c.leads.update(asViewer(asha), r.lead.id, { status: "lost", followUpOn: "2026-10-25", notes: null, lostReason: "price" }, new Date("2026-10-22T00:00:00Z"));
+    expect(await c.leads.get(asViewer(asha), r.lead.id)).toMatchObject({ status: "lost", lostReason: "price", followUpOn: null, closedAt: new Date("2026-10-22T00:00:00Z") });
+  });
+
+  it("gives a lost lead back to the same person when they write again, never a second lead", async () => {
+    const asha = await sales("Asha");
+    await sales("Binu");
+    const r = await message("98000 00001", "2026-10-20T05:00:00Z");
+    if (r.kind !== "created") throw new Error("expected a new lead");
+    await c.leads.update(asViewer(asha), r.lead.id, { status: "lost", followUpOn: null, notes: null, lostReason: "no_reply" });
+    await message("98000 00002", "2026-10-21T05:00:00Z"); // Binu's turn now
+    const again = await message("+91 98000 00001", "2026-10-23T05:00:00Z");
+    expect(again.kind).toBe("existing");
+    if (again.kind !== "existing") return;
+    expect(again.lead).toMatchObject({ id: r.lead.id, status: "new", assignedTo: asha.id, lostReason: null, closedAt: null });
   });
 
   it("marks the lead converted when the person books", async () => {
@@ -113,7 +125,19 @@ describe("working the leads", () => {
     await c.staff.setServices({}, therapist.id, [svc.id]);
     await c.schedules.setWeeklyHours({}, therapist.id, [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startTime: "09:00", endTime: "17:00" })));
     await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: therapist.id, start: new Date("2026-10-19T05:00:00Z"), client: { name: "Ravi", phone: "98765 43210" } }, { now: new Date("2026-10-15T02:30:00Z") });
-    expect((await c.leads.get(asViewer(asha), r.lead.id)).status).toBe("converted");
+    expect(await c.leads.get(asViewer(asha), r.lead.id)).toMatchObject({ status: "converted", dealWhat: "Consult" });
+  });
+
+  it("records a deal closed by phone with its amount, and lists it under closed deals", async () => {
+    const asha = await sales("Asha");
+    const manager = await c.staff.create({}, { name: "Mona", email: "mona@firm.test", role: "manager" });
+    const r = await message("98000 00001", "2026-10-20T05:00:00Z");
+    if (r.kind !== "created") throw new Error("expected a new lead");
+    await c.leads.update(asViewer(asha), r.lead.id, { status: "converted", followUpOn: null, notes: null, dealAmount: "5400", dealNote: "4-session package, UPI" }, new Date("2026-10-21T06:00:00Z"));
+    expect(await c.leads.get(asViewer(asha), r.lead.id)).toMatchObject({ dealAmountPaise: 540000, dealNote: "4-session package, UPI" });
+    const deals = await c.leads.closedDeals(asViewer(manager), { from: "2026-10-21", to: "2026-10-21" });
+    expect(deals.map((d) => d.id)).toEqual([r.lead.id]);
+    expect(await c.leads.closedDeals(asViewer(manager), { from: "2026-10-22" })).toEqual([]);
   });
 
   it("lets staff add a lead by hand, once per person", async () => {
@@ -206,5 +230,38 @@ describe("online and offline", () => {
     await c.leads.setOnline(asViewer(boss), binu.id, false);
     expect((await c.leads.salesTeam(asViewer(boss))).find((p) => p.id === binu.id)?.online).toBe(false);
     await expect(c.leads.setOnline(asViewer(boss), boss.id, false)).rejects.toThrow(/not an active sales executive/);
+  });
+});
+
+describe("filters and the managers' summary", () => {
+  it("filters by source, the day a lead came in and follow-ups due", async () => {
+    const asha = await sales("Asha");
+    const ad = await message("98000 00001", "2026-10-20T05:00:00Z", true);
+    const plain = await message("98000 00002", "2026-10-21T05:00:00Z");
+    if (ad.kind !== "created" || plain.kind !== "created") throw new Error("expected new leads");
+    const me = asViewer(asha);
+    expect((await c.leads.list(me, { source: "whatsapp_ad" })).map((l) => l.id)).toEqual([ad.lead.id]);
+    expect((await c.leads.list(me, { from: "2026-10-21", to: "2026-10-21" })).map((l) => l.id)).toEqual([plain.lead.id]);
+    await c.leads.update(me, plain.lead.id, { status: "follow_up", followUpOn: "2026-10-24", notes: null });
+    expect((await c.leads.list(me, { followUpBy: "2026-10-24" })).map((l) => l.id)).toEqual([plain.lead.id]);
+    expect(await c.leads.list(me, { followUpBy: "2026-10-23" })).toEqual([]);
+  });
+
+  it("counts each sales executive's new, contacted and converted leads for a day, for managers only", async () => {
+    const asha = await sales("Asha");
+    const binu = await sales("Binu");
+    const manager = await c.staff.create({}, { name: "Mona", email: "mona@firm.test", role: "manager" });
+    const leads = [];
+    for (let i = 0; i < 4; i++) leads.push(await message(`9800000000${i}`, `2026-10-20T0${i + 4}:00:00Z`));
+    const [a1, , a2] = leads.map((r) => (r.kind === "created" ? r.lead : null));
+    await c.leads.update(asViewer(asha), a1!.id, { status: "contacted", followUpOn: null, notes: null });
+    await c.leads.update(asViewer(asha), a2!.id, { status: "converted", followUpOn: null, notes: null, dealAmount: 1500 }, new Date("2026-10-20T10:00:00Z"));
+    await expect(c.leads.summary(asViewer(asha), "2026-10-20", "2026-10-20")).rejects.toMatchObject({ code: "forbidden" });
+    const rows = await c.leads.summary(asViewer(manager), "2026-10-20", "2026-10-20");
+    expect(rows.map((r) => [r.name, r.newLeads, r.contacted, r.converted, r.dealPaise])).toEqual([
+      ["Asha", 2, 2, 1, 150000],
+      ["Binu", 2, 0, 0, 0],
+    ]);
+    expect(binu.id).toBeTruthy();
   });
 });
