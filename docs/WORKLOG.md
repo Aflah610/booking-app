@@ -3,6 +3,22 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · CCD template drafts ready; API and server access still pending
+
+- In the CCD account 1584174005895546, prepared three English Utility forms with synthetic samples:
+  booking_confirmation_join, booking_reminder_join, follow_up_suggestion. All Submit for Review buttons enabled.
+  These are unsaved browser drafts, NOT submitted or approved. Leave the marked browser tabs open for review.
+- Confirmation and reminder use six ordered parameters: client, psychologist, date, time, join link, booking reference.
+  Follow-up uses three: client, psychologist, suggested date; draft body recorded in docs/whatsapp-ccd-handover.md.
+  No clinical text or real customer data used as review samples. Aflah supplied a consenting test recipient in chat;
+  no message sent and no automatic workflow enabled.
+- Meta app API Setup From selector currently lists 774, 955, OTP and test senders, but not CCD ending 91552.
+  WhatsApp Manager exposes CCD template controls despite this. Portfolio linking/funding is not API readiness.
+- Server SSH check was rejected by automatic approval review because the particular existing credential source was
+  not explicitly authorised. No SSH connection occurred. Await Aflah's explicit approval before any retry.
+- Next: obtain template-submission confirmation, submit and verify Meta status; resolve CCD Cloud API onboarding,
+  obtain approved server access, configure the sending token securely, then send the agreed test once.
+
 ## 2026-10-25 · Codex · CCD prepaid billing funded and verified
 
 - Aflah completed Meta's legal billing information and added funds himself after choosing UPI. Verified the billing page

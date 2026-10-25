@@ -50,7 +50,9 @@ Use these join templates only for online services. Select those services in the 
 
 ### follow_up_suggestion
 
-The existing draft and the therapist's follow-up action use this name. See `docs/whatsapp-templates.md`.
+Draft prepared in Meta: Hi {{1}}, {{2}} suggests your next Mindlap session around {{3}}. Reply to this message to arrange a time that suits you.
+
+Parameters: client name, psychologist name, suggested date. The therapist's follow-up action already uses this template name.
 This is a therapist-requested suggestion, not an automatic 24-hour rule. Delayed follow-ups need their own configured workflow.
 
 ## Checks
