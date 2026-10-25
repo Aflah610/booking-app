@@ -3,6 +3,25 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · CCD billing attempt blocked by Meta signup
+
+- Aflah confirmed CCD phone ends 91552. Meta portfolio phone-number search found no matching account.
+  No CCD billing account has been identified; no payment method saved, funds added or charges authorised.
+- Aflah completed the Facebook login step, but its popup closed without a completed phone connection. Booking settings
+  still showed unconnected and the button waited for Meta until reload. Actual phone onboarding remains unverified;
+  the earlier live verification covered the settings UI and CI, not a completed Meta signup or message delivery.
+- Existing config 1096432136351868 expands as WhatsApp Embedded Signup, system-user token, 60 days, WhatsApp assets and
+  the two WhatsApp management/messaging permissions. The current new-config wizard offered only General login.
+  Cancelled an unsaved draft named Mindlap WhatsApp v4. No new config created and no existing config saved/changed.
+- Meta official v4 docs say v2/v3 retired 15 Oct 2026 and a new config with selected products is required. This is a
+  compatibility lead, not proof of the exact failure. Tech Provider onboarding page failed to render, including after
+  reload (Meta async error 1007); eligibility could not be verified. Template list only exposed measurement v2 and
+  the existing-style 60-day WhatsApp signup template. Do not create another copy and assume it fixes onboarding.
+- Next: resolve Meta signup configuration/eligibility and add a recoverable state for code-without-FINISH, then link
+  CCD phone with Aflah before assigning billing. Keep OTP settings and Zoho 774 unchanged.
+- Sources: https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/version-4
+  and https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users
+
 ## 2026-10-25 · Codex · CCD WhatsApp continuation
 
 - Took over Claude's interrupted ccd-number branch at Aflah's request. Separate leads and CCD connection cards,
