@@ -3,6 +3,21 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Codex · S3 deployed; S4-S7 merged and CI passed
+
+- S3 Worker is live, version d9d18226-56c0-44d7-8a6c-e50e9f682407; GET /api/services 200, six synthetic tests passed.
+- S4/S5 and S6/S7 changes are on main at fbd368f. PRs #2/#3 merged; stacked #4 closed after its exact head was
+  fast-forwarded to main. Preserved Claude's case-list change. Corrected the old manager-list test expectation and
+  a missing email flag in a new regression fixture; the two earlier main CI failures are resolved.
+- Final main CI passed 490 tests / 45 files, lint, typecheck, production build, Docker and production audit (zero
+  production advisories). Offline network/header suite 36/36; real built login had ten matching nonced scripts.
+- Live verified at 04:42 IST on 26 October: login 200 with fresh matching script nonces, nosniff, no-referrer, HSTS
+  and framing DENY; /book allows Mindlap embeds without X-Frame-Options; health ok; unauthenticated search 401;
+  Worker catalogue 200. This confirms the application protections are serving publicly; no authenticated attack was run.
+- No server login or previously rejected SSH key used. No client records, real payments or customer messages touched.
+  Meta Coexistence support remains separate; CCD account must not be deleted/re-registered. Operational hardening
+  items beyond S1-S7 remain in the security review. Isolated checkout: waky-security-codex.
+
 ## 2026-10-26 · Codex · S7 browser protections prepared
 
 - Added nosniff, no-referrer, HSTS and Permissions-Policy headers across responses. HTML uses a per-request
