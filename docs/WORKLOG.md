@@ -9,6 +9,10 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   each shown as "Intake pending". Now it lists a client only with a current psychologist, session notes, a started
   intake/diagnosis, or a non-cancelled booking that is paid, free, or made by staff (no online payment window).
   Unpaid website attempts and leads stay in Clients/Leads. Test added. The 4 test clients on live are untouched.
+- NOT live: main CI fails since Codex's 86e5fea (S4/S5), so the server deploys nothing new. The two failures are in
+  Codex's area, not this change: tests/case-history.test.ts "hides diagnosis..." now gets forbidden for list(manager)
+  (old expectation []), and the revoke test's sendFollowUp call fails Zod (email boolean missing) instead of forbidden.
+  Left for Codex (one agent per task). Once main is green, this change deploys with it.
 
 ## 2026-10-26 · Codex · S4/S5 clinical and contact permission fixes prepared
 
