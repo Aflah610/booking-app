@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · leads: filters, closed deals, sales summary
+
+- Leads page: tabs Open / Follow up today / Closed deals / Lost / All; filters for status, source, BDE and the day
+  a lead came in (or closed). Managers see a sales summary per BDE (today / 7 / 30 days: new, contacted,
+  converted, conversion %, deal total).
+- A lost lead needs a reason; when that person writes again the same lead reopens (no second lead), kept by the
+  same BDE if they are still online. Converting by a booking fills in the deal (package price, else session
+  price, and what was bought); staff can record a phone/cash deal with an amount. Migration 0035_lead_deals.
+- Meta prep for moving +91 75940 00774 off Zoho (Coexistence): system user mindlap-website has 774's WABA
+  (27997481349919392); app "Mindlap Messaging" (1528505165963496, was "final testy", OTP uses it) has an
+  Embedded Signup configuration 1096432136351868 and allows book.mindlap.in. Open: the Connect WhatsApp button
+  in Settings, permanent token, Meta billing, then the switch night with Aflah. Do NOT deactivate Zoho before.
+
 ## 2026-10-25 · Claude Code · staff on @mindlap.in, Google sign-in on
 
 - Live data: staff Ansha (psychologist, both services, Theresa's hours), Avanthika + Akhila (ccd), Nihla (bde),
