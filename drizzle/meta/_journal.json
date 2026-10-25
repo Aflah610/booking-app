@@ -253,6 +253,13 @@
       "when": 1792935490935,
       "tag": "0035_lead_deals",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792937222939,
+      "tag": "0036_whatsapp_connection",
+      "breakpoints": true
     }
   ]
 }

@@ -56,6 +56,9 @@ import { createFollowUpDeskRepository } from "./follow-up-desk/follow-up-desk.re
 import { createFollowUpDeskService } from "./follow-up-desk/follow-up-desk.service";
 import { createAccessRepository } from "./access/access.repository";
 import { createAccessService } from "./access/access.service";
+import type { MetaGraph } from "./whatsapp-connect/whatsapp-connect.dto";
+import { createWhatsAppConnectRepository } from "./whatsapp-connect/whatsapp-connect.repository";
+import { createMetaGraph, createWhatsAppConnectService } from "./whatsapp-connect/whatsapp-connect.service";
 
 /**
  * Wires repositories into services. This is the only place that picks the storage
@@ -67,6 +70,8 @@ export function createContainer(db: Db, opts: {
     manageSecret?: string;
     appUrl?: string;
     calendarProvider?: CalendarProvider;
+    /** Meta's API for connecting the WhatsApp leads number; tests pass a stand-in. */
+    metaGraph?: MetaGraph;
     /** Where therapist join times come from (Google Meet once connected). Without one the punctuality KPI reports "no data". */
     attendance?: AttendanceSource;
     /** Runs follow-up work after the current request has answered. Without it, queued work waits for the scheduler. */
@@ -133,6 +138,7 @@ export function createContainer(db: Db, opts: {
     settings: createSettingsService({ settingsRepo }),
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
     leads,
+    whatsappConnect: createWhatsAppConnectService({ repo: createWhatsAppConnectRepository(db), graph: opts.metaGraph ?? createMetaGraph() }),
     followUps,
     access,
     caseHistory: createCaseHistoryService({

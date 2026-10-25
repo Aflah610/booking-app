@@ -21,6 +21,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         subtitle="Firm-wide defaults. A service can override the booking rules."
         action={
           <span className="flex gap-2">
+            <Link className="btn-ghost" href="/admin/settings/whatsapp">WhatsApp</Link>
             <Link className="btn-ghost" href="/admin/settings/holidays">Holidays</Link>
             <Link className="btn-ghost" href="/admin/settings/api">API keys</Link>
           </span>

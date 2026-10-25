@@ -75,6 +75,10 @@ export const business = pgTable("business", {
   meetEnabled: boolean("meet_enabled").notNull().default(false),
   /** Emails use the branded design (logo, green and gold) instead of plain text. */
   emailBranded: boolean("email_branded").notNull().default(true),
+  /** The WhatsApp number new leads come in on, connected from Settings > WhatsApp (Meta's embedded sign-up). */
+  whatsappWabaId: text("whatsapp_waba_id"),
+  whatsappPhoneNumberId: text("whatsapp_phone_number_id"),
+  whatsappConnectedAt: timestamp("whatsapp_connected_at", { withTimezone: true }),
   updatedAt: updatedAt(),
 }, (t) => [check("business_single_row", sql`${t.id} = 1`)]);
 
