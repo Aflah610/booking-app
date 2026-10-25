@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { webhookUrl } from "./webhook-destination";
 import { CHANNELS, TIMINGS, TRIGGERS, type WorkflowDTO } from "./workflows.dto";
 import { unknownPlaceholders } from "./templates";
 
@@ -25,10 +26,8 @@ const whatsapp = z.object({
 const webhook = z.object({
   channel: z.literal("webhook"),
   url: z.string().trim().url().max(2000).refine((u) => {
-    const { protocol, hostname } = new URL(u);
-    // Plain http is only for trying things out against a local server.
-    return protocol === "https:" || (protocol === "http:" && (hostname === "localhost" || hostname === "127.0.0.1"));
-  }, "Use an https:// address"),
+    try { webhookUrl(u); return true; } catch { return false; }
+  }, "Use an https:// address on the public internet"),
 });
 
 export const workflowInput = z

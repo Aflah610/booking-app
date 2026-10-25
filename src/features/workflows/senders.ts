@@ -1,3 +1,4 @@
+import { postWebhook } from "./webhook-destination";
 import { createHmac } from "node:crypto";
 import nodemailer from "nodemailer";
 import { bookingIcs } from "@/lib/ics";
@@ -95,8 +96,7 @@ function webhookSender(env: Env): Sender {
     if (env.WORKFLOW_WEBHOOK_SECRET) {
       headers["X-Signature"] = "sha256=" + createHmac("sha256", env.WORKFLOW_WEBHOOK_SECRET).update(body).digest("hex");
     }
-    const res = await fetch(msg.url, { method: "POST", headers, body, signal: AbortSignal.timeout(10_000), redirect: "error" });
-    if (!res.ok) throw new Error(`${msg.url} answered HTTP ${res.status}`);
+    await postWebhook(msg.url, headers, body);
     return {};
   };
 }

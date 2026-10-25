@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Codex · S6 webhook destinations restricted to public HTTPS
+
+- Removed the localhost HTTP exception. Saved URLs reject credentials, fragments, loopback/private literals and
+  non-HTTPS destinations. Delivery resolves all DNS answers, rejects any non-public result, then pins a validated
+  address to the TLS connection while retaining hostname/certificate verification. Redirects are never followed.
+- Saved legacy workflows are checked again at send time. Unsafe destinations fail delivery instead of reaching
+  internal services. Ten-second budget covers DNS and the HTTPS request; errors do not include signed URLs.
+- 28 offline network regression tests passed, including alternate/mapped IP forms, mixed DNS answers, address
+  pinning and redirect refusal. Integration validation awaits CI. No external webhook or client data was sent.
+- S4/S5 draft PR #2. Changes isolated in waky-security-codex after another actor switched waky-mch to case-list-real;
+  that checkout's case-history.repository.ts edit was left untouched. No deployment yet for S4-S7.
+
 ## 2026-10-26 · Codex · S4/S5 clinical and contact permission fixes prepared
 
 - S4: case-history reads now require current clinical permission plus assignment, unless explicitly granted

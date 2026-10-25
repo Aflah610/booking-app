@@ -69,10 +69,12 @@ describe("workflow rules", () => {
     await expect(c.workflows.create({}, email("Other", { serviceIds: ["8d0b3f6e-0000-4000-8000-000000000000"] }))).rejects.toMatchObject({ code: "invalid" });
   });
 
-  it("accepts only https webhooks, except localhost", async () => {
+  it("accepts only public HTTPS webhooks", async () => {
     const hook = (url: string) => email("H" + url.length, { action: { channel: "webhook", url } });
     await expect(c.workflows.create({}, hook("http://example.com/x"))).rejects.toThrow(/https/);
-    await expect(c.workflows.create({}, hook("http://localhost:4000/x"))).resolves.toBeTruthy();
+    await expect(c.workflows.create({}, hook("http://localhost:4000/x"))).rejects.toThrow(/https/);
+    await expect(c.workflows.create({}, hook("https://127.0.0.1/x"))).rejects.toThrow(/public/);
+    await expect(c.workflows.create({}, hook("https://hooks.example.com/x"))).resolves.toBeTruthy();
   });
 });
 
