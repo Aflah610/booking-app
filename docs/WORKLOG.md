@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Claude Code · case histories list only people in treatment
+
+- Case histories used to list every client row (anyone who started a website booking, messaged sales or was added),
+  each shown as "Intake pending". Now it lists a client only with a current psychologist, session notes, a started
+  intake/diagnosis, or a non-cancelled booking that is paid, free, or made by staff (no online payment window).
+  Unpaid website attempts and leads stay in Clients/Leads. Test added. The 4 test clients on live are untouched.
+
 ## 2026-10-26 · Codex · S4/S5 clinical and contact permission fixes prepared
 
 - S4: case-history reads now require current clinical permission plus assignment, unless explicitly granted
