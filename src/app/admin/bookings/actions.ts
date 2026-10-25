@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import type { PaymentStatus } from "@/features/bookings/bookings.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { act, answersFromForm, optional, str } from "@/lib/form-actions";
-import { DomainError } from "@/features/shared/errors";
+import { redirect } from "next/navigation";
 import { allowed, isFrontDesk, requirePermission, requireStaff } from "@/lib/session";
 
 const deskActor = (staffId: string): BookingActor => ({ staffId, mode: "staff" });
@@ -25,7 +25,8 @@ async function requireBookingAccess(id: string) {
 async function requireBookingChange(id: string) {
   const me = await requireBookingAccess(id);
   if (!allowed(me, "bookings.create")) {
-    throw new DomainError("forbidden", "Only the coordinators (CCD) can move, cancel or take payment for bookings. Ask them to do it.");
+    const error = "Only the coordinators (CCD) can move, cancel or take payment for bookings. Ask them to do it.";
+    redirect(`/admin/bookings/${id}?${new URLSearchParams({ error })}`);
   }
   return me;
 }
