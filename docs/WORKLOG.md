@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · CCD: Meta follow-up drafted, App Review pack, stuck-button fix
+
+- Took over from Codex. Meta support case 28735961256069110 (Open; chat handed to a human specialist): Meta says CCD
+  ending 91552 is eligible for Coexistence but blocked by (a) Marketing Messages enrolment on the phone number and
+  (b) app Unapproved for WhatsApp, lacking Advanced Access to whatsapp_business_management and
+  whatsapp_business_messaging. Meta suggested deleting and re-registering the WhatsApp account: NOT done, NOT
+  recommended without Aflah's explicit decision (loses history, groups, backups).
+- Follow-up comment asking for a non-destructive unenrolment route, the exact effects of deletion, and confirmation
+  that App Review is the right route: typed into the case's comment box, NOT submitted (awaiting Aflah's approval).
+- docs/meta-app-review.md: use-case text and screen-recording script for both permissions. Both show "Ready for
+  testing" with recorded calls. Not submitted; the messaging recording needs a working CCD send or the OTP fallback.
+- ConnectWhatsApp button: after Meta returns a code without the number IDs, it stops waiting after 20 s and explains
+  instead of spinning forever. No server access used (the earlier SSH key use remains unapproved). No message sent.
+
 ## 2026-10-25 · Codex · CCD activation investigation and Meta support draft
 
 - CCD is labelled WhatsApp Business app in Business Settings and remains Offline in WhatsApp Manager.

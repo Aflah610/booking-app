@@ -18,7 +18,8 @@ let initialisedApp: string | null = null;
 
 export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { appId: string; configId: string; purpose: "leads" | "messages"; label: string; onDone: (form: FormData) => Promise<void> }) {
   const [ready, setReady] = useState(false);
-  const [state, setState] = useState<"idle" | "open" | "saving" | "cancelled">("idle");
+  const [state, setState] = useState<"idle" | "open" | "saving" | "cancelled" | "incomplete">("idle");
+  const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
   const owner = useRef(Symbol(purpose));
   const signup = useRef<{ code?: string; wabaId?: string; phoneNumberId?: string }>({});
   const formRef = useRef<HTMLFormElement>(null);
@@ -28,6 +29,7 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { a
     if (activeConnection !== owner.current || !code || !wabaId || !phoneNumberId) return;
     // Clear first: a duplicate FINISH event cannot submit the form twice.
     activeConnection = null;
+    if (waiting.current) clearTimeout(waiting.current);
     const f = formRef.current!;
     for (const [name, value] of Object.entries({ code, wabaId, phoneNumberId })) {
       (f.elements.namedItem(name) as HTMLInputElement).value = value;
@@ -60,6 +62,7 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { a
     return () => {
       window.removeEventListener("message", onMessage);
       if (activeConnection === key) activeConnection = null;
+      if (waiting.current) clearTimeout(waiting.current);
     };
   }, []);
 
@@ -88,6 +91,13 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { a
         signup.current.code = r.authResponse.code;
         // The code and FINISH event may arrive in either order.
         finishRef.current();
+        // Meta can close its window without ever sending the number (e.g. the account isn't ready for the API).
+        // Stop waiting rather than spinning forever.
+        waiting.current = setTimeout(() => {
+          if (activeConnection !== owner.current) return;
+          activeConnection = null;
+          setState("incomplete");
+        }, 20_000);
       },
       {
         config_id: configId,
@@ -110,6 +120,12 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { a
           {state === "saving" ? "Connecting…" : state === "open" ? "Finish in Meta's window…" : label}
         </button>
       </div>
+      {state === "incomplete" && (
+        <p className="text-sm text-red-700">
+          Meta signed you in but didn&apos;t send the WhatsApp number back, so nothing was saved. This usually means the number
+          isn&apos;t ready for the API yet in Meta (check WhatsApp Manager). Try again once Meta shows it as Connected.
+        </p>
+      )}
       {state === "cancelled" && <p className="text-sm text-red-700">The connection wasn&apos;t finished. Try again and complete every step in Meta&apos;s window.</p>}
     </form>
   );
