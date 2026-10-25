@@ -10,9 +10,11 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   over the legacy environment number. CCD/OTP replies cannot create leads when sales is not connected.
 - Fixed shared Meta SDK loading and signup event handling for two cards; reject a duplicate number before Meta calls,
   with a database constraint as a concurrency backstop. Added real-database signed webhook and sender regression tests.
-- Validation: lint and typecheck pass. Local Turbopack build blocked by pre-existing node_modules junction;
-  webpack build and CI validation in progress. Windows test launcher unavailable locally; CI uses disposable Postgres.
-- Not live yet. No real messages sent, workflows enabled or production records changed. See docs/whatsapp-ccd-handover.md
+- Validation: both PR and main CI passed lint, typecheck, 446 tests across 42 files, production build, Docker build
+  and production dependency audit. Local Turbopack is blocked by the existing node_modules junction; webpack compiles
+  but hits pre-existing generated route type errors. CI is the release validation (disposable Postgres).
+- LIVE: c48457f published and verified in the signed-in browser: both connection cards/buttons present and enabled,
+  both still unconnected. Migration applied by deployment. No real messages sent or workflows enabled. See docs/whatsapp-ccd-handover.md
   for template drafts and activation: Meta billing, CCD phone signup, permanent sending token and template approval.
 - Still open: coordinated Meta app-secret rotation, 774/Zoho cutover with Aflah, staff Calendar connections,
   MCH real import (approval pending), and the security-review findings. Do not import clinical data before S1-S3 fixes.
