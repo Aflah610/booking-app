@@ -3,6 +3,15 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Codex · CCD prepaid billing funded and verified
+
+- Aflah completed Meta's legal billing information and added funds himself after choosing UPI. Verified the billing page
+  for consultation coordinator MindLap / CCD ending 91552 shows available prepaid funds and a payment marked Funded.
+  Billing location is India, currency INR. No bank details, billing address, receipts or payment identifiers recorded here.
+- CCD billing is now funded. Meta states messaging deducts from available funds and stops if the balance runs out.
+- This is billing completion only: Cloud API connection to the booking app, sending-token setup, template approval and
+  opted-in end-to-end delivery test remain open. No real-client messages or automatic workflows enabled by this work.
+
 ## 2026-10-25 · Codex · CCD number linked in Meta, billing form opened
 
 - Aflah used Meta Business settings > WhatsApp accounts > Add > Link a WhatsApp Business account for CCD ending 91552.
