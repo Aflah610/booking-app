@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · Meta app live, webhook verified
+
+- Meta app "Mindlap Messaging" (1528505165963496) published (live). App domain mindlap.in, privacy/terms/data
+  deletion = mindlap.in/privacy and /terms, category Business and pages.
+- Webhook https://book.mindlap.in/api/whatsapp/webhook verified; subscribed fields: messages, smb_message_echoes.
+  Server env now has WHATSAPP_APP_SECRET and WHATSAPP_WEBHOOK_VERIFY_TOKEN (app recreated, health ok).
+- Open: Meta billing (Aflah), app secret reset later (it was shared in chat), then the 774 switch night.
+
 ## 2026-10-25 · Claude Code · Settings > WhatsApp (Coexistence connect) live
 
 - New page Settings > WhatsApp: "Connect WhatsApp Business app" runs Meta embedded sign-up (featureType
