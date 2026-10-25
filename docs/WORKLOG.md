@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Codex · S4/S5 clinical and contact permission fixes prepared
+
+- S4: case-history reads now require current clinical permission plus assignment, unless explicitly granted
+  read-all/clinical-admin access. Read-all alone cannot edit intake, notes, signatures, addenda or send follow-ups.
+  Write controls and intake URLs enforce the same write policy. Clinical admins retain their explicit authority.
+- S5: contact-based client search requires both clients.view and clients.contact. Denies the entire lookup without
+  either permission, including searches by phone/email, so hidden contacts cannot be inferred through matching.
+- Added service and real-action/session regression coverage. Test migration launcher now uses Node directly on
+  Windows/Linux. Local database integration run blocked because test Postgres is unavailable; CI is required.
+- Not live yet: draft PR validation pending. S6/S7 being prepared separately. No production client data accessed.
+
 ## 2026-10-25 · Claude Code · security S1-S3 fixed
 
 - S1: only an admin can change an admin's record (email, active, role, services, password); enforced in

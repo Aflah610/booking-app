@@ -94,3 +94,25 @@ describe("S2: only the booking role moves, cancels or takes payment", () => {
     expect(result).not.toMatch(/Only the coordinators/);
   });
 });
+
+
+describe("S5: client search requires contact and client-list permission", () => {
+  it("rejects diary-only and contact-revoked viewers, including phone/email matching", async () => {
+    const admin = await c.staff.create({}, { name: "Owner", email: "owner@firm.test", accessRole: "admin" });
+    const manager = await c.staff.create({}, { name: "Mona", email: "mona@firm.test", accessRole: "manager" });
+    const { GET } = await import("@/app/api/admin/clients/search/route");
+    await c.access.setRole({ staffId: admin.id, accessRole: "admin" }, "manager", ["bookings.all", "clients.view"]);
+    signedIn = manager.id;
+    for (const q of ["Ravi", "98765", "@example.com"]) {
+      const r = await GET(new Request(`https://example.invalid/api/admin/clients/search?q=${q}`));
+      expect(r.status).toBe(403);
+      expect(await r.json()).not.toHaveProperty("data");
+    }
+    await c.access.setRole({ staffId: admin.id, accessRole: "admin" }, "manager", ["bookings.all", "clients.contact"]);
+    expect((await GET(new Request("https://example.invalid/api/admin/clients/search?q=Ravi"))).status).toBe(403);
+    await c.access.setRole({ staffId: admin.id, accessRole: "admin" }, "manager", ["clients.view", "clients.contact"]);
+    expect((await GET(new Request("https://example.invalid/api/admin/clients/search?q=Ravi"))).status).toBe(200);
+    signedIn = null;
+    expect((await GET(new Request("https://example.invalid/api/admin/clients/search?q=Ravi"))).status).toBe(401);
+  });
+});

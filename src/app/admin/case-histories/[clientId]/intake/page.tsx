@@ -73,6 +73,7 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
   const step = Math.min(6, Math.max(1, Number(sp.step) || 1));
   let r: CaseRecordDTO;
   try {
+    if (!(await app().caseHistory.canWrite(me, clientId))) redirect(`/admin/case-histories/${clientId}`);
     r = await app().caseHistory.open(me, clientId);
   } catch (err) {
     if (isDomainError(err) && err.code === "not_found") notFound();

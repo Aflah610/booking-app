@@ -40,7 +40,7 @@ export function NoteFields({ note }: { note?: SessionNoteDTO }) {
   );
 }
 
-export function SessionNoteCard({ n, clientId, tz, meId }: { n: SessionNoteDTO; clientId: string; tz: string; meId: string }) {
+export function SessionNoteCard({ n, clientId, tz, meId, writable }: { writable: boolean; n: SessionNoteDTO; clientId: string; tz: string; meId: string }) {
   const draft = !n.signedAt;
   const mine = n.authorId === meId;
   return (
@@ -87,12 +87,12 @@ export function SessionNoteCard({ n, clientId, tz, meId }: { n: SessionNoteDTO; 
           <Initials name={n.authorName} />
           <span>Written by <span className="font-medium text-black">{n.authorName}</span> · {stamp(n.createdAt, tz)}{n.signedAt ? ` · signed ${stamp(n.signedAt, tz)}` : ""}</span>
         </p>
-        {draft && mine && (
+        {writable && draft && mine && (
           <form action={deleteDraftAction.bind(null, clientId, n.id)}><button className="text-xs text-red-700 hover:underline" type="submit">Delete draft</button></form>
         )}
       </div>
 
-      {draft && mine && (
+      {writable && draft && mine && (
         <details>
           <summary className="cursor-pointer text-sm font-medium underline underline-offset-4">Edit draft</summary>
           <form action={updateDraftAction.bind(null, clientId, n.id)} className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -104,7 +104,7 @@ export function SessionNoteCard({ n, clientId, tz, meId }: { n: SessionNoteDTO; 
           </form>
         </details>
       )}
-      {!draft && (
+      {writable && !draft && (
         <details>
           <summary className="cursor-pointer text-sm text-zinc-600 underline underline-offset-4">Add addendum</summary>
           <form action={addAddendumAction.bind(null, clientId, n.id)} className="mt-3 grid gap-2">

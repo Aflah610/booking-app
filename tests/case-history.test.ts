@@ -39,6 +39,39 @@ describe("who can open a case history", () => {
     await expect(c.caseHistory.open(manager, clientId)).rejects.toMatchObject({ code: "forbidden" });
   });
 
+  it("revokes direct record and note access when the assigned therapist loses clinical permission", async () => {
+    const { asha, clientId, first } = await setup();
+    const id = await c.caseHistory.addNote(asha, clientId, noteFor(first.id));
+    const revoked = { ...asha, permissions: new Set<never>() };
+    expect(await c.caseHistory.canRead(revoked, clientId)).toBe(false);
+    await expect(c.caseHistory.open(revoked, clientId)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.list(revoked)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.saveIntake(revoked, clientId, 2, { presentingComplaints: "Denied" })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.completeIntake(revoked, clientId)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.addNote(revoked, clientId, noteFor(first.id))).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.updateDraft(revoked, id, { summary: "Denied" })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.signNote(revoked, id)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.deleteDraft(revoked, id)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.sendFollowUp(revoked, clientId, { suggestedOn: "2027-01-01", whatsapp: true })).rejects.toMatchObject({ code: "forbidden" });
+    expect((await c.caseHistory.open(asha, clientId)).notes[0].summary).toBe(noteFor(first.id).summary);
+  });
+
+  it("keeps read-all clinical access read-only, including an author's old drafts", async () => {
+    const { asha, clientId, first } = await setup();
+    const id = await c.caseHistory.addNote(asha, clientId, noteFor(first.id));
+    const reader = { ...asha, permissions: new Set<"casenotes.read_all">(["casenotes.read_all"]) };
+    expect((await c.caseHistory.open(reader, clientId)).notes).toHaveLength(1);
+    expect(await c.caseHistory.canWrite(reader, clientId)).toBe(false);
+    await expect(c.caseHistory.saveIntake(reader, clientId, 2, { presentingComplaints: "Denied" })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.addNote(reader, clientId, noteFor(first.id))).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.updateDraft(reader, id, { summary: "Denied" })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.signNote(reader, id)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(c.caseHistory.deleteDraft(reader, id)).rejects.toMatchObject({ code: "forbidden" });
+    await c.caseHistory.signNote(asha, id);
+    await expect(c.caseHistory.addAddendum(reader, id, { text: "Denied" })).rejects.toMatchObject({ code: "forbidden" });
+    expect((await c.caseHistory.open(reader, clientId)).notes[0].addenda).toHaveLength(0);
+  });
+
   it("follows a reassignment: the new therapist gets in, the old one is shut out", async () => {
     const { asha, dev, clientId } = await setup();
     await c.caseHistory.open(asha, clientId);

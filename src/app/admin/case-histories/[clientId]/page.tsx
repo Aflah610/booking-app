@@ -33,6 +33,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
     app().settings.get(),
     app().caseHistory.noteableBookings(me, clientId),
   ]);
+  const writable = await app().caseHistory.canWrite(me, clientId);
   const tz = s.timezone;
   const therapist = periods[0] && !periods[0].endsAt ? periods[0] : null;
   const r = record;
@@ -60,7 +61,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/admin/clients/${clientId}`} className="btn-ghost">Client profile</Link>
-          <Link href={`/admin/case-histories/${clientId}/intake?step=1`} className="btn">{empty ? "Start case history" : "Edit case history"}</Link>
+          {writable && <Link href={`/admin/case-histories/${clientId}/intake?step=1`} className="btn">{empty ? "Start case history" : "Edit case history"}</Link>}
         </div>
       </header>
 
@@ -72,17 +73,17 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </div>
       ) : (
         <div className="mb-10 grid gap-4 lg:grid-cols-2">
-          <Section title="Complaints & HPI" step={2} clientId={clientId}>
+          <Section title="Complaints & HPI" writable={writable} step={2} clientId={clientId}>
             <Text value={r.presentingComplaints} />
             <Facts rows={[["Onset", v(r.onset)], ["Duration", r.duration], ["Severity", v(r.severity)]]} />
             {r.historyPresent && <Text label="History of present illness" value={r.historyPresent} />}
           </Section>
-          <Section title="Diagnosis" step={6} clientId={clientId}>
+          <Section title="Diagnosis" writable={writable} step={6} clientId={clientId}>
             {r.diagnosisLabel ? <p className="font-medium">{r.diagnosisLabel}{r.diagnosisCode && !r.diagnosisLabel.startsWith(r.diagnosisCode) && <span className="ml-2 text-sm font-normal text-zinc-600">{r.diagnosisCode}</span>}</p> : <p className="text-sm text-zinc-500">Not recorded</p>}
             <Facts rows={[["Secondary", r.diagnosisSecondary], ["Specifiers", r.diagnosisSpecifiers]]} />
             {r.formulation && <Text label="Formulation" value={r.formulation} />}
           </Section>
-          <Section title="Mental status" step={5} clientId={clientId}>
+          <Section title="Mental status" writable={writable} step={5} clientId={clientId}>
             <Facts rows={[
               ["Appearance", r.mseAppearance], ["Behaviour", r.mseBehaviour ?? v(r.mseCooperation)], ["Eye contact", r.mseEyeContact], ["Rapport", v(r.mseRapport)],
               ["Speech", r.mseSpeech], ["Mood & affect", r.mseMoodAffect ?? ([r.mseMood, v(r.mseAffect)].filter(Boolean).join(", ") || null)],
@@ -91,7 +92,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
             ]} />
             {r.clinicalObservation && <Text label="Clinical observation" value={r.clinicalObservation} />}
           </Section>
-          <Section title="Risk" step={6} clientId={clientId}>
+          <Section title="Risk" writable={writable} step={6} clientId={clientId}>
             <dl className="grid gap-2 text-sm">
               {([["Suicide", r.riskSuicide], ["Self-harm", r.riskSelfHarm], ["Homicide", r.riskOthers]] as const).map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between gap-3"><dt className="text-zinc-600">{label}</dt><dd><RiskBadge risk={value} /></dd></div>
@@ -99,16 +100,16 @@ export default async function CasePage({ params, searchParams }: { params: Promi
             </dl>
             {r.riskNotes && <Text label="Risk notes" value={r.riskNotes} />}
           </Section>
-          <Section title="Treatment plan" step={6} clientId={clientId}>
+          <Section title="Treatment plan" writable={writable} step={6} clientId={clientId}>
             <Facts rows={[
               ["Modality", r.approach], ["Frequency", r.frequency], ["Short-term goals", r.goalsShort], ["Long-term goals", r.goalsLong],
               ["Overall strategy", r.planNotes], ["Therapist notes", r.therapistNotes], ["Remarks", r.remarks],
             ]} />
           </Section>
-          <Section title="Medical & family" step={3} clientId={clientId}>
+          <Section title="Medical & family" writable={writable} step={3} clientId={clientId}>
             <Facts rows={[["Medical", r.medicalHistory], ["Medication", r.medication], ["Past psychiatric", r.pastPsychiatric], ["Family", r.familyHistory]]} />
           </Section>
-          <Section title="Life history" step={4} clientId={clientId}>
+          <Section title="Life history" writable={writable} step={4} clientId={clientId}>
             <Facts rows={[
               ["Personal", r.personalHistory], ["Education", r.educationalHistory], ["Occupation", r.occupationalHistory],
               ["Relationships", r.relationshipHistory], ["Substance use", r.substanceUse], ["Social & living", r.socialHistory],
@@ -121,7 +122,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <h2 className="pt-2 text-[11px] font-medium uppercase tracking-wider text-zinc-500">Sessions <span className="tabular-nums">{r.notes.length}</span></h2>
         <Link href={`/admin/follow-ups/new?client=${clientId}`} className="btn-ghost ml-auto">Ask CCD to arrange next session</Link>
-        <details className="group">
+        {writable && <details className="group">
           <summary className="btn-ghost cursor-pointer list-none select-none">Send follow-up</summary>
           <form action={sendFollowUpAction.bind(null, clientId)} className="card mt-2 grid w-[min(28rem,calc(100vw-2rem))] gap-3 p-4">
             <p className="text-sm text-zinc-600">Suggest the client&apos;s next session. Nothing is booked: they arrange the actual time with you.</p>
@@ -142,7 +143,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
             </div>
             <div><button className="btn" type="submit">Send</button></div>
           </form>
-        </details>
+        </details>}
       </div>
       {r.followUps.length > 0 && (
         <ul className="mb-4 grid gap-2">
@@ -156,7 +157,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
           ))}
         </ul>
       )}
-      <details className="card mb-4 p-5" open={r.notes.length === 0 && !empty}>
+      {writable && <details className="card mb-4 p-5" open={r.notes.length === 0 && !empty}>
         <summary className="cursor-pointer font-medium">Add session note</summary>
         <form action={addNoteAction.bind(null, clientId)} className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="sm:col-span-2">
@@ -177,13 +178,13 @@ export default async function CasePage({ params, searchParams }: { params: Promi
           </div>
           <p className="text-xs text-zinc-600 sm:col-span-3">A signed note can&apos;t be changed; corrections are added as dated addenda.</p>
         </form>
-      </details>
+      </details>}
 
       {r.notes.length === 0 ? (
         <p className="card px-6 py-8 text-center text-sm text-zinc-600">No session notes yet.</p>
       ) : (
         <ol className="grid gap-4">
-          {r.notes.map((n) => <SessionNoteCard key={n.id} n={n} clientId={clientId} tz={tz} meId={me.id} />)}
+          {r.notes.map((n) => <SessionNoteCard key={n.id} n={n} clientId={clientId} tz={tz} meId={me.id} writable={writable} />)}
         </ol>
       )}
     </>
@@ -192,12 +193,12 @@ export default async function CasePage({ params, searchParams }: { params: Promi
 
 const DELIVERY_LABEL: Record<string, string> = { sent: "sent", not_set_up: "not set up", no_contact: "no address", failed: "failed", not_chosen: "not chosen" };
 
-function Section({ title, step, clientId, children }: { title: string; step: number; clientId: string; children: React.ReactNode }) {
+function Section({ title, step, clientId, children, writable }: { writable: boolean; title: string; step: number; clientId: string; children: React.ReactNode }) {
   return (
     <section className="card grid content-start gap-3 p-5">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">{title}</h3>
-        <Link href={`/admin/case-histories/${clientId}/intake?step=${step}`} className="text-sm text-zinc-600 underline-offset-4 hover:text-black hover:underline">Edit</Link>
+        {writable && <Link href={`/admin/case-histories/${clientId}/intake?step=${step}`} className="text-sm text-zinc-600 underline-offset-4 hover:text-black hover:underline">Edit</Link>}
       </div>
       {children}
     </section>

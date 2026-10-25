@@ -4,5 +4,5 @@ import { execFileSync } from "node:child_process";
 export default function setup() {
   const url = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost:5433/booking_test";
   process.env.DATABASE_URL = url;
-  execFileSync("npx", ["tsx", "scripts/migrate.ts"], { env: { ...process.env, DATABASE_URL: url }, stdio: "inherit" });
+  execFileSync(process.execPath, ["--import", "tsx", "scripts/migrate.ts"], { env: { ...process.env, DATABASE_URL: url }, stdio: "inherit" });
 }

@@ -35,7 +35,17 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
 }) {
   async function canRead(reader: Reader, clientId: string): Promise<boolean> {
     if (readsAll(reader)) return true;
-    return (await caseRepo.currentTherapistId(clientId)) === reader.id;
+    return can(reader, "casenotes.write") && (await caseRepo.currentTherapistId(clientId)) === reader.id;
+  }
+
+  async function canWrite(reader: Reader, clientId: string): Promise<boolean> {
+    if (reader.clinicalAdmin || reader.accessRole === "admin") return true;
+    return can(reader, "casenotes.write") && (await caseRepo.currentTherapistId(clientId)) === reader.id;
+  }
+
+  async function openForWriting(reader: Reader, clientId: string): Promise<CaseRecordDTO> {
+    if (!(await canWrite(reader, clientId))) throw new DomainError("forbidden", "Only the client's permitted therapist or a clinical admin can change this case history");
+    return open(reader, clientId);
   }
 
   /** Opens the record for an allowed reader; everyone else is refused before anything is read. */
@@ -50,7 +60,7 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
   async function note(reader: Reader, noteId: string): Promise<NoteRow> {
     const row = isUuid(noteId) ? await caseRepo.findNote(noteId) : null;
     if (!row) throw new DomainError("not_found", `Session note ${noteId} not found`);
-    if (!(await canRead(reader, row.clientId))) throw new DomainError("forbidden", `You can't change session note ${noteId}`);
+    if (!(await canWrite(reader, row.clientId))) throw new DomainError("forbidden", `You can't change session note ${noteId}`);
     return row;
   }
 
@@ -87,17 +97,18 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
     countOverdueNotes: async (now = new Date()) => (await pending(undefined, now)).filter((p) => p.overdue).length,
 
     canRead,
+    canWrite,
     open,
 
     async saveIntake(reader: Reader, clientId: string, step: number, input: unknown) {
       if (!(step in intakeSteps)) throw new DomainError("invalid", `Intake step ${step} does not exist`);
       const data = intakeSteps[step as IntakeStep].parse(input);
-      const record = await open(reader, clientId);
+      const record = await openForWriting(reader, clientId);
       await caseRepo.updateIntake(record.id, { ...data, updatedBy: reader.id }, audit(reader, "update_intake", "case_history", record.id, { step, fields: Object.keys(data) }));
     },
 
     async completeIntake(reader: Reader, clientId: string, now = new Date()) {
-      const record = await open(reader, clientId);
+      const record = await openForWriting(reader, clientId);
       if (!record.presentingComplaints) throw new DomainError("invalid", `Write the presenting complaints for client ${clientId} before completing the intake`);
       // As in MCH: the chief complaints and a primary diagnosis are the two things a completed intake must have.
       if (!record.diagnosisLabel) throw new DomainError("invalid", `Write the primary diagnosis for client ${clientId} before completing the intake`);
@@ -107,7 +118,7 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
 
     async addNote(reader: Reader, clientId: string, input: unknown): Promise<string> {
       const data = noteInput.parse(input);
-      const record = await open(reader, clientId);
+      const record = await openForWriting(reader, clientId);
       let sessionAt: Date;
       if (data.bookingId) {
         const b = await caseRepo.bookingClient(data.bookingId);
@@ -186,7 +197,7 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
     async sendFollowUp(reader: Reader, clientId: string, input: unknown, now = new Date()) {
       const data = followUpInput.parse(input);
       if (data.suggestedOn < now.toISOString().slice(0, 10)) throw new DomainError("invalid", "The suggested date has already passed");
-      const record = await open(reader, clientId);
+      const record = await openForWriting(reader, clientId);
       const c = await caseRepo.clientContact(clientId);
       if (!c) throw new DomainError("not_found", `Client ${clientId} not found`);
       const firm = await firmName();
@@ -233,6 +244,7 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
      */
     async list(reader: Reader, f: CaseListFilters = {}): Promise<CaseListRow[]> {
       const seesEveryone = readsAll(reader);
+      if (!seesEveryone && !can(reader, "casenotes.write")) throw new DomainError("forbidden", "Clinical permission is required to list case histories");
       const rows = (await caseRepo.list(f.q?.trim() || undefined))
         .filter((r) => seesEveryone || r.therapistId === reader.id)
         .map((r): CaseListRow => {
