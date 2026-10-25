@@ -174,6 +174,23 @@ describe("session notes", () => {
 });
 
 describe("the list", () => {
+  it("lists only people in treatment, not unpaid website attempts, leads or untouched clients", async () => {
+    const { lead, book, clientId, asha } = await setup();
+    // A lead who only messaged, and a client added by hand with nothing else.
+    await c.leads.receive({ phone: "98000 00001", name: "Lead only", source: "whatsapp" });
+    await c.clients.create({}, { name: "Walk in", phone: "98000 00002" });
+    // A website booking still waiting for online payment.
+    await db.execute(sql`update business set online_payment = true`);
+    const unpaid = await book(asha.id, "2026-09-04T10:00", "98000 00003");
+    await db.execute(sql`update booking set payment_due_at = now() + interval '10 minutes', payment_status = 'pending' where id = ${unpaid.id}`);
+    // A booking the coordinator made (no online payment window): this person is in treatment.
+    const desk = await book(asha.id, "2026-09-05T10:00", "98000 00004");
+    expect((await c.caseHistory.list(lead)).map((r) => r.clientId).sort()).toEqual([clientId, desk.clientId].sort());
+    // Once the website booking is paid, they appear too.
+    await db.execute(sql`update booking set payment_status = 'paid' where id = ${unpaid.id}`);
+    expect((await c.caseHistory.list(lead)).map((r) => r.clientId)).toContain(unpaid.clientId);
+  });
+
   it("hides diagnosis from readers without access and shows a therapist only their own clients", async () => {
     const { asha, dev, manager, lead, clientId } = await setup();
     await c.caseHistory.saveIntake(asha, clientId, 6, { riskSuicide: "high", diagnosisLabel: "6A70 Single episode depressive disorder" });
