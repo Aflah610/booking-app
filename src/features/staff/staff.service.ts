@@ -41,9 +41,20 @@ export function createStaffService({
     });
   }
 
+  /**
+   * Only an admin may change an admin's record: their email is their login, so a manager editing it (or switching them off)
+   * could take the account over. Requests without a signed-in staff member (setup scripts, tests) are not limited here.
+   */
+  async function assertMayEdit(actor: Actor, target: StaffDTO) {
+    if (target.accessRole !== "admin" || !actor.staffId) return;
+    const editor = actor.staffId === target.id ? target : await staffRepo.findById(actor.staffId);
+    if (editor?.accessRole !== "admin") throw new DomainError("forbidden", "Only admins can change an admin's details");
+  }
+
   async function update(actor: Actor, id: string, input: Partial<StaffInput>): Promise<StaffDTO> {
     const parsed = staffInput.partial().parse(input);
     const current = await get(id);
+    await assertMayEdit(actor, current);
     // Keep the access role and the older rank in step: whichever was given wins, a change of designation re-derives it.
     const accessRole = parsed.accessRole ?? (parsed.role !== undefined || parsed.designation !== undefined
       ? accessRoleFrom(parsed.role ?? current.role, parsed.designation !== undefined ? parsed.designation : current.designation)
@@ -69,6 +80,7 @@ export function createStaffService({
     listBookableForService: (serviceId: string) => staffRepo.listBookableForService(serviceId),
 
     async setServices(actor: Actor, staffId: string, serviceIds: string[]) {
+      await assertMayEdit(actor, await get(staffId));
       const unique = [...new Set(serviceIds)];
       await staffRepo.replaceServices(staffId, unique, {
         actor,
@@ -96,7 +108,7 @@ export function createStaffService({
       if (password.length < 8 || password.length > 200) {
         throw new DomainError("invalid", "A password must be 8 to 200 characters long");
       }
-      await get(id);
+      await assertMayEdit(actor, await get(id));
       const ok = await staffRepo.setPasswordHash(id, await hashPassword(password), { actor, action: "set_password", entity: "staff", entityId: id });
       if (!ok) throw new DomainError("not_found", `Staff member ${id} not found`);
     },

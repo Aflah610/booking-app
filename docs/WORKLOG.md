@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · security S1-S3 fixed
+
+- S1: only an admin can change an admin's record (email, active, role, services, password); enforced in
+  StaffService (assertMayEdit) and the staff action. Managers still edit ordinary staff.
+- S2: reschedule, cancel, payment status, pay-with-credit and record payment need "bookings.create" (CCD/admin by
+  default) as well as seeing the booking; the booking page hides those controls otherwise. Psychologists keep
+  attendance, notes and meeting-link controls on their own sessions.
+- S3 (website worker, mindlap-therapy repo): a payment counts as paid only once Razorpay shows it captured; a failed
+  capture is re-checked, otherwise stays pending and the webhook answers 503 so Razorpay retries.
+- Tests: tests/security-actions.test.ts (S1, S2 through the real server actions); S3 offline checks 5/5.
+  S4-S7 remain open.
+
 ## 2026-10-25 · Claude Code · CCD: Meta follow-up drafted, App Review pack, stuck-button fix
 
 - Took over from Codex. Meta support case 28735961256069110 (Open; chat handed to a human specialist): Meta says CCD

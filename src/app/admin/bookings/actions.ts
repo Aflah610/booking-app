@@ -4,7 +4,8 @@ import { app } from "@/features/container";
 import type { PaymentStatus } from "@/features/bookings/bookings.dto";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { act, answersFromForm, optional, str } from "@/lib/form-actions";
-import { isFrontDesk, requirePermission, requireStaff } from "@/lib/session";
+import { DomainError } from "@/features/shared/errors";
+import { allowed, isFrontDesk, requirePermission, requireStaff } from "@/lib/session";
 
 const deskActor = (staffId: string): BookingActor => ({ staffId, mode: "staff" });
 
@@ -14,6 +15,18 @@ async function requireBookingAccess(id: string) {
   if (isFrontDesk(me)) return me;
   const b = await app().bookings.get(id);
   if (b.staffId !== me.id) throw new Error("You can only change bookings in your own diary.");
+  return me;
+}
+
+/**
+ * Moving, cancelling and anything to do with money is booking work: only roles with "Book sessions for clients" (the CCD and
+ * admins by default) may do it, on top of being able to see the booking. Seeing a diary is not enough.
+ */
+async function requireBookingChange(id: string) {
+  const me = await requireBookingAccess(id);
+  if (!allowed(me, "bookings.create")) {
+    throw new DomainError("forbidden", "Only the coordinators (CCD) can move, cancel or take payment for bookings. Ask them to do it.");
+  }
   return me;
 }
 
@@ -44,7 +57,7 @@ export async function createBookingAction(form: FormData) {
 }
 
 export async function rescheduleBookingAction(id: string, start: string, staffId: string) {
-  const me = await requireBookingAccess(id);
+  const me = await requireBookingChange(id);
   await act(`/admin/bookings/${id}`, "Booking moved", async () => {
     const moved = await app().bookings.reschedule(deskActor(me.id), id, { start, staffId });
     return `/admin/bookings/${moved.id}`;
@@ -52,7 +65,7 @@ export async function rescheduleBookingAction(id: string, start: string, staffId
 }
 
 export async function cancelBookingAction(id: string, form: FormData) {
-  const me = await requireBookingAccess(id);
+  const me = await requireBookingChange(id);
   await act(`/admin/bookings/${id}`, "Booking cancelled", () =>
     app().bookings.cancel(deskActor(me.id), id, { reason: optional(form, "reason") }),
   );
@@ -67,12 +80,12 @@ export async function markBookingAction(id: string, status: "completed" | "no_sh
 }
 
 export async function setPaymentAction(id: string, status: PaymentStatus) {
-  const me = await requireBookingAccess(id);
+  const me = await requireBookingChange(id);
   await act(`/admin/bookings/${id}`, "Payment updated", () => app().bookings.setPayment({ staffId: me.id }, id, status));
 }
 
 export async function useCreditAction(id: string) {
-  const me = await requireBookingAccess(id);
+  const me = await requireBookingChange(id);
   await act(`/admin/bookings/${id}`, "Paid with the client's credit", () => app().bookings.useCredit({ staffId: me.id }, id));
 }
 
@@ -94,7 +107,7 @@ export async function updateBookingNotesAction(id: string, form: FormData) {
 
 /** Staff type in a payment (cash, a transfer, or one the website couldn't report). Amount is entered in rupees. */
 export async function recordPaymentAction(id: string, form: FormData) {
-  const me = await requireBookingAccess(id);
+  const me = await requireBookingChange(id);
   await act(`/admin/bookings/${id}`, "Payment recorded", () =>
     app().payments.recordManual({ staffId: me.id }, id, {
       amountPaise: Math.round(Number(str(form, "amount").replace(/,/g, "")) * 100),

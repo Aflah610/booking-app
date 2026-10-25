@@ -38,7 +38,9 @@ export default async function BookingPage({
   const tz = s.timezone;
   const now = new Date();
   const started = b.startsAt <= now;
-  const canMove = b.status === "upcoming" && !started;
+  // Moving, cancelling and payments are the coordinators' work (bookings.create); others only see the booking.
+  const canBook = allowed(me, "bookings.create");
+  const canMove = canBook && b.status === "upcoming" && !started;
   const moving = canMove && sp.move === "1";
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDay(b.startsAt, tz);
 
@@ -152,7 +154,7 @@ export default async function BookingPage({
                 <div><dt className="text-xs uppercase tracking-wider text-zinc-600">Client can resume until</dt><dd className="mt-1">{timeLabel(b.resumeUntil, tz)}, {longDayLabel(b.resumeUntil, tz)}</dd></div>
               )}
             </dl>
-            {b.status === "upcoming" && !b.slotReleased && (b.paymentStatus === "pending" || b.paymentStatus === "failed") && b.creditMilli === 0 && b.creditPaise === 0 && (credit.packages.length > 0 || credit.walletPaise > 0) && (
+            {canBook && b.status === "upcoming" && !b.slotReleased && (b.paymentStatus === "pending" || b.paymentStatus === "failed") && b.creditMilli === 0 && b.creditPaise === 0 && (credit.packages.length > 0 || credit.walletPaise > 0) && (
               <form action={useCreditAction.bind(null, b.id)} className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-3 text-sm">
                 <span className="flex-1">
                   This client has {Number(credit.packages.reduce((n, p) => n + p.creditsLeft, 0).toFixed(3))} package credits ({rupees(credit.packageValuePaise)}) and {rupees(credit.walletPaise)} in wallet money.
@@ -201,7 +203,7 @@ export default async function BookingPage({
             ) : (
               <p className="text-sm text-zinc-600">No payment recorded yet.</p>
             )}
-            {b.paymentStatus !== "paid" && b.status !== "cancelled" && (
+            {canBook && b.paymentStatus !== "paid" && b.status !== "cancelled" && (
               <form action={recordPaymentAction.bind(null, b.id)} className="grid gap-3 rounded-lg border border-zinc-200 p-4 sm:grid-cols-2">
                 <p className="text-sm font-medium sm:col-span-2">Record a payment</p>
                 <div><label className="label" htmlFor="amount">Amount (₹)</label><input className="input" id="amount" name="amount" inputMode="decimal" defaultValue={b.amountPaise !== null ? String(b.amountPaise / 100) : ""} required /></div>
@@ -237,7 +239,7 @@ export default async function BookingPage({
               {b.status !== "upcoming" && <form action={markBookingAction.bind(null, b.id, "upcoming")}><button className="w-full text-xs text-zinc-600 hover:underline" type="submit">Undo</button></form>}
             </div>
           )}
-          {b.paymentStatus !== "paid" && b.paymentStatus !== "not_required" && (
+          {canBook && b.paymentStatus !== "paid" && b.paymentStatus !== "not_required" && (
             <div className="card grid gap-2 p-4">
               <p className="mb-1 text-sm text-zinc-600">Payment label</p>
               {(["pending", "failed"] as const).map((p) => (
@@ -247,7 +249,7 @@ export default async function BookingPage({
               ))}
             </div>
           )}
-          {b.status === "upcoming" && b.endsAt > now && (
+          {canBook && b.status === "upcoming" && b.endsAt > now && (
             <form action={cancelBookingAction.bind(null, b.id)} className="card grid gap-3 p-4">
               <label className="label" htmlFor="reason">Cancel this booking</label>
               <input className="input" id="reason" name="reason" placeholder="Reason (optional)" />

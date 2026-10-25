@@ -46,6 +46,7 @@ export async function updateStaffAction(staffId: string, form: FormData) {
   const path = `/admin/staff/${staffId}`;
   await act(path, "Saved", async () => {
     const target = await app().staff.get(staffId);
+    if (target.accessRole === "admin" && !hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can change an admin's details");
     const accessRole = accessRoleOf(form);
     const changesAdmin = accessRole !== target.accessRole && (accessRole === "admin" || target.accessRole === "admin");
     if (changesAdmin && !hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can change admin roles");
