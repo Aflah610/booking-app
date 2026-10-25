@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · Settings > WhatsApp (Coexistence connect) live
+
+- New page Settings > WhatsApp: "Connect WhatsApp Business app" runs Meta embedded sign-up (featureType
+  whatsapp_business_app_onboarding), swaps the code, subscribes our app to the WABA and stores waba/phone number id
+  in business (migration 0036). Webhook takes leads from that number (env WHATSAPP_LEADS_PHONE_NUMBER_ID still wins).
+- Server env: META_APP_ID=1528505165963496, META_ES_CONFIG_ID=1096432136351868 set (app not restarted for it yet,
+  the deploy recreated the container). Still missing: WHATSAPP_APP_SECRET (Mindlap Messaging app secret) and
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN, plus the webhook URL https://book.mindlap.in/api/whatsapp/webhook subscribed to
+  "messages" in the Meta app. Then the switch night: Zoho deactivate, register 774 in WhatsApp Business app, connect.
+
 ## 2026-10-25 · Claude Code · leads: filters, closed deals, sales summary
 
 - Leads page: tabs Open / Follow up today / Closed deals / Lost / All; filters for status, source, BDE and the day
