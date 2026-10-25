@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-25 · Claude Code · staff on @mindlap.in, Google sign-in on
+
+- Live data: staff Ansha (psychologist, both services, Theresa's hours), Avanthika + Akhila (ccd), Nihla (bde),
+  Liba (manager) added with @mindlap.in emails. Existing staff were already on @mindlap.in. Shefin (marketing)
+  and Jasim (accounts) deliberately NOT staff in the booking app.
+- Server: AUTH_GOOGLE_ID/SECRET = same OAuth client as Calendar (redirect /api/auth/callback/google), so
+  "Sign in with Google" shows on /login. Health ok.
+- Open: Christine and Jasmin are access_role manager though Aflah lists them as psychologist/therapist; Ansha is
+  not mapped on the website's online-therapist list (worker/book.js ONLINE_THERAPISTS).
+
 ## 2026-10-25 · Claude Code · Google Calendar + Meet switched on
 
 - Google Cloud project `mindlap-booking` (owner admin@mindlap.in): Calendar API on, consent screen Internal
