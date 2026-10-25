@@ -26,6 +26,17 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 - S4/S5 draft PR #2. Changes isolated in waky-security-codex after another actor switched waky-mch to case-list-real;
   that checkout's case-history.repository.ts edit was left untouched. No deployment yet for S4-S7.
 
+## 2026-10-26 · Claude Code · case histories list only people in treatment
+
+- Case histories used to list every client row (anyone who started a website booking, messaged sales or was added),
+  each shown as "Intake pending". Now it lists a client only with a current psychologist, session notes, a started
+  intake/diagnosis, or a non-cancelled booking that is paid, free, or made by staff (no online payment window).
+  Unpaid website attempts and leads stay in Clients/Leads. Test added. The 4 test clients on live are untouched.
+- NOT live: main CI fails since Codex's 86e5fea (S4/S5), so the server deploys nothing new. The two failures are in
+  Codex's area, not this change: tests/case-history.test.ts "hides diagnosis..." now gets forbidden for list(manager)
+  (old expectation []), and the revoke test's sendFollowUp call fails Zod (email boolean missing) instead of forbidden.
+  Left for Codex (one agent per task). Once main is green, this change deploys with it.
+
 ## 2026-10-26 · Codex · S4/S5 clinical and contact permission fixes prepared
 
 - S4: case-history reads now require current clinical permission plus assignment, unless explicitly granted

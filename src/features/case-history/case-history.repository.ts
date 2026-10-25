@@ -236,6 +236,18 @@ export function createCaseHistoryRepository(db: Db) {
         ) n on true
         left join staff la on la.id = n.last_author
         where ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} ${digits.length >= 3 ? sql`or c.phone_e164 like ${`%${digits}%`} or c.number::text = ${digits}` : sql``})` : sql`true`}
+          -- Only people in treatment: a confirmed or paid session, a psychologist, or clinical writing. Someone who only started
+          -- a website booking and never paid, or only messaged sales, stays in Clients and Leads.
+          and (
+            t.staff_id is not null
+            or coalesce(n.notes, 0) > 0
+            or (ch.id is not null and (ch.status <> 'intake_pending' or ch.presenting_complaints is not null or ch.diagnosis_label is not null))
+            or exists (
+              select 1 from booking b
+              where b.client_id = c.id and b.status <> 'cancelled' and not b.slot_released
+                and (b.payment_status in ('paid', 'not_required') or b.payment_due_at is null)
+            )
+          )
         order by c.created_at desc
         limit 1000`);
       return (rows.rows as RawListRow[]).map((r) => ({ ...r, lastNoteAt: r.lastNoteAt ? new Date(r.lastNoteAt) : null }));
