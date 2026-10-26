@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Temporary Rs 1 booking prices for Aflah's live test
+
+- Aflah explicitly requested Rs 1 test prices for Individual and couple therapy and will place the bookings himself.
+  Changed live service bases: Individual 1000 -> 1 rupee; couple 1500 -> 1 rupee. Durations/buffers untouched.
+- Rashin has the only explicit individual-session override: temporarily changed 1000 -> 1 rupee so his checkout
+  also uses the test price. Other therapist overrides were blank and remain blank. No package prices changed.
+- RESTORE AFTER TEST: Individual service ec04ab46-9f5f-4d7c-b899-8e13d875c229 to 1000 rupees; couple service
+  afbe25e7-5071-4d1d-b427-6bccae8107e6 to 1500 rupees; Rashin 23926164-1d05-45eb-a4d7-554b7db77ec9 individual
+  override to 1000 rupees (an explicit override, do not leave blank). No automatic restoration scheduled.
+- Base public Worker catalogue verified at Rs 1 for both. These are live prices available to website visitors;
+  no booking or charge performed by Codex. Audit findings remain unfixed; OTP migration remains paused.
+
 ## 2026-10-26 - Codex - Booking logic review, eight findings, no fixes deployed
 
 - Aflah requested an audit of illogical booking-app behaviour. Reviewed main da2c397 in isolated checkout and saved
