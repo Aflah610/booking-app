@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Approved OTP deployment published; server setup pending
+
+- Aflah explicitly approved live deployment, OTP-only key creation, the existing Lightsail SSH key and Meta setup.
+  This supersedes the earlier approval block. Backend 94bc080 is published to main; production check, Docker and
+  publish jobs passed. Public health returns ok. Website integration 77a13e7 is also published to its main.
+- Created Cloudflare website OTP with otp scope through the admin page and uploaded it as BOOKING_OTP_API_KEY
+  in Cloudflare. No key values were printed or committed; the temporary local key copy was removed after upload.
+- SSH to the approved server timed out twice, including outside the sandbox. No server environment changed.
+  Aflah asked Codex to configure the current-IP SSH rule. AWS saved booking account reports Mumbai restricted;
+  awaiting the correct AWS account/session before firewall work. No firewall change has been made.
+- OTP_PROVIDER remains meta. New booking routing is not active, Meta server settings and live send/verify test
+  remain pending. Creator history, CCD account and existing website sessions are preserved.
+
 ## 2026-10-26 - Codex - Creator OTP rules reviewed; booking-app parity prepared
 
 - Read Creator Send_OTP, Verify_OTP and Meta_WhatsApp without changes or reading OTP records. Effective expiry is five
