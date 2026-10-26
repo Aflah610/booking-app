@@ -183,6 +183,8 @@ describe("the list", () => {
     await db.execute(sql`update business set online_payment = true`);
     const unpaid = await book(asha.id, "2026-09-04T10:00", "98000 00003");
     await db.execute(sql`update booking set payment_due_at = now() + interval '10 minutes', payment_status = 'pending' where id = ${unpaid.id}`);
+    // A real unpaid checkout never gets a psychologist; this one was made confirmed, so take that back.
+    await db.execute(sql`delete from client_therapist where client_id = ${unpaid.clientId}`);
     // A booking the coordinator made (no online payment window): this person is in treatment.
     const desk = await book(asha.id, "2026-09-05T10:00", "98000 00004");
     expect((await c.caseHistory.list(lead)).map((r) => r.clientId).sort()).toEqual([clientId, desk.clientId].sort());

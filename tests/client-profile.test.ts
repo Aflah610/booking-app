@@ -206,6 +206,9 @@ describe("registered clients versus failed online attempts", () => {
       start: at("2026-09-04T10:00"), client: { name: "Unpaid checkout", phone: "98000 00001" }, useCredits: false,
     }, { now: at("2026-09-01T08:00"), idempotencyKey: "directory-unpaid-checkout" });
     const id = online.booking.clientId;
+    // Online payment is off in this test, so the booking was confirmed and gave the client Asha; a real
+    // unpaid checkout never gets a psychologist, so take her off before turning it into one below.
+    await db.execute(sql`delete from client_therapist where client_id = ${id}`);
     const manual = await c.clients.create({ staffId: shana.id }, { name: "Manual registration", phone: "98000 00002" });
     // Simply opening a clinical page must not promote a failed checkout into the Clients directory.
     await db.execute(sql`insert into case_history (client_id) values (${id})`);
