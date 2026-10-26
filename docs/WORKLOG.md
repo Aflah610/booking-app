@@ -11,8 +11,13 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   before delivery acknowledgement, and rechecks expiry when consuming a code. Meta errors omit raw provider text.
 - Migration 0038 adds last_attempt_at. Five-minute lifetime, five guesses, thirty-second cooldown and five sends/hour
   retained. New regressions cover concurrent sends, key isolation, delivery state and the Meta template contract.
-- Local lint/typecheck and 38 offline security/sender tests passed; full CI pending. No website cutover, API key,
-  server configuration or live OTP message yet. See docs/otp-migration.md for exact parity and cutover steps.
+- Full backend CI passed 497 tests / 46 files, lint, typecheck, production build, Docker and production audit.
+  Worker integration PR mindlap#5 passed 13 synthetic tests. Backend PR #6 is ready but NOT published to main.
+- Automatic approval review blocked main publication as a production-impacting change without specific deployment
+  approval. Aflah has been asked to approve live cutover, OTP-only key creation and the previously blocked specific
+  SSH credential use for Meta settings. Do not retry blocked actions until that approval arrives.
+- No website cutover, API key, server configuration or live OTP message yet. Creator remains unchanged.
+  See docs/otp-migration.md for exact parity and cutover steps.
 
 ## 2026-10-26 · Claude Code · Nida added as BDE
 
