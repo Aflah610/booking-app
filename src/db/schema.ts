@@ -806,6 +806,7 @@ export const otpRequest = pgTable("otp_request", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
   providerMessageId: text("provider_message_id"),
   failureReason: text("failure_reason"),
   apiKeyId: uuid("api_key_id").references(() => apiKey.id, { onDelete: "set null" }),

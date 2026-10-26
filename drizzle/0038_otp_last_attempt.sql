@@ -1,0 +1,1 @@
+ALTER TABLE "otp_request" ADD COLUMN "last_attempt_at" timestamp with time zone;
