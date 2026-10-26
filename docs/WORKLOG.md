@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 · Claude Code · Christine and Jasmin set to Psychologist role
+
+- Live data only, no code: Christine and Jasmin changed from role Manager to Psychologist (Aflah: they are
+  therapists). Christine keeps her "Clinical admin" switch (reads every case history). Liba is now the only Manager.
+
 ## 2026-10-26 - Codex - Approved OTP deployment published; server setup pending
 
 - Aflah explicitly approved live deployment, OTP-only key creation, the existing Lightsail SSH key and Meta setup.
