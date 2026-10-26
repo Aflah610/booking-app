@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Booking logic review, eight findings, no fixes deployed
+
+- Aflah requested an audit of illogical booking-app behaviour. Reviewed main da2c397 in isolated checkout and saved
+  docs/booking-logic-review-2026-10-26.md on codex/booking-logic-review. No functional or live-data changes.
+- Six synthetic service/repository probes confirmed manual underpayment settles bookings, interrupted settlement is
+  not repaired by duplicate retry, rescheduling drops payment clocks, no-show correction leaves returned credit,
+  and numeric Unix-second receipt dates parse as 1970. Payment receipt detachment, scheduling races and released
+  checkout case-note tasks are code-traced; report distinguishes evidence and limits. No Postgres tests run.
+- Read-only live Reports: five online attempts, all cancelled, no completed/paid sessions. No clinical content read,
+  no real messages, receipts, balances or bookings changed. Eight findings remain open; no fixes claimed live.
+- OTP migration remains paused at Aflah's request. Current provider retained; AWS access and final setup/test pending.
+
 ## 2026-10-26 · Claude Code · Christine and Jasmin set to Psychologist role
 
 - Live data only, no code: Christine and Jasmin changed from role Manager to Psychologist (Aflah: they are
