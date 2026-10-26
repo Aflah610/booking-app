@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Creator OTP rules reviewed; booking-app parity prepared
+
+- Read Creator Send_OTP, Verify_OTP and Meta_WhatsApp without changes or reading OTP records. Effective expiry is five
+  minutes despite Send_OTP storing ten; maximum_attempts=5 is recorded but not enforced. Old Created codes can revive.
+- Booking OTP now reserves per-phone sends atomically, binds verification to the requesting key, refuses verification
+  before delivery acknowledgement, and rechecks expiry when consuming a code. Meta errors omit raw provider text.
+- Migration 0038 adds last_attempt_at. Five-minute lifetime, five guesses, thirty-second cooldown and five sends/hour
+  retained. New regressions cover concurrent sends, key isolation, delivery state and the Meta template contract.
+- Local lint/typecheck and 38 offline security/sender tests passed; full CI pending. No website cutover, API key,
+  server configuration or live OTP message yet. See docs/otp-migration.md for exact parity and cutover steps.
+
 ## 2026-10-26 · Claude Code · Nida added as BDE
 
 - Live data only, no code: staff member Nida (nida@mindlap.in, Sales Executive, role BDE) added through Staff.

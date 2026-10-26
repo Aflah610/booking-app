@@ -25,11 +25,12 @@ export type OtpRequestDTO = {
   expiresAt: Date;
   sentAt: Date | null;
   verifiedAt: Date | null;
+  lastAttemptAt: Date | null;
   failureReason: string | null;
 };
 
 /** What the service needs to check a code. Stays inside the otp slice. */
-export type OtpRecord = OtpRequestDTO & { codeHash: string; storedStatus: string };
+export type OtpRecord = OtpRequestDTO & { codeHash: string; storedStatus: string; apiKeyId: string | null };
 
 export type OtpListFilter = { status?: OtpStatus; search?: string; page: number; pageSize: number };
 export type OtpCounts = Record<OtpStatus, number> & { all: number };

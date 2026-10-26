@@ -10,7 +10,7 @@ type Env = Record<string, string | undefined>;
  * │ environment variables on Catalyst), then restart:                                            │
  * │                                                                                              │
  * │   OTP_META_API_URL        the Meta messages URL, e.g.                                        │
- * │                           https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>/messages        │
+ * │                           https://graph.facebook.com/v25.0/<PHONE_NUMBER_ID>/messages        │
  * │   OTP_META_TOKEN          the permanent access token of the Meta system user                 │
  * │   OTP_TEMPLATE_NAME       the approved WhatsApp "Authentication" template's name             │
  * │                                                                                              │
@@ -46,8 +46,8 @@ export function createOtpSender(env: Env = process.env): OtpSender {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15_000),
     });
-    const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { message?: string } };
-    if (!res.ok) throw new UpstreamError("delivery_failed", `WhatsApp refused the code: ${json.error?.message ?? `HTTP ${res.status}`}`);
+    const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { code?: number } };
+    if (!res.ok) throw new UpstreamError("delivery_failed", `WhatsApp refused the code: HTTP ${res.status}${json.error?.code ? ` (code ${json.error.code})` : ""}`);
     return { providerMessageId: json.messages?.[0]?.id };
   };
 }

@@ -64,7 +64,7 @@ export default async function OtpPage({ searchParams }: { searchParams: Promise<
         <div className="card overflow-x-auto">
           <table className="table">
             <thead>
-              <tr><th>Request</th><th>Phone</th><th>Country</th><th>Reference</th><th>Status</th><th>Created</th><th>Expires</th><th>Verified</th><th>Attempts</th></tr>
+              <tr><th>Request</th><th>Phone</th><th>Country</th><th>Reference</th><th>Status</th><th>Created</th><th>Expires</th><th>Verified</th><th>Last attempt</th><th>Attempts</th></tr>
             </thead>
             <tbody>
               {report.rows.map((r) => (
@@ -79,6 +79,7 @@ export default async function OtpPage({ searchParams }: { searchParams: Promise<
                   <td className="whitespace-nowrap text-zinc-600">{when(r.createdAt)}</td>
                   <td className="whitespace-nowrap text-zinc-600">{when(r.expiresAt)}</td>
                   <td className="whitespace-nowrap text-zinc-600">{when(r.verifiedAt)}</td>
+                  <td className="whitespace-nowrap text-zinc-600">{when(r.lastAttemptAt)}</td>
                   <td>{r.attempts}/{r.maxAttempts}</td>
                 </tr>
               ))}

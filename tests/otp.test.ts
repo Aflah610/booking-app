@@ -81,6 +81,13 @@ describe("sending a code", () => {
     await expect(c.otp.send({ phone })).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("Too many codes") });
   });
 
+  it("allows only one of parallel resend requests for the same phone", async () => {
+    const results = await Promise.allSettled([c.otp.send({ phone }), c.otp.send({ phone }), c.otp.send({ phone })]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(outbox).toHaveLength(1);
+    expect((await c.otp.report({})).counts.all).toBe(1);
+  });
+
   it("keeps a failed send visible in the report and tells the caller", async () => {
     failWith = new UpstreamError("not_configured", "OTP sending isn't set up yet");
     await expect(c.otp.send({ phone })).rejects.toBeInstanceOf(UpstreamError);
@@ -100,6 +107,34 @@ describe("verifying a code", () => {
     expect(await c.otp.verify({ reference, code: lastCode(), phone })).toEqual({ verified: true, reference, phone });
     expect(await status(reference)).toBe("verified");
     expect(await c.otp.verify({ reference, code: lastCode() })).toMatchObject({ verified: false, reason: "already_used" });
+  });
+
+  it("binds verification to the API key that requested the code", async () => {
+    const owner = await c.apiKeys.create({ name: "Website OTP", scopes: ["otp"] });
+    const other = await c.apiKeys.create({ name: "Other OTP", scopes: ["otp"] });
+    const sent = await c.otp.send({ phone }, { apiKeyId: owner.record.id });
+    await expect(c.otp.verify({ reference: sent.reference, code: lastCode() }, { apiKeyId: other.record.id })).rejects.toMatchObject({ code: "not_found" });
+    expect(await c.otp.verify({ reference: sent.reference, code: lastCode() }, { apiKeyId: owner.record.id })).toMatchObject({ verified: true });
+    expect((await c.otp.report({})).rows[0]).toMatchObject({ attempts: 1, lastAttemptAt: expect.any(Date) });
+  });
+
+  it("refuses verification until Meta acknowledges sending the message", async () => {
+    let release!: () => void;
+    let started!: () => void;
+    let message!: { code: string; reference: string };
+    const waiting = new Promise<void>((resolve) => { release = resolve; });
+    const ready = new Promise<void>((resolve) => { started = resolve; });
+    const delayed = createContainer(db, { manageSecret: secret, otpSender: async (m) => {
+      message = m; started(); await waiting; return { providerMessageId: "synthetic" };
+    } });
+    const sending = delayed.otp.send({ phone });
+    await ready;
+    try {
+      expect(await delayed.otp.verify({ ...message, phone })).toMatchObject({ verified: false, reason: "not_sent" });
+      expect((await delayed.otp.report({})).rows[0].attempts).toBe(0);
+    } finally { release(); }
+    await sending;
+    expect(await delayed.otp.verify({ ...message, phone })).toMatchObject({ verified: true });
   });
 
   it("counts wrong guesses and burns the code after the limit", async () => {

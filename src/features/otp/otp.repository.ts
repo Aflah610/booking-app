@@ -1,5 +1,5 @@
-import { and, count, desc, eq, gt, gte, ilike, or, sql, type SQL } from "drizzle-orm";
-import type { Db } from "@/db";
+import { and, count, desc, eq, gt, gte, ilike, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import type { Db, DbOrTx } from "@/db";
 import { otpRequest } from "@/db/schema";
 import { OTP_STATUSES, type OtpCounts, type OtpListFilter, type OtpRecord, type OtpRequestDTO, type OtpStatus } from "./otp.dto";
 
@@ -19,6 +19,7 @@ const columns = {
   expiresAt: otpRequest.expiresAt,
   sentAt: otpRequest.sentAt,
   verifiedAt: otpRequest.verifiedAt,
+  lastAttemptAt: otpRequest.lastAttemptAt,
   failureReason: otpRequest.failureReason,
 };
 
@@ -28,6 +29,13 @@ const statusWhere = (s: OtpStatus): SQL =>
     : s === "created"
       ? sql`${otpRequest.status} = 'created' and ${otpRequest.expiresAt} > now()`
       : eq(otpRequest.status, s);
+
+type Recent = { sentLast: Date | null; sentSince: number };
+async function recentForPhone(db: DbOrTx, phone: string, since: Date): Promise<Recent> {
+  const [row] = await db.select({ sentLast: sql<Date | null>`max(${otpRequest.createdAt})`, sentSince: count() })
+    .from(otpRequest).where(and(eq(otpRequest.phoneE164, phone), gte(otpRequest.createdAt, since)));
+  return { sentLast: row.sentLast ? new Date(row.sentLast) : null, sentSince: row.sentSince };
+}
 
 export function createOtpRepository(db: Db) {
   return {
@@ -40,8 +48,12 @@ export function createOtpRepository(db: Db) {
       maxAttempts: number;
       expiresAt: Date;
       apiKeyId: string | null;
-    }): Promise<{ id: string }> {
+      createdAt: Date;
+    }, assertMaySend: (recent: Recent) => void): Promise<{ id: string }> {
       return db.transaction(async (tx) => {
+        // Serialise reservations per phone, so parallel sends cannot bypass the service's cooldown or hourly cap.
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`otp:${data.phone}`}::text, 0))`);
+        assertMaySend(await recentForPhone(tx, data.phone, new Date(data.createdAt.getTime() - 3_600_000)));
         await tx
           .update(otpRequest)
           .set({ status: "replaced" })
@@ -56,6 +68,7 @@ export function createOtpRepository(db: Db) {
             maxAttempts: data.maxAttempts,
             expiresAt: data.expiresAt,
             apiKeyId: data.apiKeyId,
+            createdAt: data.createdAt,
           })
           .returning({ id: otpRequest.id });
         return row;
@@ -72,16 +85,12 @@ export function createOtpRepository(db: Db) {
 
     /** When this number was last sent a code, and how many codes it was sent since `since`. */
     async recentForPhone(phone: string, since: Date): Promise<{ sentLast: Date | null; sentSince: number }> {
-      const [row] = await db
-        .select({ sentLast: sql<Date | null>`max(${otpRequest.createdAt})`, sentSince: count() })
-        .from(otpRequest)
-        .where(and(eq(otpRequest.phoneE164, phone), gte(otpRequest.createdAt, since)));
-      return { sentLast: row.sentLast ? new Date(row.sentLast) : null, sentSince: row.sentSince };
+      return recentForPhone(db, phone, since);
     },
 
     async findByReference(reference: string): Promise<OtpRecord | null> {
       const [row] = await db
-        .select({ ...columns, codeHash: otpRequest.codeHash, storedStatus: otpRequest.status })
+        .select({ ...columns, codeHash: otpRequest.codeHash, storedStatus: otpRequest.status, apiKeyId: otpRequest.apiKeyId })
         .from(otpRequest)
         .where(eq(otpRequest.reference, reference))
         .limit(1);
@@ -95,11 +104,12 @@ export function createOtpRepository(db: Db) {
     async registerAttempt(id: string): Promise<number | null> {
       const [row] = await db
         .update(otpRequest)
-        .set({ attempts: sql`${otpRequest.attempts} + 1` })
+        .set({ attempts: sql`${otpRequest.attempts} + 1`, lastAttemptAt: new Date() })
         .where(
           and(
             eq(otpRequest.id, id),
             eq(otpRequest.status, "created"),
+            isNotNull(otpRequest.sentAt),
             gt(otpRequest.expiresAt, sql`now()`),
             sql`${otpRequest.attempts} < ${otpRequest.maxAttempts}`,
           ),
@@ -113,7 +123,7 @@ export function createOtpRepository(db: Db) {
       const rows = await db
         .update(otpRequest)
         .set({ status: "verified", verifiedAt: new Date() })
-        .where(and(eq(otpRequest.id, id), eq(otpRequest.status, "created")))
+        .where(and(eq(otpRequest.id, id), eq(otpRequest.status, "created"), isNotNull(otpRequest.sentAt), gt(otpRequest.expiresAt, sql`now()`)))
         .returning({ id: otpRequest.id });
       return rows.length > 0;
     },

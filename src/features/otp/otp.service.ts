@@ -20,7 +20,7 @@ export const OTP_RULES = {
 function closedReason(r: OtpRecord, now: Date): OtpFailReason {
   if (r.storedStatus === "verified") return "already_used";
   if (r.storedStatus === "replaced") return "replaced";
-  if (r.storedStatus === "send_failed") return "not_sent";
+  if (r.storedStatus === "send_failed" || !r.sentAt) return "not_sent";
   if (r.storedStatus === "not_verified" || r.attempts >= r.maxAttempts) return "too_many_attempts";
   return r.expiresAt <= now ? "expired" : "incorrect_code";
 }
@@ -51,14 +51,6 @@ export function createOtpService({
       if (!phone) throw new DomainError("invalid", `"${input.phone}" is not a valid phone number, e.g. +91 98765 43210`);
 
       const at = now();
-      const recent = await otpRepo.recentForPhone(phone, new Date(at.getTime() - 3_600_000));
-      if (recent.sentLast) {
-        const wait = Math.ceil((recent.sentLast.getTime() + OTP_RULES.resendCooldownSec * 1000 - at.getTime()) / 1000);
-        if (wait > 0) throw new DomainError("conflict", `A code was just sent to ${phone}. Try again in ${wait} seconds`, { retryAfterSec: wait });
-      }
-      if (recent.sentSince >= OTP_RULES.maxSendsPerHour) {
-        throw new DomainError("conflict", `Too many codes sent to ${phone} in the last hour. Try again later`);
-      }
 
       const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
       const reference = `OTP-REF-${randomBytes(5).toString("hex").toUpperCase()}`;
@@ -71,6 +63,15 @@ export function createOtpService({
         maxAttempts: OTP_RULES.maxAttempts,
         expiresAt,
         apiKeyId: actor.apiKeyId,
+        createdAt: at,
+      }, (recent) => {
+        if (recent.sentLast) {
+          const wait = Math.ceil((recent.sentLast.getTime() + OTP_RULES.resendCooldownSec * 1000 - at.getTime()) / 1000);
+          if (wait > 0) throw new DomainError("conflict", `A code was just sent to ${phone}. Try again in ${wait} seconds`, { retryAfterSec: wait });
+        }
+        if (recent.sentSince >= OTP_RULES.maxSendsPerHour) {
+          throw new DomainError("conflict", `Too many codes sent to ${phone} in the last hour. Try again later`);
+        }
       });
       try {
         const sent = await send({ to: phone, code, reference });
@@ -86,11 +87,11 @@ export function createOtpService({
     },
 
     /** A wrong or late code is a normal answer (`verified: false` with a reason), not an error. An unknown reference is a 404. */
-    async verify(raw: unknown): Promise<OtpVerified> {
+    async verify(raw: unknown, actor?: { apiKeyId: string }): Promise<OtpVerified> {
       const input = verifyOtpInput.parse(raw);
       const record = await otpRepo.findByReference(input.reference);
       const wanted = input.phone ? toE164(input.phone) : null;
-      if (!record || (input.phone && record.phone !== wanted)) {
+      if (!record || (input.phone && record.phone !== wanted) || (actor && record.apiKeyId !== actor.apiKeyId)) {
         throw new DomainError("not_found", `OTP reference ${input.reference} not found${input.phone ? " for that phone number" : ""}`);
       }
       const base = { reference: record.reference, phone: record.phone };
