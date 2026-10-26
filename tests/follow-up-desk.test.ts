@@ -52,7 +52,6 @@ describe("moving a client to another psychologist", () => {
   it("takes the open follow-up thread to the new psychologist", async () => {
     const { asha, dev, ravi, ask } = await setup();
     const id = await ask(v(asha), ravi);
-    await c.clients.assignTherapist({}, ravi, { staffId: asha.id });
     await c.clients.assignTherapist({}, ravi, { staffId: dev.id, reason: "Asha on leave" });
     expect((await c.followUps.get(v(dev), id)).psychologistId).toBe(dev.id);
     expect((await c.followUps.list(v(dev))).map((r) => r.id)).toContain(id);

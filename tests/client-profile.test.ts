@@ -24,6 +24,8 @@ async function setup() {
   const book = (staffId: string, start: string, now: Date) =>
     c.bookings.create(desk, { serviceId: therapy.id, staffId, start: at(start), client: { name: "Ravi", phone: "98765 43210" }, useCredits: false }, { now }).then((r) => r.booking);
   const first = await book(asha.id, "2026-09-01T10:00", at("2026-08-25T09:00"));
+  // These tests assign the psychologist by hand, so undo the one the first booking gave.
+  await db.execute(sql`delete from client_therapist`);
   return { asha, dev, shana, book, clientId: first.clientId };
 }
 

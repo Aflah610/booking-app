@@ -161,6 +161,21 @@ async function settleWithCredit(tx: Tx, bookingId: string, serviceId: string, cr
   return { used, covered };
 }
 
+/**
+ * A client with no psychologist yet gets the one from their first confirmed booking (paid, free, or booked by
+ * staff with nothing due online), so that psychologist can open the case history and write the session note.
+ * A client who already has one keeps them: moving a client is a manager's decision.
+ */
+async function assignFirstTherapist(tx: Tx, bookingId: string) {
+  await tx.execute(sql`
+    insert into client_therapist (client_id, staff_id, starts_at, reason)
+    select b.client_id, b.staff_id, now(), 'First booking'
+    from booking b
+    where b.id = ${bookingId} and b.status <> 'cancelled' and not b.slot_released
+      and (b.payment_status in ('paid', 'not_required') or b.payment_due_at is null)
+    on conflict do nothing`);
+}
+
 /** Maps the database's refusals to a reason; anything else is a real error and is rethrown. */
 function refusal(err: unknown): WriteResult<never> {
   const { code, constraint } = pgError(err);
@@ -278,6 +293,7 @@ export function createBookingsRepository(db: Db) {
         const id = await insertBooking(tx, b);
         let paidByCredit = false;
         if (b.credit) paidByCredit = (await settleWithCredit(tx, id, b.serviceId, b.credit, opts.now)).covered;
+        await assignFirstTherapist(tx, id);
         await writeAudit(tx, { ...opts.audit, entityId: id });
         return { id, paidByCredit } satisfies CreatedBooking;
       });
@@ -325,6 +341,7 @@ export function createBookingsRepository(db: Db) {
           { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise, pricePaise: old.pricePaise },
         );
         await moveCredits(tx, oldId, id);
+        await assignFirstTherapist(tx, id);
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, newBookingId: id } });
         return id;
       });
@@ -429,6 +446,7 @@ export function createBookingsRepository(db: Db) {
           }
         }
         await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
+        await assignFirstTherapist(tx, id);
         await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
         return { result: "paid" as const, slotReleased };
       });
@@ -459,6 +477,7 @@ export function createBookingsRepository(db: Db) {
             ...(t.pay ? { paymentStatus: "pending" as const, paymentDueAt: t.pay.dueAt } : {}),
           })
           .where(eq(booking.id, id));
+        await assignFirstTherapist(tx, id);
         await writeAudit(tx, opts.audit);
         return id;
       });
@@ -492,6 +511,7 @@ export function createBookingsRepository(db: Db) {
           throw new Refused("not_upcoming");
         }
         const { used, covered } = await settleWithCredit(tx, id, b.serviceId, { owes: true, pricePaise: b.amountPaise }, opts.now);
+        await assignFirstTherapist(tx, id);
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, taken: used, covered } });
         return { covered, taken: used, wasOnline: b.resumeUntil !== null };
       });

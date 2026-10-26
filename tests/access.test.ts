@@ -100,7 +100,6 @@ describe("pending case notes", () => {
     // A psychologist sees only their own; writing the note clears it.
     const mine = await c.caseHistory.pendingNotes(asha, { staffId: dev.id }, now);
     expect(mine.map((p) => p.bookingId)).toEqual([early.id]);
-    await c.clients.assignTherapist({}, early.clientId, { staffId: asha.id });
     await c.caseHistory.addNote(asha, early.clientId, { bookingId: early.id, summary: "Rapport building.", risk: "low", response: "engaged", progress: "same" });
     expect(await c.caseHistory.pendingNotes(asha, {}, now)).toEqual([]);
   });

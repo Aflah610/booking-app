@@ -131,6 +131,22 @@ describe("reporting a payment", () => {
   });
 });
 
+describe("the client's psychologist", () => {
+  it("comes from the first booking once it is paid, and a later booking with someone else keeps them", async () => {
+    const { svc, staff } = await setup();
+    const dev = await c.staff.create({}, { name: "Dev", email: "dev@firm.test" });
+    await c.staff.setServices({}, dev.id, [svc.id]);
+    await c.schedules.setWeeklyHours({}, dev.id, everyDay);
+    const b = await book(svc.id, "2026-10-19T10:00");
+    // Waiting for payment: nobody yet, so an abandoned attempt never lands on a psychologist's list.
+    expect(await c.clients.therapistHistory(b.clientId)).toEqual([]);
+    await c.payments.report({}, b.id, paid(), plus(t0, 3));
+    expect(await c.clients.therapistHistory(b.clientId)).toMatchObject([{ staffId: staff.id, endsAt: null, reason: "First booking" }]);
+    await c.bookings.create(desk, { serviceId: svc.id, staffId: dev.id, start: at("2026-10-20T10:00"), client: ravi, useCredits: false }, { now: t0 });
+    expect((await c.clients.therapistHistory(b.clientId)).map((h) => h.staffId)).toEqual([staff.id]);
+  });
+});
+
 describe("the 10 minutes and the 24 hours", () => {
   it("fails an unpaid booking after 10 minutes, gives its time back and asks the client to pay", async () => {
     const { svc } = await setup();
