@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Initial therapist fix published after 505 passing tests
+
+- Code c304c37 / draft PR #7 published to main after full CI passed 505 tests in 47 files, lint, typecheck,
+  production build, Docker and production audit (zero production advisories). Eight new real-Postgres regressions
+  cover initial assignment, preserved current assignment, credit/free confirmation, late/cancelled payment and races.
+- Local integration attempt could not start because 127.0.0.1:5433 has no Postgres; CI supplied the real database.
+  Corrected the historical unpaid-checkout fixture to use a priced service; a free confirmation now rightly assigns.
+- The existing test client's live assignment was separately saved to Jasmin and verified through the admin page.
+  New automatic behaviour awaits the normal passing-main server rollout; do not claim a new production booking
+  has exercised it. No SSH access, extra booking or charge used. No existing assignments bulk-rewritten.
+- Rs 1 test prices still live pending couple test/restoration. OTP remains paused. Other eight audit issues untouched.
+
 ## 2026-10-26 - Codex - Initial therapist assignment fix prepared; test owner corrected live
 
 - Paid BK-00006 with Jasmin did not create client_therapist, so Clients said Unassigned and normal clinical ownership
