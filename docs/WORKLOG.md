@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Aflah's Rs 1 individual test booking verified read-only
+
+- Aflah placed the test himself. Live BK-00006 is Individual therapy with Jasmin, 26 October 14:30-15:30 IST,
+  Scheduled/Paid. Booking detail shows a Rs 1 paid UPI receipt with Razorpay identifiers. Codex did not charge,
+  create, cancel, move or edit this booking and did not independently query Razorpay capture state.
+- Clients directory now shows one registered client (the test owner). Existing failed-attempt history remains.
+- Observed follow-ups: no meeting link because Jasmin has not connected Google Calendar; Clients psychologist
+  column says Unassigned despite this booking being with Jasmin. Assignment semantics need checking before a fix.
+  Payment detail labels the original Rs 1 charge Amount due even though paid; this is a misleading label.
+- Temporary Rs 1 service prices and Rashin override remain live for the couple test. Restore originals from the
+  previous entry after Aflah finishes. Eight audit findings remain unfixed; OTP migration remains paused.
+
 ## 2026-10-26 - Codex - Temporary Rs 1 booking prices for Aflah's live test
 
 - Aflah explicitly requested Rs 1 test prices for Individual and couple therapy and will place the bookings himself.
