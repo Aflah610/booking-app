@@ -232,6 +232,7 @@ export function createBookingsService(deps: {
         {
           holdTokenHash,
           now,
+          assignTherapist: actor.mode === "client" && !owes,
           audit: {
             actor,
             action: "create",

@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-26 - Codex - Initial therapist assignment fix prepared; test owner corrected live
+
+- Paid BK-00006 with Jasmin did not create client_therapist, so Clients said Unassigned and normal clinical ownership
+  was absent. Aflah requested the fix. Assigned the test client to Jasmin using the normal admin control and verified Saved.
+- Prepared automatic initial assignment in successful booking/payment transactions: paid/free website confirmation,
+  full credit settlement and paid late-booking reclaim. Pending/failed/partial-credit or released-slot attempts do not
+  assign. Existing coordinator assignments stay intact; initial inserts and explicit reassignments share a client lock.
+- Assignment audit commits with the confirming booking change; repeated/concurrent confirmations keep one current
+  assignment. Added eight PostgreSQL regressions, including directory filtering and therapist clinical access.
+  Corrected the old unpaid-checkout fixture, which had used a free service and manually relabelled it unpaid.
+- Local lint/typecheck pass. PostgreSQL integration CI still pending; automatic fix is NOT live yet.
+  Temporary Rs 1 prices remain for Aflah's tests. OTP migration and eight logic-audit findings remain open.
+
 ## 2026-10-26 - Codex - Aflah's Rs 1 individual test booking verified read-only
 
 - Aflah placed the test himself. Live BK-00006 is Individual therapy with Jasmin, 26 October 14:30-15:30 IST,

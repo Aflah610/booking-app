@@ -90,7 +90,7 @@ export function createPaymentsService(deps: {
       entity: "booking",
       entityId: bookingId,
       details: { amountPaise: data.amountPaise, razorpayPaymentId: data.razorpayPaymentId ?? null, source },
-    });
+    }, now);
     if (paid.result === "cancelled") {
       await paymentsRepo.flagRefund(row.id);
       throw new DomainError("conflict", "The payment was recorded, but this booking had already been cancelled. Refund it in Razorpay.", { reason: "booking_cancelled", paymentId: row.id });

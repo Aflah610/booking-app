@@ -4,7 +4,7 @@ import { booking, client, notification, service, slotHold, staff, staffService }
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
-import { upsertClient } from "@/features/clients/clients.repository";
+import { assignInitialTherapist, upsertClient } from "@/features/clients/clients.repository";
 import type { Allocation } from "@/features/packages/packages.dto";
 import { applyCredits, moveCredits, returnCredits } from "@/features/packages/packages.repository";
 import { PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
@@ -270,7 +270,7 @@ export function createBookingsRepository(db: Db) {
       return new Map(rows.map((r) => [r.staffId, { count: r.count, lastStart: r.last ? Date.parse(r.last) : 0 }]));
     },
 
-    async create(b: NewBooking, opts: { holdTokenHash?: string | null; now: Date; audit: Omit<AuditEntry, "entityId"> }) {
+    async create(b: NewBooking, opts: { holdTokenHash?: string | null; now: Date; assignTherapist?: boolean; audit: Omit<AuditEntry, "entityId"> }) {
       return guarded(async (tx) => {
         await lockStaff(tx, [b.staffId]);
         const blocked = await claimTime(tx, { ...b, holdTokenHash: opts.holdTokenHash, now: opts.now });
@@ -278,6 +278,10 @@ export function createBookingsRepository(db: Db) {
         const id = await insertBooking(tx, b);
         let paidByCredit = false;
         if (b.credit) paidByCredit = (await settleWithCredit(tx, id, b.serviceId, b.credit, opts.now)).covered;
+        if (opts.assignTherapist || paidByCredit) {
+          const [saved] = await tx.select({ clientId: booking.clientId }).from(booking).where(eq(booking.id, id));
+          await assignInitialTherapist(tx, saved.clientId, b.staffId, opts.now, { ...opts.audit, entityId: id });
+        }
         await writeAudit(tx, { ...opts.audit, entityId: id });
         return { id, paidByCredit } satisfies CreatedBooking;
       });
@@ -408,10 +412,10 @@ export function createBookingsRepository(db: Db) {
      * Records a payment. If the time had been given back, it is taken again when nobody else has it;
      * otherwise the booking stays paid with its time released, and the client is asked to choose a new one.
      */
-    async markPaid(id: string, audit: AuditEntry): Promise<{ result: "cancelled" | "already" | "paid"; slotReleased: boolean }> {
+    async markPaid(id: string, audit: AuditEntry, now = new Date()): Promise<{ result: "cancelled" | "already" | "paid"; slotReleased: boolean }> {
       return db.transaction(async (tx) => {
         const [b] = await tx
-          .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId })
+          .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId, clientId: booking.clientId })
           .from(booking)
           .where(eq(booking.id, id))
           .for("update");
@@ -429,6 +433,9 @@ export function createBookingsRepository(db: Db) {
           }
         }
         await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
+        if (!slotReleased) {
+          await assignInitialTherapist(tx, b.clientId, b.staffId, now, audit);
+        }
         await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
         return { result: "paid" as const, slotReleased };
       });
@@ -444,7 +451,7 @@ export function createBookingsRepository(db: Db) {
       opts: { now: Date; audit: AuditEntry },
     ) {
       return guarded(async (tx) => {
-        const [b] = await tx.select({ staffId: booking.staffId, status: booking.status }).from(booking).where(eq(booking.id, id)).for("update");
+        const [b] = await tx.select({ staffId: booking.staffId, clientId: booking.clientId, status: booking.status }).from(booking).where(eq(booking.id, id)).for("update");
         if (!b || b.status !== "upcoming") throw new Refused("not_upcoming");
         await lockStaff(tx, [b.staffId, t.staffId]);
         const blocked = await claimTime(tx, { staffId: t.staffId, startsAt: t.startsAt, endsAt: t.endsAt, now: opts.now });
@@ -459,6 +466,7 @@ export function createBookingsRepository(db: Db) {
             ...(t.pay ? { paymentStatus: "pending" as const, paymentDueAt: t.pay.dueAt } : {}),
           })
           .where(eq(booking.id, id));
+        if (!t.pay) await assignInitialTherapist(tx, b.clientId, t.staffId, opts.now, opts.audit);
         await writeAudit(tx, opts.audit);
         return id;
       });
@@ -475,6 +483,7 @@ export function createBookingsRepository(db: Db) {
       return guarded(async (tx) => {
         const [b] = await tx
           .select({
+            clientId: booking.clientId,
             status: booking.status,
             paymentStatus: booking.paymentStatus,
             slotReleased: booking.slotReleased,
@@ -491,7 +500,10 @@ export function createBookingsRepository(db: Db) {
         if (!b || b.status !== "upcoming" || b.slotReleased || !["pending", "failed"].includes(b.paymentStatus) || b.creditMilli > 0 || b.creditPaise > 0) {
           throw new Refused("not_upcoming");
         }
+        // Client before balances, matching new-booking credit allocation, so assignment cannot invert lock order.
+        await tx.select({ id: client.id }).from(client).where(eq(client.id, b.clientId)).for("update");
         const { used, covered } = await settleWithCredit(tx, id, b.serviceId, { owes: true, pricePaise: b.amountPaise }, opts.now);
+        if (covered) await assignInitialTherapist(tx, b.clientId, b.staffId, opts.now, opts.audit);
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, taken: used, covered } });
         return { covered, taken: used, wasOnline: b.resumeUntil !== null };
       });

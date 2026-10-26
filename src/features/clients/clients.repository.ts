@@ -79,6 +79,22 @@ export function registeredClientWhere(alias: "client" | "c" = "client") {
   )`;
 }
 
+/** Inserts the first current assignment without replacing one, inside the confirming booking transaction. */
+export async function assignInitialTherapist(
+  tx: DbOrTx, clientId: string, staffId: string, at: Date, audit: AuditEntry,
+) {
+  // Share the client row lock with explicit reassignments, including when no assignment row exists yet.
+  await tx.select({ id: client.id }).from(client).where(eq(client.id, clientId)).for("update");
+  const [inserted] = await tx.insert(clientTherapist)
+    .values({ clientId, staffId, startsAt: at, assignedBy: audit.actor.staffId ?? null, reason: "First confirmed booking" })
+    .onConflictDoNothing()
+    .returning({ id: clientTherapist.id });
+  if (inserted) await writeAudit(tx, {
+    actor: audit.actor, action: "assign_therapist_from_booking", entity: "client", entityId: clientId,
+    details: { staffId, bookingId: audit.entityId },
+  });
+}
+
 export function createClientsRepository(db: Db) {
   return {
     async findById(id: string): Promise<ClientDTO | null> {
@@ -215,6 +231,7 @@ export function createClientsRepository(db: Db) {
     /** Ends the current period and starts the new one at the same moment, with the audit row, in one transaction. */
     assignTherapist(clientId: string, a: { staffId: string; assignedBy: string | null; reason: string | null; at: Date }, audit: AuditEntry) {
       return db.transaction(async (tx) => {
+        await tx.select({ id: client.id }).from(client).where(eq(client.id, clientId)).for("update");
         await tx
           .update(clientTherapist)
           .set({ endsAt: a.at })

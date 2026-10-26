@@ -31,6 +31,9 @@ project for the same owner, Aflah.
   couple therapy 90 min.
 - Clients lists registered clients: successful paid/free online bookings, staff registrations, imports or existing care/credits.
   Unpaid online booking attempts stay in Bookings; sales-only contacts stay in Leads. A blank case record is not registration.
+- Confirmed website bookings (paid/free), fully credit-covered bookings and recorded payments assign the booked
+  therapist only when the client has no current assignment. Pending/failed checkouts do not assign anyone.
+  Keep existing assignments; changing therapist remains an explicit coordinator action with a reason.
 - Case history mirrors the old system MCH (6 steps). MCH data is copied with `scripts/import-mch.ts`
   (dry run by default). Never print or log clients' clinical text.
 - The website (`mindlap.in`, repo `mindlap-therapy`) talks to this app through its Cloudflare Worker.

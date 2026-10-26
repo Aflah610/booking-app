@@ -199,6 +199,8 @@ describe("clients directory (as in the old case history system)", () => {
 describe("registered clients versus failed online attempts", () => {
   it("excludes unpaid attempts and empty case histories from Clients, search, filters and CSV until payment succeeds", async () => {
     const { asha, shana, clientId } = await setup();
+    // This fixture is an unpaid checkout, rather than a confirmed free booking.
+    await c.catalog.update({}, (await c.catalog.list())[0].id, { priceDisplay: "1000" });
     const online = await c.bookings.create({ mode: "client" }, {
       serviceId: (await c.catalog.list())[0].id, staffId: asha.id,
       start: at("2026-09-04T10:00"), client: { name: "Unpaid checkout", phone: "98000 00001" }, useCredits: false,
