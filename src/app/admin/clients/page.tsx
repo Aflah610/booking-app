@@ -119,7 +119,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   </td>
                   {contact && (
                     <td className="whitespace-nowrap">
-                      <p className="tabular-nums">{phoneLabel(c.phoneE164)}</p>
+                      <p className="tabular-nums">{c.phoneAsEntered ?? phoneLabel(c.phoneE164)}</p>
                       <p className="text-xs text-zinc-600">{c.email ?? "—"}</p>
                     </td>
                   )}

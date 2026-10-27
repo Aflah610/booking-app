@@ -144,7 +144,7 @@ export default async function ClientPage({
             </div>
             <div className="card px-4 py-3">
               <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Phone</dt>
-              <dd className="mt-1 whitespace-nowrap text-[15px] font-semibold tabular-nums">{contact ? phoneLabel(c.phoneE164) : <span className="font-normal text-zinc-500">Hidden</span>}</dd>
+              <dd className="mt-1 whitespace-nowrap text-[15px] font-semibold tabular-nums">{contact ? c.phoneAsEntered ?? phoneLabel(c.phoneE164) : <span className="font-normal text-zinc-500">Hidden</span>}</dd>
             </div>
           </dl>
 

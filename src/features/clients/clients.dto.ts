@@ -6,6 +6,8 @@ export type ClientDTO = {
   number: number;
   name: string;
   phoneE164: string;
+  /** Set only for MCH clients copied with a shared or unreadable number: show this instead of phoneE164. */
+  phoneAsEntered: string | null;
   email: string | null;
   whatsappOptIn: boolean;
   notes: string | null;
@@ -34,6 +36,9 @@ export type ClientDTO = {
 /** Choices on the client forms; a value saved before these existed is still shown. */
 export const GENDERS = ["Female", "Male", "Non-binary", "Other", "Prefer not to say"];
 export const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed", "Separated", "Other"];
+
+/** True for the placeholder key given to an MCH client whose number couldn't be used (see client.phoneAsEntered). */
+export const isPlaceholderPhone = (e164: string) => e164.startsWith("+9100");
 
 /** CL-00142. */
 export function clientReference(number: number): string {

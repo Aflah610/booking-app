@@ -96,6 +96,20 @@ describe("copying from MCH", () => {
     expect(notes.map((n) => n.authorId).sort()).toEqual([asha.id, gone.id].sort());
   });
 
+  it("with keepMchPhones, copies shared and unreadable numbers too, keeping the MCH text and a placeholder key", async () => {
+    const { admin } = await staff();
+    const data = exportWith({ clients: [client(1, "98765 00001"), client(3, "98765 00009"), client(4, "+91 98765 00009"), client(5, "")], case_histories: [], session_notes: [] });
+    // Without the option they stay out; a second run with it brings just them in.
+    expect((await importMch(db, data, { fallbackAuthorId: admin.id })).clientsSkipped).toHaveLength(3);
+    const report = await importMch(db, data, { fallbackAuthorId: admin.id, keepMchPhones: true });
+    expect(report).toMatchObject({ clientsCreated: 3, clientsMatched: 1, clientsSkipped: [], phonesKeptAsEntered: 3 });
+    const byMch = new Map((await db.query.client.findMany()).map((r) => [r.mchId, r]));
+    expect(byMch.get(3)).toMatchObject({ phoneE164: "+919876500009", phoneAsEntered: "98765 00009" });
+    expect(byMch.get(4)).toMatchObject({ phoneE164: "+9100000000004", phoneAsEntered: "+91 98765 00009", whatsappOptIn: false });
+    expect(byMch.get(5)).toMatchObject({ phoneE164: "+9100000000005", phoneAsEntered: "No phone number in MCH" });
+    expect(byMch.get(1)?.phoneAsEntered).toBeNull();
+  });
+
   it("can run again without copying anything twice, and a dry run saves nothing", async () => {
     const { admin } = await staff();
     expect((await importMch(db, exportWith(), { fallbackAuthorId: admin.id, dryRun: true })).clientsCreated).toBe(2);

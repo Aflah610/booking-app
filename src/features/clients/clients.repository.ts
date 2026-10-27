@@ -11,6 +11,7 @@ export const clientColumns = {
   id: client.id,
   name: client.name,
   phoneE164: client.phoneE164,
+  phoneAsEntered: client.phoneAsEntered,
   email: client.email,
   whatsappOptIn: client.whatsappOptIn,
   notes: client.notes,
@@ -35,7 +36,7 @@ export const clientColumns = {
 };
 
 /** The fields staff can edit on the client's page. */
-export type ClientProfileFields = Partial<Omit<ClientDTO, "id" | "number" | "phoneE164" | "registeredBy">>;
+export type ClientProfileFields = Partial<Omit<ClientDTO, "id" | "number" | "phoneE164" | "phoneAsEntered" | "registeredBy">>;
 
 const assigner = alias(staff, "assigner");
 
@@ -121,7 +122,7 @@ export function createClientsRepository(db: Db) {
         })
         .from(client)
         .where(and(
-          pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined,
+          pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.phoneAsEntered, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined,
           from ? gte(client.createdAt, from) : undefined,
           to ? lt(client.createdAt, to) : undefined,
         ))
@@ -169,7 +170,7 @@ export function createClientsRepository(db: Db) {
         left join staff rb on rb.id = c.registered_by
         left join case_history ch on ch.client_id = c.id
         where ${registeredClientWhere("c")}
-          and ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
+          and ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} or c.phone_as_entered ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
           and ${f.therapist === "unassigned" ? sql`t.staff_id is null` : f.therapist ? sql`t.staff_id = ${f.therapist}` : sql`true`}
           and ${f.treatedBy ? sql`(exists (select 1 from client_therapist x where x.client_id = c.id and x.staff_id = ${f.treatedBy})
             or exists (select 1 from booking x where x.client_id = c.id and x.staff_id = ${f.treatedBy}))` : sql`true`}

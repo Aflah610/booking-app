@@ -3,6 +3,7 @@ import type { Db, Tx } from "@/db";
 import { schema } from "@/db";
 import { RISK, type Risk } from "@/features/case-history/choices";
 import { ICD11 } from "@/features/case-history/icd11";
+import { isPlaceholderPhone } from "@/features/clients/clients.dto";
 import { toE164 } from "@/features/shared/phone";
 import { zonedToUtc } from "@/lib/time";
 
@@ -49,6 +50,18 @@ export type MchImportOptions = {
   createMissingStaff?: boolean;
   /** Run everything, then roll back: for counting before the real copy. */
   dryRun?: boolean;
+  /**
+   * One-time: copy MCH clients whose phone is shared or unreadable too, instead of leaving them out. The first client
+   * on a shared number keeps it; the others get a placeholder key, and the phone text from MCH is shown for all of them.
+   */
+  keepMchPhones?: boolean;
+};
+
+/** A number no phone can have (+91 then 0…), unique per MCH client, so a copied client never shares a real number. */
+const placeholderPhone = (mchId: Id) => {
+  const p = `+9100${String(mchId).padStart(9, "0")}`;
+  if (!isPlaceholderPhone(p)) throw new Error("placeholder phone format changed");
+  return p;
 };
 
 export type MchImportReport = {
@@ -60,6 +73,8 @@ export type MchImportReport = {
   caseHistoriesSkipped: { code: string; why: string }[];
   notes: number;
   notesByFallbackAuthor: number;
+  /** Clients copied with their MCH phone text kept as entered (keepMchPhones). */
+  phonesKeptAsEntered: number;
   unmatchedPsychologists: string[];
   staffCreated: string[];
 };
@@ -82,7 +97,7 @@ class Rollback extends Error {}
 
 export async function importMch(db: Db, data: MchExport, opts: MchImportOptions): Promise<MchImportReport> {
   const report: MchImportReport = {
-    clientsCreated: 0, clientsMatched: 0, clientsSkipped: [], periods: 0, caseHistories: 0, caseHistoriesSkipped: [], notes: 0, notesByFallbackAuthor: 0, unmatchedPsychologists: [], staffCreated: [],
+    clientsCreated: 0, clientsMatched: 0, clientsSkipped: [], periods: 0, caseHistories: 0, caseHistoriesSkipped: [], notes: 0, notesByFallbackAuthor: 0, phonesKeptAsEntered: 0, unmatchedPsychologists: [], staffCreated: [],
   };
   try {
     await db.transaction(async (tx) => {
@@ -137,11 +152,27 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
     if (p) phoneCount.set(p, (phoneCount.get(p) ?? 0) + 1);
   }
 
+  // With keepMchPhones, the oldest MCH client on a shared number keeps it.
+  const firstOnPhone = new Map<string, Id>();
+  for (const m of [...data.clients].sort((a, b) => a.id - b.id)) {
+    const p = toE164(m.phone ?? "");
+    if (p && !firstOnPhone.has(p)) firstOnPhone.set(p, m.id);
+  }
+
   const clientFor = new Map<Id, { id: string; code: string }>();
   for (const m of data.clients) {
-    const phone = toE164(m.phone ?? "");
-    if (!phone) { report.clientsSkipped.push({ code: m.client_code, why: "phone number not valid" }); continue; }
-    if ((phoneCount.get(phone) ?? 0) > 1) { report.clientsSkipped.push({ code: m.client_code, why: "phone number shared with another MCH client" }); continue; }
+    let phone = toE164(m.phone ?? "");
+    let phoneAsEntered: string | null = null;
+    const shared = phone != null && (phoneCount.get(phone) ?? 0) > 1;
+    if (!phone || shared) {
+      if (!opts.keepMchPhones) {
+        report.clientsSkipped.push({ code: m.client_code, why: phone ? "phone number shared with another MCH client" : "phone number not valid" });
+        continue;
+      }
+      phoneAsEntered = blank(m.phone) ?? "No phone number in MCH";
+      if (!phone || firstOnPhone.get(phone) !== m.id) phone = placeholderPhone(m.id);
+      report.phonesKeptAsEntered++;
+    }
 
     const emergencyPhone = m.emergency_contact && /^[+\d\s()-]{8,}$/.test(m.emergency_contact.trim()) ? toE164(m.emergency_contact) : null;
     const fields = {
@@ -150,6 +181,7 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
       occupation: blank(m.occupation), education: blank(m.education), maritalStatus: blank(m.marital_status),
       emergencyName: emergencyPhone ? null : blank(m.emergency_contact), emergencyPhone,
       registeredBy: staffForUser(m.created_by_id ?? null),
+      phoneAsEntered,
     };
     const [existing] = await tx.select().from(schema.client).where(eq(schema.client.phoneE164, phone));
     if (existing) {

@@ -1,0 +1,1 @@
+ALTER TABLE "client" ADD COLUMN "phone_as_entered" text;

@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · one-time: bring the 20 held-back MCH clients exactly as in MCH
+
+- Aflah: copy the 20 exactly as MCH has them, just this once. New client.phone_as_entered (migration 0040) holds
+  MCH's phone text; staff see it in Clients, the client page and search. Import option --keep-mch-phones: the oldest
+  MCH client on a shared number keeps it; the others, and unreadable/empty ones, get a placeholder key +9100<mch id>
+  (no real Indian number starts +91 0, so nothing is sent or logged in on it; WhatsApp opt-in stays off).
+- Normal clients unaffected (phone_as_entered null). Run once on the live DB after deploy; don't use the flag again.
+
 ## 2026-10-27 · Claude Code · MCH import DONE (283 clients); 20 held back
 
 - Live DB was already emptied (by Codex, with snapshot). Fresh MCH export: 303 clients, 400 assignment periods,

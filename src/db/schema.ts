@@ -257,6 +257,11 @@ export const client = pgTable("client", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   phoneE164: text("phone_e164").notNull().unique(),
+  /**
+   * The phone exactly as MCH had it, for the few MCH clients whose number was shared or unreadable. Their phone_e164
+   * is then a placeholder (+9100…) that no phone can have, so nothing is ever sent or logged in on it; staff see this text.
+   */
+  phoneAsEntered: text("phone_as_entered"),
   email: text("email"),
   whatsappOptIn: boolean("whatsapp_opt_in").notNull().default(false),
   notes: text("notes"),

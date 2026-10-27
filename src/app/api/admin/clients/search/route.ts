@@ -15,6 +15,6 @@ export async function GET(req: Request) {
   if (q.length < 1) return Response.json({ data: [] });
   const rows = await app().clients.list({ q, limit: 15, relevance: true });
   return Response.json({
-    data: rows.map((c) => ({ id: c.id, name: c.name, phone: c.phoneE164, email: c.email, whatsappOptIn: c.whatsappOptIn, bookings: c.bookings })),
+    data: rows.map((c) => ({ id: c.id, name: c.name, phone: c.phoneAsEntered ?? c.phoneE164, email: c.email, whatsappOptIn: c.whatsappOptIn, bookings: c.bookings })),
   });
 }
