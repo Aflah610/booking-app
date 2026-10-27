@@ -108,6 +108,9 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
 
     assignable: async () => leadsRepo.assignable(await salesRoles()),
 
+    /** Whether anyone active works leads. With nobody (sales paused), the menu leaves Leads out. */
+    hasSalesTeam: async () => (await leadsRepo.salesTeam(await salesRoles())).length > 0,
+
     /** The sales executives and whether each is taking leads, for the switches on the Leads page. */
     async salesTeam(viewer: LeadViewer) {
       if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see the sales team");

@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · Leads hidden from the menu while no sales executive is active
+
+- Aflah: hide the BDE leads part for now (Nida and Nihla are switched off; 774 stays on Zoho). The menu now shows
+  Leads only while at least one active staff member has a lead-working role (`leads.hasSalesTeam`). Switching a BDE
+  back on brings it back by itself. /admin/leads still opens by URL for admins/managers; nothing deleted.
+- New test in tests/leads.test.ts.
+
 ## 2026-10-27 · Claude Code · BDEs switched off for now
 
 - Live data only: Nida and Nihla (BDE) set Inactive in Staff at Aflah's request ("we will add that later"); they

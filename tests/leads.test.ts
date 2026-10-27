@@ -44,6 +44,16 @@ describe("sharing new leads", () => {
   });
 });
 
+describe("the Leads menu", () => {
+  it("shows only while an active sales executive works leads", async () => {
+    expect(await c.leads.hasSalesTeam()).toBe(false);
+    const asha = await sales("Asha");
+    expect(await c.leads.hasSalesTeam()).toBe(true);
+    await c.staff.update({}, asha.id, { active: false });
+    expect(await c.leads.hasSalesTeam()).toBe(false);
+  });
+});
+
 describe("messages from the same person", () => {
   it("adds a later message to their open lead instead of opening another", async () => {
     await sales("Asha");

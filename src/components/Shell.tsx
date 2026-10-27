@@ -14,11 +14,12 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
   // Each item appears only for roles allowed to use it (Settings > Roles & access); the pages check again on their own.
   const can = (p: Parameters<typeof allowed>[1]) => allowed(me, p);
   const manages = ["clients.view", "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage"] as const;
-  const [newLeads, followUpNews, pendingNotes] = await Promise.all([
-    canUseLeads(me) ? app().leads.countNew(me) : 0,
+  const [showLeads, followUpNews, pendingNotes] = await Promise.all([
+    canUseLeads(me) && app().leads.hasSalesTeam(),
     canUseFollowUps(me) ? app().followUps.countUnread(me) : 0,
     can("casenotes.pending") ? app().caseHistory.countOverdueNotes() : 0,
   ]);
+  const newLeads = showLeads ? await app().leads.countNew(me) : 0;
   return (
     <SidebarFrame
       sidebar={
@@ -31,7 +32,7 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
               <NavLink href="/admin/bookings" icon="list">Bookings</NavLink>
               <NavLink href="/admin/calendar" icon="calendar">Calendar</NavLink>
               <NavLink href={`/admin/staff/${me.id}`} icon="clock">Availability</NavLink>
-              {canUseLeads(me) && <NavLink href="/admin/leads" icon="inbox" count={newLeads}>Leads</NavLink>}
+              {showLeads && <NavLink href="/admin/leads" icon="inbox" count={newLeads}>Leads</NavLink>}
               {!can("clients.view") && can("clients.own") && <NavLink href="/admin/clients" icon="user">My clients</NavLink>}
               {canUseFollowUps(me) && <NavLink href="/admin/follow-ups" icon="chat" count={followUpNews}>Follow-ups</NavLink>}
               {(can("casenotes.write") || can("casenotes.read_all")) && <NavLink href="/admin/case-histories" icon="file" exact>Case histories</NavLink>}
