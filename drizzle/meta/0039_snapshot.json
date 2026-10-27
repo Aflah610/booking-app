@@ -1,5 +1,5 @@
 {
-  "id": "47db9600-903d-4187-8ff7-aa600acdfa9a",
+  "id": "e19d2a54-183f-4801-8265-dfa82adb0ec1",
   "prevId": "fbe96348-0445-4c55-9cea-4550fe363b23",
   "version": "7",
   "dialect": "postgresql",
@@ -817,21 +817,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "business_meet_staff_id_staff_id_fk": {
-          "name": "business_meet_staff_id_staff_id_fk",
-          "tableFrom": "business",
-          "tableTo": "staff",
-          "columnsFrom": [
-            "meet_staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
