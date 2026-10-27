@@ -3,6 +3,27 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 - Codex - Reminder sender configured, owner test received, all three workflows active
+
+- Aflah asked Codex to finish Claude's reminder handover and explicitly authorised handling AWS access. Found the
+  correct Lightsail mindlap-app instance. Enabled Mumbai console visibility (other three retained) and added the
+  current client IPv4 /32 to the existing restricted SSH rule. No public SSH opening or web-port change.
+- Used only the previously approved server key via an owner-only temporary copy; original ACLs were not altered.
+  Existing OTP Meta token verified valid SYSTEM_USER, no scheduled expiry, correct sending/management access.
+  Both session_reminder_day and session_reminder_join are now APPROVED, en, five POSITIONAL body values.
+- Set only WHATSAPP_PHONE_NUMBER_ID=1427401513782694 and WHATSAPP_ACCESS_TOKEN in server app.env; protected
+  rollback backup saved, unrelated settings preserved, app container restarted, public health ok.
+- Verified all three saved workflows, including the previously unchecked 3-hour/30-minute template values. Sent
+  exactly one day-template test to Aflah using his existing BK-00006 while all workflows remained off. Actual app
+  renderer/sender used via an isolated one-off invocation; no test run history or booking/payment created.
+- Aflah confirmed Received correctly - enable reminders. Validated all three rendered messages (including signed
+  join URLs), activated via the audited app service and re-read all three as active: 1440/180/30 minutes before,
+  all services. No eligible existing future bookings to enqueue; no past reminder replay or extra test messages.
+- Real video calls still need Calendar/manual links: zero of seven bookable therapists are Meet-ready. The app's
+  signed join URL exists without Calendar, but its page waits until a real meeting link is added. Explained to Aflah.
+- Temporary tokens, payload, helper bundles and restricted key copy removed. See docs/reminder-setup.md.
+  No application source changes. CCD unchanged; OTP migration paused; temporary Rs 1 prices and eight audit issues remain.
+
 ## 2026-10-27 · Claude Code · reminder workflows created (off); server step for Codex
 
 - Settings > Workflows now has three WhatsApp workflows, all OFF, all services: "WhatsApp reminder 24 hours before"
