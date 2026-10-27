@@ -24,8 +24,21 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
     <SidebarFrame
       sidebar={
         <>
-            <div className="flex items-center gap-2 px-3 pb-2 pt-1 md:pb-6">
+            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-1 md:pb-6">
               <Image src="/brand/mindlap-logo.png" alt="Mindlap" width={630} height={173} unoptimized priority className="h-7 w-auto" />
+              {/* Phones: the same profile menu, as a small badge beside the logo (the sidebar one is desktop only). */}
+              <details className="group relative md:hidden">
+                <summary className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full bg-zinc-200 text-xs font-medium text-black [&::-webkit-details-marker]:hidden" aria-label="Your account">
+                  {me.name.slice(0, 1).toUpperCase()}
+                </summary>
+                <div className="absolute right-0 top-full z-30 mt-2 w-56 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg">
+                  <p className="px-3 pb-1 pt-2">
+                    <span className="block truncate text-sm text-black">{me.name}</span>
+                    <span className="block truncate text-xs text-zinc-600">{ACCESS_ROLE_LABEL[me.accessRole]}</span>
+                  </p>
+                  <SignOut />
+                </div>
+              </details>
             </div>
             <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible" aria-label="Main">
               <NavLink href="/" icon="home" exact>Today</NavLink>
@@ -60,21 +73,29 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
                 </span>
                 <span className="text-zinc-500 transition-transform group-open:rotate-180" aria-hidden="true">⌃</span>
               </summary>
-              <form
-                className="absolute inset-x-0 bottom-full mb-1 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/login" });
-                }}
-              >
-                <button className="nav-link w-full" type="submit"><Icon name="logout" /> Sign out</button>
-              </form>
+              <div className="absolute inset-x-0 bottom-full mb-1 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg">
+                <SignOut />
+              </div>
             </details>
         </>
       }
     >
       {children}
     </SidebarFrame>
+  );
+}
+
+/** The only place to sign out: inside the profile menu. */
+function SignOut() {
+  return (
+    <form
+      action={async () => {
+        "use server";
+        await signOut({ redirectTo: "/login" });
+      }}
+    >
+      <button className="nav-link w-full" type="submit"><Icon name="logout" /> Sign out</button>
+    </form>
   );
 }
 

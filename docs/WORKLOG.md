@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · Sign out on phones
+
+- The profile menu (only place with Sign out) was desktop-only (`hidden md:block`), so phones had no way to sign
+  out. Shell.tsx now shows a small profile badge beside the logo on phones with name, role and Sign out; the
+  desktop menu is unchanged. Shared `SignOut` form component.
+
 ## 2026-10-27 · Claude Code · firm calendar makes Meet links for therapists without their own
 
 - Aflah chose "one admin calendar makes every link" (none of the 7 therapists has connected Google Calendar).
