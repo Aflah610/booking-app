@@ -3,6 +3,24 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 - Codex - SMTP relay configured; test accepted, awaiting inbox receipt
+
+- Read Claude's Google SMTP relay handover. Aflah explicitly approved applying the three settings, sending one
+  test to aflahkt610@gmail.com and enabling three email reminder workflows only after receipt.
+- Current laptop public IP changed. Added its single /32 to the existing Lightsail SSH rule, keeping both previous
+  /32 sources and leaving HTTP/HTTPS and browser SSH settings unchanged. Approved key used via owner-only copy.
+- Added only SMTP_HOST=smtp-relay.gmail.com, SMTP_PORT=587, EMAIL_FROM="Mindlap <support@mindlap.in>" to
+  /opt/mindlap/app.env. No SMTP login/password; other settings preserved. Protected rollback backup:
+  /opt/mindlap/backups/app.env.before-email-20261027T160121Z. Recreated only app container; public health ok.
+- App mail status configured=true. Exactly one test was accepted by SMTP via the real sendTestEmail/email sender,
+  subject Test email from Mindlap, to the owner's approved address. Initial helper import failed before sending;
+  corrected helper used direct services. Exclusive test lock prevents accidental duplicate sends.
+- Verified three saved Email reminder workflows: 1440/180/30 minutes before appointment_start, all services,
+  recipient client, correct subjects/bodies with signed meeting_link placeholder. All remain OFF pending Aflah's
+  inbox/spam receipt confirmation. SMTP acceptance alone is not proof of delivery. WhatsApp reminders unchanged.
+- No functional source changes, booking/payment edits or historical reminder replay. Shared firm Google Calendar
+  is now configured by Claude (newer entries below supersede the earlier Calendar limitation).
+
 ## 2026-10-27 · Claude Code · Google SMTP relay enabled; server email settings for Codex
 
 - Done (Aflah approved): Google Admin > Gmail > Routing > SMTP relay service rule "Booking app emails
