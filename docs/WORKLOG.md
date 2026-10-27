@@ -3,6 +3,24 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · session reminders from the OTP number (templates submitted)
+
+- Meta closed case 28735961256069110: CCD 91552 can only be fixed by deleting and re-registering (Aflah to decide;
+  do NOT delete). 774 is managed by BSP Zoho, so Zoho must open the Meta ticket. So Aflah asked to send reminders
+  from the OTP number (00282, WABA 1421949459564180) instead.
+- Wanted: reminders 24 hours, 3 hours (with join link) and 30 minutes before each session. The workflow engine
+  already skips a reminder whose time has passed (a same-day booking gets only the 3 h and 30 min ones).
+- Submitted on WABA 1421949459564180, Utility, English (`en`), both "In review" at Meta:
+  - `session_reminder_day` params: {{client_name}}, {{staff}}, {{date}}, {{time}}, {{booking_id}}
+  - `session_reminder_join` params: {{client_name}}, {{staff}}, {{time}}, {{meeting_link}}, {{booking_id}}
+  The OTP number has no phone app, so both say "Need to change your booking? Message our coordinator on WhatsApp:
+  https://wa.me/918590991552" instead of "reply here".
+- Still to do: (1) server env WHATSAPP_PHONE_NUMBER_ID = the 00282 phone number ID and WHATSAPP_ACCESS_TOKEN = a
+  permanent system-user token with access to WABA 1421949459564180 (needs server access; Claude has no approval for
+  the SSH key). (2) Three WhatsApp workflows in Settings > Workflows (before 1440 / 180 / 30 min, online services),
+  inactive until one test reaches Aflah's phone. (3) Psychologists connect Google Calendar: an empty {{meeting_link}}
+  would make Meta reject the join reminder.
+
 ## 2026-10-26 - Codex - Initial therapist fix published after 505 passing tests
 
 - Code c304c37 / draft PR #7 published to main after full CI passed 505 tests in 47 files, lint, typecheck,
