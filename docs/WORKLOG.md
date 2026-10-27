@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · client email reminders created (off); email server not set up
+
+- Settings > Email shows "Not connected": SMTP_HOST / EMAIL_FROM are not in /opt/mindlap/app.env, so no email
+  (workflow, password reset, test) can send yet.
+- Created three email workflows to the client, all OFF, all services: "Email reminder 24 hours before",
+  "... 3 hours before (join link)", "... 30 minutes before (join link)". Bodies use {{meeting_link}} and point
+  changes to the CCD WhatsApp (wa.me/918590991552).
+- Proposed (awaiting Aflah's OK): Google Workspace SMTP relay, no password. Admin console > Apps > Google Workspace
+  > Gmail > Routing > SMTP relay service: allowed senders "Only addresses in my domains", "Only accept mail from the
+  specified IP addresses" 13.203.168.102, require TLS. Then app.env: SMTP_HOST=smtp-relay.gmail.com, SMTP_PORT=587,
+  EMAIL_FROM="Mindlap <support@mindlap.in>" (no SMTP_USER/PASS; the sender skips auth without SMTP_USER). Restart,
+  send a test from Settings > Email, then switch the three workflows on.
+
 ## 2026-10-27 · Claude Code · firm Meet calendar switched on; Join now pinned in the bookings list
 
 - Live: admin@mindlap.in ("Mindlap Admin", Admin, no services; already Workspace Super admin) connected Google
