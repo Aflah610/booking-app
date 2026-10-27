@@ -3,7 +3,7 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
-## 2026-10-27 - Codex - SMTP relay configured; test accepted, awaiting inbox receipt
+## 2026-10-27 - Codex - SMTP relay configured; owner received test, all three email reminders active
 
 - Read Claude's Google SMTP relay handover. Aflah explicitly approved applying the three settings, sending one
   test to aflahkt610@gmail.com and enabling three email reminder workflows only after receipt.
@@ -16,9 +16,10 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   subject Test email from Mindlap, to the owner's approved address. Initial helper import failed before sending;
   corrected helper used direct services. Exclusive test lock prevents accidental duplicate sends.
 - Verified three saved Email reminder workflows: 1440/180/30 minutes before appointment_start, all services,
-  recipient client, correct subjects/bodies with signed meeting_link placeholder. All remain OFF pending Aflah's
-  inbox/spam receipt confirmation. SMTP acceptance alone is not proof of delivery. WhatsApp reminders unchanged.
-- No functional source changes, booking/payment edits or historical reminder replay. Shared firm Google Calendar
+  recipient client, correct subjects/bodies with signed meeting_link placeholder. Aflah confirmed Received - enable email reminders. Enabled all three through the audited workflow service and
+  re-read active=true for each. Subjects, bodies, timings and service scope preserved. WhatsApp reminders unchanged.
+- Temporary helper bundles, remote scripts and restricted key copy removed; original key unchanged.
+- No functional source changes, booking/payment edits or historical reminder replay. Existing bookings not backfilled. Shared firm Google Calendar
   is now configured by Claude (newer entries below supersede the earlier Calendar limitation).
 
 ## 2026-10-27 · Claude Code · Google SMTP relay enabled; server email settings for Codex
