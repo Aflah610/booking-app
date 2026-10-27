@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · MCH import COMPLETE: all 303 clients, identical counts to MCH
+
+- Second run with --keep-mch-phones (one-time; don't use again): 20 created, 283 recognised and skipped, 22 periods,
+  9 case histories, 17 notes. Totals now equal MCH: 303 clients, 209 case histories, 414 session notes, 11 clients
+  without a current psychologist (MCH: 11). 374 psychologist periods (MCH's other 26 assignment rows have no
+  psychologist). 20 clients show MCH's phone text (phone_as_entered) with a +9100 placeholder key.
+- Export files deleted from both servers. /tmp/mchtest on Lightsail is only a code copy with node_modules.
+
 ## 2026-10-27 · Claude Code · one-time: bring the 20 held-back MCH clients exactly as in MCH
 
 - Aflah: copy the 20 exactly as MCH has them, just this once. New client.phone_as_entered (migration 0040) holds
