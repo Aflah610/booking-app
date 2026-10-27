@@ -36,7 +36,12 @@ async function failure(res: Response, what: string): Promise<never> {
   throw new Error(message);
 }
 
-function eventBody(b: CalendarBookingDTO, inviteClient: boolean) {
+function eventBody(b: CalendarBookingDTO, inviteClient: boolean, staffGuest: { email: string; name: string } | null) {
+  const attendees = [
+    // In the firm's calendar, the therapist is a guest so the session (and its Meet link) shows in their own calendar.
+    ...(staffGuest ? [{ email: staffGuest.email, displayName: staffGuest.name }] : []),
+    ...(inviteClient && b.clientEmail ? [{ email: b.clientEmail, displayName: b.clientName }] : []),
+  ];
   const lines = [
     `Client: ${b.clientName}`,
     `Phone: ${b.clientPhone}`,
@@ -52,7 +57,7 @@ function eventBody(b: CalendarBookingDTO, inviteClient: boolean) {
     start: { dateTime: b.startsAt.toISOString(), timeZone: b.timezone },
     end: { dateTime: b.endsAt.toISOString(), timeZone: b.timezone },
     // With invites on, the client is a guest: Google emails them and (for Gmail) puts it in their calendar.
-    attendees: inviteClient && b.clientEmail ? [{ email: b.clientEmail, displayName: b.clientName }] : undefined,
+    attendees: attendees.length ? attendees : undefined,
     guestsCanModify: false,
     transparency: "opaque",
     reminders: { useDefault: true },
@@ -149,8 +154,8 @@ export function createGoogleProvider(env: Env = process.env): CalendarProvider {
       return out;
     },
 
-    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient, meet) {
-      const base = eventBody(booking, inviteClient);
+    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient, meet, staffGuest = null) {
+      const base = eventBody(booking, inviteClient, staffGuest);
       const notify = inviteClient && booking.clientEmail ? "all" : "none";
       // conferenceDataVersion=1 is what lets the request create or remove a Meet link; without it Google ignores that part.
       const version = meet.want || meet.remove ? "&conferenceDataVersion=1" : "";

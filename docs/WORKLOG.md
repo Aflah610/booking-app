@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · firm calendar makes Meet links for therapists without their own
+
+- Aflah chose "one admin calendar makes every link" (none of the 7 therapists has connected Google Calendar).
+- Settings > "Meet links for therapists without their own calendar": pick any staff member whose Google Calendar is
+  connected (business.meet_staff_id). For a therapist with no connection, that calendar makes the event and Meet link
+  and adds the therapist as a guest (no email to them; sendUpdates stays as before). Its owner hosts those meetings.
+- booking_calendar_event.calendar_staff_id records whose calendar holds each event; updates/deletes go there, so a
+  link never changes if the therapist connects later. A therapist's own connection always wins for new bookings.
+  Choosing the calendar catches up upcoming bookings that have no event; disconnecting it clears the setting.
+- Migration 0039 (two nullable columns). Tests in tests/meet.test.ts. Still to do: an admin connects their Google
+  Calendar from their Staff page, picks it in Settings, then one test booking to confirm the therapist can admit the client.
+
 ## 2026-10-27 · Claude Code · Leads hidden from the menu while no sales executive is active
 
 - Aflah: hide the BDE leads part for now (Nida and Nihla are switched off; 774 stays on Zoho). The menu now shows

@@ -19,7 +19,7 @@ const send = async (m: OutgoingMessage) => void sent.push(m) as never;
 
 function fakeGoogle() {
   const events = new Map<string, CalendarBookingDTO>();
-  const state = { notReady: false, next: 0, calls: [] as string[], meetFlags: [] as { want: boolean; hasLink: boolean; remove: boolean }[] };
+  const state = { notReady: false, next: 0, calls: [] as string[], meetFlags: [] as { want: boolean; hasLink: boolean; remove: boolean }[], guests: [] as (string | null)[] };
   const provider: CalendarProvider = {
     id: "google",
     configured: () => true,
@@ -28,10 +28,11 @@ function fakeGoogle() {
     refresh: async () => ({ accessToken: "a2", accessExpiresAt: t0.getTime() + 7 * 3600_000 }),
     revoke: async () => undefined,
     listBusy: async () => [],
-    upsertEvent: async (_t, _c, id, b, _invite, meet) => {
+    upsertEvent: async (_t, _c, id, b, _invite, meet, guest) => {
       const eventId = id ?? `evt_${++state.next}`;
       state.calls.push(`${id ? "update" : "create"}:${eventId}`);
       state.meetFlags.push(meet);
+      state.guests.push(guest?.email ?? null);
       events.set(eventId, b);
       const meetUrl = meet.want && !state.notReady ? `https://meet.google.com/${eventId}` : meet.hasLink && !meet.remove ? b.meetingUrl : null;
       return { eventId, meetUrl };
@@ -199,6 +200,62 @@ describe("moving and cancelling", () => {
     await c.bookings.cancel(desk, booking.id, {}, { now: t0 });
     await sync();
     expect(google.events.size).toBe(0);
+  });
+});
+
+describe("the firm calendar for therapists without their own", () => {
+  async function office() {
+    const admin = await c.staff.create({}, { name: "Office", email: "office@firm.test", accessRole: "admin" });
+    await c.calendar.completeConnect("x", await connectState(admin.id), t0);
+    return admin;
+  }
+
+  it("makes the event and link in the chosen calendar, with the therapist as a guest, and catches up earlier bookings", async () => {
+    await firm(true);
+    const { svc, asha } = await setup({ connect: false });
+    const earlier = await book(svc.id, asha.id, "2026-10-19T10:00");
+    await sync();
+    expect((await c.bookings.get(earlier.booking.id)).meetingUrl).toBeNull();
+    const admin = await office();
+    await c.calendar.setMeetCalendar(admin.id, t0);
+    const later = await book(svc.id, asha.id, "2026-10-20T10:00");
+    await sync();
+    expect((await c.bookings.get(earlier.booking.id)).meetingUrl).toMatch(/^https:\/\/meet\.google\.com\//);
+    expect((await c.bookings.get(later.booking.id)).meetingUrl).toMatch(/^https:\/\/meet\.google\.com\//);
+    expect(google.state.guests).toEqual(["asha@firm.test", "asha@firm.test"]);
+  });
+
+  it("leaves a therapist with their own calendar to it, and keeps an event where it was made after they connect", async () => {
+    await firm(true);
+    const { svc, asha, dev } = await setup({ connect: false });
+    await c.calendar.completeConnect("x", await connectState(dev.id), t0);
+    const admin = await office();
+    await c.calendar.setMeetCalendar(admin.id, t0);
+    const own = await book(svc.id, dev.id, "2026-10-19T11:00");
+    const covered = await book(svc.id, asha.id, "2026-10-19T10:00");
+    await sync();
+    expect([...google.state.guests].sort()).toEqual(["asha@firm.test", null]);
+    const link = (await c.bookings.get(covered.booking.id)).meetingUrl;
+    // Asha connects later and the session moves: it stays in the firm calendar, so the client's link doesn't change.
+    await c.calendar.completeConnect("x", await connectState(asha.id), t0);
+    const moved = await c.bookings.reschedule(desk, covered.booking.id, { start: at("2026-10-21T10:00"), staffId: asha.id }, { now: t0 });
+    await sync();
+    expect((await c.bookings.get(moved.id)).meetingUrl).toBe(link);
+    expect(google.state.guests.at(-1)).toBe("asha@firm.test");
+    await c.bookings.cancel(desk, moved.id, {}, { now: t0 });
+    await sync();
+    expect(google.state.calls.filter((x) => x.startsWith("delete"))).toHaveLength(1);
+    expect(own.booking.id).toBeTruthy();
+  });
+
+  it("only takes a connected calendar, and switches off when that calendar is disconnected", async () => {
+    const { asha } = await setup({ connect: false });
+    await expect(c.calendar.setMeetCalendar(asha.id, t0)).rejects.toMatchObject({ code: "invalid" });
+    const admin = await office();
+    await c.calendar.setMeetCalendar(admin.id, t0);
+    expect((await c.calendar.meetCalendar()).staffId).toBe(admin.id);
+    await c.calendar.disconnect(admin.id);
+    expect((await c.calendar.meetCalendar()).staffId).toBeNull();
   });
 });
 

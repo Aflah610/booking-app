@@ -32,6 +32,10 @@ export interface CalendarTokens {
 export interface CalendarBookingDTO {
   id: string;
   staffId: string;
+  staffName: string;
+  staffEmail: string;
+  /** The firm calendar that stands in for staff who haven't connected their own (Settings > Online sessions). */
+  meetStaffId: string | null;
   status: "upcoming" | "completed" | "cancelled" | "no_show";
   slotReleased: boolean;
   startsAt: Date;
@@ -50,6 +54,13 @@ export interface CalendarBookingDTO {
   meetingOverride: "on" | "off" | null;
   meetingUrl: string | null;
   meetingSource: "google" | "manual" | null;
+}
+
+/** A staff member whose connected calendar can make the firm's Meet links. */
+export interface ConnectedCalendarDTO {
+  staffId: string;
+  name: string;
+  accountEmail: string | null;
 }
 
 export interface ExternalBusy {

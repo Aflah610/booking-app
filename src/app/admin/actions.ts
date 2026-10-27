@@ -200,6 +200,14 @@ export async function updateSettingsAction(form: FormData) {
   );
 }
 
+export async function setMeetCalendarAction(form: FormData) {
+  await requirePermission("settings.manage");
+  const staffId = str(form, "meetStaffId") || null;
+  await act("/admin/settings", staffId ? "Saved: that calendar now makes Meet links for therapists without their own" : "Saved: only therapists' own calendars make Meet links", () =>
+    app().calendar.setMeetCalendar(staffId),
+  );
+}
+
 const PROFILE_FIELDS = [
   "dateOfBirth", "age", "gender", "maritalStatus", "occupation", "education", "location", "address", "languages",
   "emergencyName", "emergencyRelation", "emergencyPhone", "referralSource", "consentSignedAt",

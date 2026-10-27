@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { AFFECT, CASE_STATUS, COOPERATION, DELIVERY, INSIGHT, JUDGEMENT, ONSET, PART_OF_DAY, PROGRESS, RAPPORT, RESPONSE, RISK, SEVERITY } from "../features/case-history/choices";
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -73,6 +74,8 @@ export const business = pgTable("business", {
   onlinePayment: boolean("online_payment").notNull().default(false),
   /** Online sessions: services marked "Google Meet" get a Meet link in the therapist's calendar event. */
   meetEnabled: boolean("meet_enabled").notNull().default(false),
+  /** Whose connected Google Calendar makes the events and Meet links for staff who haven't connected their own. */
+  meetStaffId: uuid("meet_staff_id").references((): AnyPgColumn => staff.id, { onDelete: "set null" }),
   /** Emails use the branded design (logo, green and gold) instead of plain text. */
   emailBranded: boolean("email_branded").notNull().default(true),
   /** The WhatsApp number new leads come in on, connected from Settings > WhatsApp (Meta's embedded sign-up). */
@@ -604,6 +607,8 @@ export const bookingCalendarEvent = pgTable("booking_calendar_event", {
   bookingId: uuid("booking_id").notNull().references(() => booking.id, { onDelete: "cascade" }),
   provider: text("provider").notNull(),
   externalEventId: text("external_event_id").notNull(),
+  /** Whose calendar holds the event; null means the booking's own staff member. */
+  calendarStaffId: uuid("calendar_staff_id").references(() => staff.id, { onDelete: "cascade" }),
   createdAt: createdAt(),
 }, (t) => [primaryKey({ columns: [t.bookingId, t.provider] })]);
 

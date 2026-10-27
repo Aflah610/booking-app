@@ -1,7 +1,7 @@
 import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { booking, bookingCalendarEvent, business, calendarBusy, calendarConnection, calendarJob, client, service, staff } from "@/db/schema";
-import type { CalendarBookingDTO, CalendarConnectionDTO, ExternalBusy } from "./calendar.dto";
+import type { CalendarBookingDTO, CalendarConnectionDTO, ConnectedCalendarDTO, ExternalBusy } from "./calendar.dto";
 
 const PROVIDER = "google";
 
@@ -119,6 +119,9 @@ export function createCalendarRepository(db: Db) {
         .select({
           id: booking.id,
           staffId: booking.staffId,
+          staffName: staff.name,
+          staffEmail: staff.email,
+          meetStaffId: sql<string | null>`(select ${business.meetStaffId} from ${business} where ${business.id} = 1)`,
           status: booking.status,
           slotReleased: booking.slotReleased,
           startsAt: booking.startsAt,
@@ -161,19 +164,55 @@ export function createCalendarRepository(db: Db) {
       return rows.map((r) => r.id);
     },
 
-    async eventId(bookingId: string): Promise<string | null> {
+    /** The booking's event and whose calendar holds it (null: the booking's own staff member). */
+    async event(bookingId: string): Promise<{ eventId: string; calendarStaffId: string | null } | null> {
       const [row] = await db
-        .select({ id: bookingCalendarEvent.externalEventId })
+        .select({ eventId: bookingCalendarEvent.externalEventId, calendarStaffId: bookingCalendarEvent.calendarStaffId })
         .from(bookingCalendarEvent)
         .where(and(eq(bookingCalendarEvent.bookingId, bookingId), eq(bookingCalendarEvent.provider, PROVIDER)));
+      return row ?? null;
+    },
+
+    async saveEventId(bookingId: string, externalEventId: string, calendarStaffId: string) {
+      await db
+        .insert(bookingCalendarEvent)
+        .values({ bookingId, provider: PROVIDER, externalEventId, calendarStaffId })
+        .onConflictDoUpdate({ target: [bookingCalendarEvent.bookingId, bookingCalendarEvent.provider], set: { externalEventId, calendarStaffId } });
+    },
+
+    async meetStaffId(): Promise<string | null> {
+      const [row] = await db.select({ id: business.meetStaffId }).from(business).where(eq(business.id, 1));
       return row?.id ?? null;
     },
 
-    async saveEventId(bookingId: string, externalEventId: string) {
-      await db
-        .insert(bookingCalendarEvent)
-        .values({ bookingId, provider: PROVIDER, externalEventId })
-        .onConflictDoUpdate({ target: [bookingCalendarEvent.bookingId, bookingCalendarEvent.provider], set: { externalEventId } });
+    async setMeetStaffId(staffId: string | null) {
+      await db.update(business).set({ meetStaffId: staffId }).where(eq(business.id, 1));
+    },
+
+    /** Active staff with a connected calendar, for choosing the firm calendar. */
+    connectedStaff(): Promise<ConnectedCalendarDTO[]> {
+      return db
+        .select({ staffId: staff.id, name: staff.name, accountEmail: calendarConnection.accountEmail })
+        .from(calendarConnection)
+        .innerJoin(staff, eq(staff.id, calendarConnection.staffId))
+        .where(and(eq(calendarConnection.provider, PROVIDER), eq(staff.active, true)))
+        .orderBy(staff.name);
+    },
+
+    /** Live future bookings with no event whose staff member has no calendar of their own: the firm calendar's to catch up. */
+    async unconnectedUpcomingBookingIds(now: Date): Promise<string[]> {
+      const rows = await db
+        .select({ id: booking.id })
+        .from(booking)
+        .where(and(
+            ne(booking.status, "cancelled"),
+            eq(booking.slotReleased, false),
+            gt(booking.endsAt, now),
+            sql`not exists (select 1 from calendar_connection k where k.staff_id = ${booking.staffId} and k.provider = ${PROVIDER})`,
+            sql`not exists (select 1 from booking_calendar_event e where e.booking_id = ${booking.id} and e.provider = ${PROVIDER})`,
+          ),
+        );
+      return rows.map((r) => r.id);
     },
 
     async removeEventId(bookingId: string) {

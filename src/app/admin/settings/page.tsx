@@ -5,7 +5,7 @@ import { BookingPrefixField } from "@/components/BookingPrefixField";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
-import { sendSampleEmailAction, sendTestEmailAction, updateSettingsAction } from "../actions";
+import { sendSampleEmailAction, sendTestEmailAction, setMeetCalendarAction, updateSettingsAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const me = await requirePermission("settings.manage");
   const { error, ok } = await searchParams;
   const mail = app().mail.status();
-  const [s, nextNumber] = await Promise.all([app().settings.get(), app().bookings.nextNumber()]);
+  const [s, nextNumber, meet] = await Promise.all([app().settings.get(), app().bookings.nextNumber(), app().calendar.meetCalendar()]);
   return (
     <>
       <PageHeader
@@ -56,7 +56,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <h2 className="font-semibold">Online sessions</h2>
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="toggle mt-0.5" name="meetEnabled" defaultChecked={s.meetEnabled} />
-            <span>Use Google Meet for online sessions<span className="block text-zinc-600">Services set to &ldquo;Online with Google Meet&rdquo; get a Meet link in the therapist&apos;s calendar event, and clients get a join link in their messages. Each therapist must have Google Calendar connected (Staff, their name, Google Calendar).</span></span>
+            <span>Use Google Meet for online sessions<span className="block text-zinc-600">Services set to &ldquo;Online with Google Meet&rdquo; get a Meet link in the therapist&apos;s calendar event, and clients get a join link in their messages. A therapist who has connected Google Calendar (Staff, their name, Google Calendar) hosts their own sessions; for the others, choose a calendar below.</span></span>
           </label>
         </section>
         <section className="card grid gap-4 p-6">
@@ -87,6 +87,25 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </section>
         <div><button className="btn" type="submit">Save settings</button></div>
       </form>
+
+      <section className="card mt-8 grid max-w-3xl gap-4 p-6">
+        <h2 className="font-semibold">Meet links for therapists without their own calendar</h2>
+        <p className="text-sm text-zinc-600">
+          This calendar makes the event and the Meet link for any therapist who hasn&apos;t connected Google Calendar, and adds the therapist as a guest
+          so the session shows in their own calendar. Its owner hosts those meetings. To offer someone here, connect their Google Calendar first
+          (Staff, their name, Google Calendar).
+        </p>
+        <form action={setMeetCalendarAction} className="flex flex-wrap items-end gap-3">
+          <div className="min-w-64 flex-1">
+            <label className="label" htmlFor="meetStaffId">Make Meet links from</label>
+            <select className="input" id="meetStaffId" name="meetStaffId" defaultValue={meet.staffId ?? ""}>
+              <option value="">Nobody (only therapists&apos; own calendars)</option>
+              {meet.choices.map((c) => <option key={c.staffId} value={c.staffId}>{c.name}{c.accountEmail ? ` (${c.accountEmail})` : ""}</option>)}
+            </select>
+          </div>
+          <button className="btn-ghost" type="submit">Save</button>
+        </form>
+      </section>
 
       <section className="card mt-8 grid max-w-3xl gap-4 p-6">
         <h2 className="font-semibold">Email</h2>

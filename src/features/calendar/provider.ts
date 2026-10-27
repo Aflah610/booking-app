@@ -31,7 +31,8 @@ export interface CalendarProvider {
   /**
    * Creates the event, or updates it when `eventId` is given. Returns the provider's event id and, for online sessions, the
    * video link (null if the provider hasn't produced it yet). `meet.want` asks for a link, `meet.hasLink` says the event
-   * already has one (so it is kept), `meet.remove` takes an existing one away.
+   * already has one (so it is kept), `meet.remove` takes an existing one away. `staffGuest` is the therapist, added as a
+   * guest when the event is made in the firm's calendar instead of their own.
    */
   upsertEvent(
     accessToken: string,
@@ -40,6 +41,7 @@ export interface CalendarProvider {
     booking: CalendarBookingDTO,
     inviteClient: boolean,
     meet: { want: boolean; hasLink: boolean; remove: boolean },
+    staffGuest?: { email: string; name: string } | null,
   ): Promise<{ eventId: string; meetUrl: string | null }>;
   /** Deleting an event that is already gone is not an error. */
   deleteEvent(accessToken: string, calendarId: string, eventId: string, notifyGuests: boolean): Promise<void>;

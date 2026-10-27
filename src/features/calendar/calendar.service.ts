@@ -1,5 +1,6 @@
 import { DomainError } from "@/features/shared/errors";
 import type { BookingEvent } from "@/features/bookings/bookings.dto";
+import type { CalendarBookingDTO } from "./calendar.dto";
 import { isOnlineSession } from "@/features/bookings/meeting";
 import { BUSY_REFRESH_MIN, BUSY_WINDOW_DAYS, type CalendarStatusDTO, type CalendarTokens } from "./calendar.dto";
 import type { CalendarRepository, DueJob } from "./calendar.repository";
@@ -20,6 +21,8 @@ const reason = (err: unknown) => (err instanceof Error ? err.message : String(er
  *  - their bookings are written into their calendar (and moved or removed when the booking changes);
  *  - events already in their calendar block those hours from being booked.
  * Neither direction can fail a booking: writes go through a retrying queue, and busy times are read from a copy.
+ * Staff who haven't connected their own calendar can be covered by the firm's calendar (Settings > Online sessions):
+ * it holds their events and makes the Meet links, with the therapist added as a guest.
  */
 export function createCalendarService(deps: {
   calendarRepo: CalendarRepository;
@@ -115,6 +118,22 @@ export function createCalendarService(deps: {
       // Already revoked or unreadable: nothing more to clean up on Google's side.
     }
     await calendarRepo.remove(staffId);
+    // The firm calendar was this one: nobody covers unconnected staff until someone else is chosen.
+    if ((await calendarRepo.meetStaffId()) === staffId) await calendarRepo.setMeetStaffId(null);
+  }
+
+  /** The firm calendar that covers staff without their own; null switches it off. Catches up their upcoming bookings. */
+  async function setMeetCalendar(staffId: string | null, now = new Date()) {
+    if (staffId && !(await calendarRepo.connectedStaff()).some((s) => s.staffId === staffId)) {
+      throw new DomainError("invalid", "Choose someone whose Google Calendar is connected");
+    }
+    await calendarRepo.setMeetStaffId(staffId);
+    if (staffId) await calendarRepo.enqueue((await calendarRepo.unconnectedUpcomingBookingIds(now)).map((bookingId) => ({ bookingId, action: "upsert" as const })), now);
+  }
+
+  /** A new event goes in the therapist's own calendar, or the firm's when they have none. */
+  async function calendarFor(b: CalendarBookingDTO) {
+    return (await calendarRepo.connection(b.staffId)) ?? (b.meetStaffId ? calendarRepo.connection(b.meetStaffId) : null);
   }
 
   async function setOptions(staffId: string, options: { pushBookings: boolean; blockBusy: boolean; inviteClients: boolean; createMeetLinks: boolean }, now = new Date()) {
@@ -151,12 +170,16 @@ export function createCalendarService(deps: {
     }
   }
 
-  async function run(job: DueJob, now: Date) {
+  /** `used` reports whose calendar the job worked on, so a failure is recorded against that connection. */
+  async function run(job: DueJob, now: Date, used: { staffId: string | null }) {
     const b = await calendarRepo.booking(job.bookingId);
     if (!b) return;
-    const conn = await calendarRepo.connection(b.staffId);
+    const event = await calendarRepo.event(b.id);
+    // An existing event stays in the calendar that made it, so the client's Meet link never changes under them.
+    const conn = event ? await calendarRepo.connection(event.calendarStaffId ?? b.staffId) : await calendarFor(b);
     if (!conn) return;
-    const eventId = await calendarRepo.eventId(b.id);
+    used.staffId = conn.staffId;
+    const eventId = event?.eventId ?? null;
     const gone = job.action === "delete" || b.status === "cancelled" || b.slotReleased;
     if (gone) {
       if (!eventId) return;
@@ -170,13 +193,14 @@ export function createCalendarService(deps: {
     const online = isOnlineSession(b, b.meetEnabled);
     const want = online && conn.createMeetLinks && b.meetingSource !== "manual";
     const hasLink = b.meetingSource === "google" && Boolean(b.meetingUrl);
+    const staffGuest = conn.staffId === b.staffId ? null : { email: b.staffEmail, name: b.staffName };
     const result = await provider.upsertEvent(await accessToken(conn, now), conn.calendarId, eventId, b, conn.inviteClients, {
       want,
       hasLink,
       // Switched off for this booking (or the service no longer wants one): take the link off the event.
       remove: !want && hasLink,
-    });
-    await calendarRepo.saveEventId(b.id, result.eventId);
+    }, staffGuest);
+    await calendarRepo.saveEventId(b.id, result.eventId, conn.staffId);
     if (want && result.meetUrl) await calendarRepo.saveGoogleMeeting(b.id, result.meetUrl);
     else if (!want && hasLink) await calendarRepo.clearGoogleMeeting(b.id);
     // Google sometimes needs a moment to make the link: the event is saved, so the retry only asks for the link.
@@ -188,16 +212,16 @@ export function createCalendarService(deps: {
     if (!provider.configured()) return 0;
     const jobs = await calendarRepo.claimDue(now, limit, JOB_LEASE_MIN);
     for (const job of jobs) {
+      const used = { staffId: null as string | null };
       try {
-        await run(job, now);
+        await run(job, now, used);
         await calendarRepo.finish(job);
       } catch (err) {
-        const b = await calendarRepo.booking(job.bookingId).catch(() => null);
         if (err instanceof ProviderAuthError) {
-          if (b) await calendarRepo.markFailed(b.staffId, reason(err), true);
+          if (used.staffId) await calendarRepo.markFailed(used.staffId, reason(err), true);
           await calendarRepo.finish(job);
         } else if (job.attempts >= MAX_JOB_ATTEMPTS) {
-          if (b) await calendarRepo.markFailed(b.staffId, reason(err), false);
+          if (used.staffId) await calendarRepo.markFailed(used.staffId, reason(err), false);
           await calendarRepo.finish(job);
         } else {
           await calendarRepo.retryAt(job, new Date(now.getTime() + backoffMin(job.attempts) * 60_000), reason(err));
@@ -253,7 +277,10 @@ export function createCalendarService(deps: {
     await processDue(now);
   }
 
-  return { status, connectUrl, stateOwner, completeConnect, disconnect, setOptions, onBookingEvent, processDue, syncBusy, syncNow };
+  return {
+    status, connectUrl, stateOwner, completeConnect, disconnect, setOptions, setMeetCalendar, onBookingEvent, processDue, syncBusy, syncNow,
+    meetCalendar: async () => ({ staffId: await calendarRepo.meetStaffId(), choices: await calendarRepo.connectedStaff() }),
+  };
 }
 
 export type CalendarService = ReturnType<typeof createCalendarService>;
