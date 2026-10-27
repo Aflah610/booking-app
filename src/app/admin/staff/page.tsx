@@ -8,14 +8,53 @@ import { TimezoneSelect } from "@/components/TimezoneSelect";
 import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { createStaffAction } from "../actions";
 
-export default async function StaffPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
+export default async function StaffPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string; q?: string; role?: string; designation?: string; status?: string }> }) {
   const me = await requirePermission("staff.manage");
-  const { error, ok } = await searchParams;
-  const rows = await app().staff.list();
+  const { error, ok, q, role, designation, status } = await searchParams;
+  const all = await app().staff.list();
+  const needle = q?.trim().toLowerCase();
+  const rows = all.filter((s) =>
+    (!needle || s.name.toLowerCase().includes(needle) || s.email.toLowerCase().includes(needle))
+    && (!role || s.accessRole === role)
+    && (!designation || (designation === "none" ? !s.designation : s.designation === designation))
+    && (!status || s.active === (status === "active")));
+  const filtered = Boolean(needle || role || designation || status);
   return (
     <>
       <PageHeader title="Staff" subtitle="People who can sign in and be booked." />
       <Notice error={error} ok={ok} />
+      <form action="/admin/staff" className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="min-w-56 flex-1 sm:max-w-xs">
+          <label className="label" htmlFor="q">Search</label>
+          <input className="input" id="q" name="q" defaultValue={q} placeholder="Name or email" />
+        </div>
+        <div>
+          <label className="label" htmlFor="role">Role</label>
+          <select className="input w-auto" id="role" name="role" defaultValue={role ?? ""}>
+            <option value="">All roles</option>
+            {ACCESS_ROLES.map((r) => <option key={r} value={r}>{ACCESS_ROLE_LABEL[r]}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="filterDesignation">Designation</label>
+          <select className="input w-auto" id="filterDesignation" name="designation" defaultValue={designation ?? ""}>
+            <option value="">All designations</option>
+            {DESIGNATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+            <option value="none">Not set</option>
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="status">Status</label>
+          <select className="input w-auto" id="status" name="status" defaultValue={status ?? ""}>
+            <option value="">Active and inactive</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <button className="btn" type="submit">Apply</button>
+        {filtered && <Link className="btn-ghost" href="/admin/staff">Clear</Link>}
+      </form>
+      {filtered && <p className="mb-2 text-sm text-zinc-600">Showing {rows.length} of {all.length} staff.</p>}
       <div className="card mb-10 overflow-x-auto">
         <table className="table">
           <thead>
@@ -32,6 +71,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                 <td><span className="badge">{s.active ? "Active" : "Inactive"}</span></td>
               </tr>
             ))}
+            {rows.length === 0 && <tr><td colSpan={6} className="text-center text-zinc-500">No staff match these filters.</td></tr>}
           </tbody>
         </table>
       </div>

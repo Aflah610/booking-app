@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · Staff page filters
+
+- /admin/staff: search (name or email), Role, Designation (incl. "Not set") and Status filters above the table,
+  with Apply/Clear and "Showing N of M staff". Filtering is in the page (staff list is small); URL params
+  q, role, designation, status.
+
 ## 2026-10-27 · Claude Code · client ID = MCH's ID (ML-CL-00042), new clients continue the series
 
 - Aflah: the MCH client ID is the ID from now on. clientReference() now shows ML-CL-00042. Migration 0041 sets
