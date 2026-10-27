@@ -87,7 +87,7 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
   const emergency = [c.emergencyName, c.emergencyRelation && `(${c.emergencyRelation})`, c.emergencyPhone && phoneLabel(c.emergencyPhone)].filter(Boolean).join(" ");
   const details: [string, string | null][] = [
     ["Full name", c.name],
-    ["Client code", c.mchCode ? `${clientReference(c.number)} · MCH ${c.mchCode}` : clientReference(c.number)],
+    ["Client code", clientReference(c.number)],
     ["Gender", c.gender],
     ["Age", age != null ? `${age} years` : null],
     ["Registration date", dateLabel(c.createdAt, s.timezone)],

@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · client ID = MCH's ID (ML-CL-00042), new clients continue the series
+
+- Aflah: the MCH client ID is the ID from now on. clientReference() now shows ML-CL-00042. Migration 0041 sets
+  client.number to the MCH number for MCH clients (live: all 303, highest 306), numbers any others after them,
+  and moves the counter on, so the next new client is ML-CL-00307. The MCH import sets the number itself and
+  moves the counter too. The separate "MCH code" row only shows when it differs from the ID.
+
 ## 2026-10-27 · Claude Code · MCH import COMPLETE: all 303 clients, identical counts to MCH
 
 - Second run with --keep-mch-phones (one-time; don't use again): 20 created, 283 recognised and skipped, 22 periods,

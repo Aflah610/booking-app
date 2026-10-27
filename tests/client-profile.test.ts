@@ -34,7 +34,7 @@ describe("client number", () => {
     const [one] = (await db.execute(sql`insert into client (name, phone_e164) values ('A', '+919000000001'), ('B', '+919000000002') returning number`)).rows as { number: number }[];
     const all = (await db.execute(sql`select number from client order by number`)).rows as { number: number }[];
     expect(all.map((r) => r.number)).toEqual([one.number, one.number + 1]);
-    expect(clientReference(142)).toBe("CL-00142");
+    expect(clientReference(142)).toBe("ML-CL-00142");
   });
 });
 

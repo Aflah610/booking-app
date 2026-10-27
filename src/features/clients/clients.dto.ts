@@ -2,7 +2,7 @@ import type { Designation } from "@/features/staff/staff.dto";
 
 export type ClientDTO = {
   id: string;
-  /** The short running number staff quote; see clientReference. */
+  /** The running number staff quote as the client ID; see clientReference. For MCH clients it is their MCH number. */
   number: number;
   name: string;
   phoneE164: string;
@@ -40,9 +40,15 @@ export const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed", "Se
 /** True for the placeholder key given to an MCH client whose number couldn't be used (see client.phoneAsEntered). */
 export const isPlaceholderPhone = (e164: string) => e164.startsWith("+9100");
 
-/** CL-00142. */
+/** ML-CL-00142: MCH's client ID series, which clients copied from MCH keep and new clients continue. */
 export function clientReference(number: number): string {
-  return `CL-${String(number).padStart(5, "0")}`;
+  return `ML-CL-${String(number).padStart(5, "0")}`;
+}
+
+/** The number in an MCH client code (ML-CL-00042 → 42), or null when the code isn't in that form. */
+export function mchCodeNumber(code: string): number | null {
+  const m = /^ML-CL-(\d+)$/.exec(code.trim());
+  return m ? Number(m[1]) : null;
 }
 
 /** Whole years from a YYYY-MM-DD birth date to `today` (YYYY-MM-DD), or the age recorded at registration. */

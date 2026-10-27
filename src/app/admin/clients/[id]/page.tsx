@@ -81,7 +81,8 @@ export default async function ClientPage({
     ["WhatsApp", c.whatsappOptIn ? "Updates on" : "Updates off"],
     ["Registered", `${dateLabel(c.createdAt, tz)}${registeredBy ? ` by ${registeredBy}` : ""}`],
     ["Found us via", c.referralSource],
-    ["MCH code", c.mchCode],
+    // Shown only when it differs from the client ID (MCH clients keep their MCH number as the ID).
+    ["MCH code", c.mchCode && c.mchCode !== clientReference(c.number) ? c.mchCode : null],
     ["Consent", c.consentSignedAt ? `Signed ${dateLabel(c.consentSignedAt, tz)}` : null],
     ["Notes", c.notes],
   ];

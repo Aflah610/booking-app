@@ -69,6 +69,10 @@ describe("copying from MCH", () => {
     const one = rows.find((r) => r.mchId === 1)!;
     expect(one).toMatchObject({ mchCode: "ML-CL-00001", phoneE164: "+919876500001", age: 30, location: "Kochi", emergencyPhone: "+919000000000", emergencyName: null });
     expect(one.createdAt.toISOString().slice(0, 10)).toBe("2026-03-01");
+    // The MCH number is the client ID, and the next new client continues after it.
+    expect(one.number).toBe(1);
+    const next = await c.clients.create({}, { name: "New", phone: "98765 99999" });
+    expect(next.number).toBe(3);
     // Who registered the client in MCH carries over when that person has an account here.
     expect(one.registeredBy).toBe(asha.id);
     expect(rows.find((r) => r.mchId === 2)!.registeredBy).toBeNull();

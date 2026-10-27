@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db";
 import { schema } from "@/db";
 import { RISK, type Risk } from "@/features/case-history/choices";
 import { ICD11 } from "@/features/case-history/icd11";
-import { isPlaceholderPhone } from "@/features/clients/clients.dto";
+import { isPlaceholderPhone, mchCodeNumber } from "@/features/clients/clients.dto";
 import { toE164 } from "@/features/shared/phone";
 import { zonedToUtc } from "@/lib/time";
 
@@ -194,6 +194,8 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
     } else {
       const [row] = await tx.insert(schema.client).values({
         name: m.full_name.trim(), phoneE164: phone, ...fields, mchCode: m.client_code, mchId: m.id,
+        // The MCH number stays the client ID here.
+        ...(mchCodeNumber(m.client_code) != null ? { number: mchCodeNumber(m.client_code)! } : {}),
         createdAt: m.registration_date ? onDay(m.registration_date) : new Date(m.created_at),
       }).returning({ id: schema.client.id });
       clientFor.set(m.id, { id: row.id, code: m.client_code });
@@ -256,6 +258,9 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
     else await tx.insert(schema.caseHistory).values({ clientId: c.id, ...fields, createdAt: new Date(h.created_at) });
     report.caseHistories++;
   }
+
+  // New clients continue the MCH series: the next client ID follows the highest one copied.
+  await tx.execute(sql`select setval(pg_get_serial_sequence('client', 'number'), (select coalesce(max(number), 0) + 1 from client), false)`);
 
   const notesByClient = new Map<Id, MchExport["session_notes"]>();
   for (const n of data.session_notes) notesByClient.set(n.client_id, [...(notesByClient.get(n.client_id) ?? []), n]);
