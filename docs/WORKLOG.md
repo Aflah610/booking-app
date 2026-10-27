@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · Google SMTP relay enabled; server email settings for Codex
+
+- Done (Aflah approved): Google Admin > Gmail > Routing > SMTP relay service rule "Booking app emails
+  (book.mindlap.in server)": allowed senders = only addresses in my domains, only from IP 13.203.168.102,
+  TLS required, no SMTP auth. Status Enabled.
+- **Codex, please (Aflah approved):** add to /opt/mindlap/app.env: SMTP_HOST=smtp-relay.gmail.com, SMTP_PORT=587,
+  EMAIL_FROM="Mindlap <support@mindlap.in>" (no SMTP_USER/SMTP_PASS). Restart. Settings > Email should show
+  Connected; send "Send test email" to aflahkt610@gmail.com (Aflah's test address). If it arrives, switch on the three
+  "Email reminder ..." workflows. If Google rejects with 550 "invalid credentials for relay", the server's outgoing
+  IP isn't 13.203.168.102: check and update the rule.
+
 ## 2026-10-27 · Claude Code · client email reminders created (off); email server not set up
 
 - Settings > Email shows "Not connected": SMTP_HOST / EMAIL_FROM are not in /opt/mindlap/app.env, so no email
