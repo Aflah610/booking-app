@@ -3,6 +3,34 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 - Codex - Full pre-MCH client/transaction reset completed, backups verified
+
+- Aflah explicitly requested erasing current clients/bookings before MCH migration. Codex raised the newer
+  keep-BK-00007/BK-00010 correction; Aflah explicitly replied Erase everything, including BK-00007 and BK-00010.
+  This supersedes the keep instruction below. Those bookings and their linked clients/payment records are erased.
+- Created Lightsail database snapshot pre-mch-erase-2026-10-27 for mindlap-db, waited until snapshotting completed
+  and the snapshot appeared as a completed dated recovery entry. Also saved a fresh consistent full database dump
+  with app stopped: /opt/mindlap/backups/pre-mch-erase-20261027.dump (129375 bytes, root-only mode 600).
+  Complete archive decode via pg_restore passed and the .sha256 checksum was rechecked successfully.
+- Temporarily stopped only the app and deployment timer during the final dump/reset; automatic exit recovery
+  restarted both. The first pg_dump attempt rejected Node's sslmode=no-verify and stopped before any deletion;
+  backup-only adapter used libpq sslmode=require (TLS). No production environment settings changed.
+- Executed a rollback dry run, then the same explicit 22-table reset in one audited transaction with RESTRICT,
+  no implicit cascade and no identity restart. Before commit checked all erased tables empty and compared full
+  database-side fingerprints for every preserved configuration table. Both dry run and committed checks passed.
+- Deleted: 9 clients, 12 bookings, 4 payments, 2 case histories, 2 therapist assignments, 2 workflow runs and 7 slot
+  holds. Also cleared dependent calendar events/jobs, notifications, credit purchases/uses, client packages/wallet,
+  leads, session notes/addenda, follow-ups/requests/messages/reads and OTP requests (all these already empty).
+  Zero booking calendar mappings/jobs existed, so no external Google events needed deletion by this reset.
+- Preserved unchanged: 15 staff, 2 services, 6 package products, 14 staff-service mappings, 49 working-hour rows,
+  all business/pricing/permission settings, 2 API keys, calendar connection/busy copies and all 6 active reminder
+  workflows. Audit history retained, plus reset audit entry containing counts and backup location, no client text.
+- Independent post-reset inventory confirms every client/transaction table zero and BK-00007/BK-00010 absent.
+  App running, deployment timer active, public /api/v1/health ok. Original SSH key unchanged; temporary key copy,
+  operational bundles and remote reset scripts removed. No refunds or Razorpay account changes.
+- MCH source data was NOT modified or imported in this task. Next: fresh MCH export, dry run, review counts, import.
+  Temporary Rs 1 prices remain as configured; eight logic audit findings and paused OTP migration remain open.
+
 ## 2026-10-27 · Claude Code · MCH import checked field by field; "registered by" added
 
 - Compared MCH's Django models and screens (local copy of the MCH source) with scripts/import-mch.ts: every client
