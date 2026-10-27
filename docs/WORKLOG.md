@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · BDEs switched off for now
+
+- Live data only: Nida and Nihla (BDE) set Inactive in Staff at Aflah's request ("we will add that later"); they
+  can't sign in and nobody is on "Taking new leads". Nothing deleted. Switch "Active" back on in each profile when
+  the 774 sales number moves from Zoho. Leads section itself left as it is.
+
 ## 2026-10-27 - Codex - Reminder sender configured, owner test received, all three workflows active
 
 - Aflah asked Codex to finish Claude's reminder handover and explicitly authorised handling AWS access. Found the
