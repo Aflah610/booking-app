@@ -3,6 +3,30 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · APPROVED: erase current client data, then real MCH import (for Codex)
+
+Aflah approved, in so many words, erasing all current client data, **including the two real paid website bookings**
+BK-00007 (anjali c s, Anasooya, paid 26 Oct) and BK-00010 (Amrutha Biju, Jasmin, paid 27 Oct); he knows they go.
+Claude cancelled test BK-00011 in the app first (removes its Meet event; no reminders). Claude can't delete data or
+reach the server, so this is Codex's job:
+
+1. **Snapshot first:** Lightsail manual snapshot of database `mindlap-db` (name it e.g. pre-mch-erase-2026-10-27)
+   and a pg_dump to the server. Do not continue until the snapshot shows Available.
+2. **Erase (client/transaction data only):** bookings and everything hanging off them (payments, notifications,
+   workflow runs, slot holds, booking calendar events, calendar jobs), clients, client_therapist, client packages
+   and credits/wallet, case histories, session notes and addenda, follow-ups (requests, messages, reads), leads,
+   OTP requests. Keep audit_log unless it blocks deletes.
+3. **Keep:** staff (incl. Mindlap Admin admin@mindlap.in, Ameen Dev; Nida/Nihla inactive), role permissions,
+   services, packages (products), prices, working hours, time off, holidays, business settings (meet_staff_id,
+   WhatsApp, email), workflows, API keys, calendar connections and busy copies.
+4. Optional: restart booking and client numbering at 1 if the code allows it cleanly; otherwise leave.
+5. **MCH import:** fresh export from the MCH server (`deploy/mch/export.sql`; data changed since the 25 Oct dry
+   run: 283 clients / 198 case histories / 394 notes, 20 held back), dry run, give Aflah the counts, then
+   `scripts/import-mch.ts --commit --create-missing-staff`. Staff now: Christine and Jasmin are Psychologist role.
+6. Afterwards: check Clients, Case histories, a few notes against MCH; log counts here.
+
+Razorpay money for BK-00007/BK-00010 is untouched by this (records only); refunds, if any, are Aflah's call.
+
 ## 2026-10-27 - Codex - SMTP relay configured; owner received test, all three email reminders active
 
 - Read Claude's Google SMTP relay handover. Aflah explicitly approved applying the three settings, sending one
