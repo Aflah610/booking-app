@@ -3,6 +3,21 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · MCH import DONE (283 clients); 20 held back
+
+- Live DB was already emptied (by Codex, with snapshot). Fresh MCH export: 303 clients, 400 assignment periods,
+  209 case histories, 414 notes, 13 psychologists. Mapped: Rashin PK/Rashin pk -> rashin@, theresa/Theresa Thomas
+  -> theresa@, anasooya -> anasooya@, nasheel kt -> nasheel@mindlaptherapy.com; 7 former psychologists created as
+  switched-off staff (jasim, agnas, kaveri, Gouri Nandhana, Athira Asok, Sajitha kt, sneha k).
+- Committed: 283 clients, 350 psychologist periods, 200 case histories (all in treatment), 397 signed notes,
+  0 notes by fallback author. App shows Clients 283, Case histories 273 listed / 200 in treatment.
+- Held back 20 (MCH codes kept off this public log): 12 share a phone with another MCH client (client phone must
+  be unique here), 8 unreadable phones (2 empty, 2 with two numbers, 3-4 odd 14-digit). They hold 9 case histories
+  and 17 notes. Fix the numbers in MCH, re-export, re-run: the import skips everything already copied.
+- Import fix: an open MCH period is always the current psychologist (two MCH test clients had a later closed
+  period); those two were corrected by hand in the app.
+- Export files removed from both servers afterwards.
+
 ## 2026-10-27 - Codex - Full pre-MCH client/transaction reset completed, backups verified
 
 - Aflah explicitly requested erasing current clients/bookings before MCH migration. Codex raised the newer

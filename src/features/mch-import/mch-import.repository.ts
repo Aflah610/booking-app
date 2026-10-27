@@ -178,7 +178,8 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
       .filter((a) => a.client_id === mchId)
       .map((a) => ({ staffId: staffForPsych(a.psychologist_id), startsAt: onDay(a.start_date), endsAt: a.end_date ? onDay(a.end_date) : null, assignedBy: staffForUser(a.assigned_by_id), reason: blank(a.reason) }))
       .filter((p): p is typeof p & { staffId: string } => p.staffId != null)
-      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+      // The open period is MCH's current psychologist, so it goes last even when a closed one started the same day or later.
+      .sort((a, b) => Number(a.endsAt === null) - Number(b.endsAt === null) || a.startsAt.getTime() - b.startsAt.getTime());
     if (periods.length === 0) {
       const staffId = staffForPsych(m.assigned_psychologist_id);
       if (staffId) periods = [{ staffId, startsAt: m.registration_date ? onDay(m.registration_date) : new Date(m.created_at), endsAt: null, assignedBy: null, reason: null }];

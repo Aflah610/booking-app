@@ -41,6 +41,24 @@ async function staff() {
   return { asha, admin };
 }
 
+describe("psychologist history from MCH", () => {
+  it("keeps the open period as the current psychologist even when a closed one started later", async () => {
+    const { asha } = await staff();
+    const gone = await c.staff.create({}, { name: "Someone Gone", email: "gone@firm.test", designation: "Psychologist" });
+    await importMch(db, exportWith({
+      case_histories: [], session_notes: [],
+      assignments: [
+        { id: 1, client_id: 1, psychologist_id: 1, start_date: "2026-08-13", end_date: null, assigned_by_id: null, reason: null },
+        { id: 2, client_id: 1, psychologist_id: 2, start_date: "2026-08-14", end_date: "2026-08-14", assigned_by_id: null, reason: "Covering" },
+      ],
+    }), { fallbackAuthorId: asha.id });
+    const one = (await db.query.client.findMany()).find((r) => r.mchId === 1)!;
+    const history = await c.clients.therapistHistory(one.id);
+    expect(history.find((h) => h.endsAt === null)?.staffId).toBe(asha.id);
+    expect(history.map((h) => h.staffId)).toContain(gone.id);
+  });
+});
+
 describe("copying from MCH", () => {
   it("brings clients, psychologist, case history and signed notes across, matching staff by name", async () => {
     const { asha, admin } = await staff();
