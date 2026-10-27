@@ -3,10 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · CORRECTION to the erase entry below: KEEP the two paid bookings
+
+Aflah changed his mind: **keep BK-00007 and BK-00010** (real paid website bookings) together with their clients,
+payments, psychologist assignment, case history rows and anything else linked to them. Erase all other
+client/transaction data as listed below; snapshot first, still. If the MCH import finds the same phone numbers,
+merge into these clients rather than duplicating. Everything else in the entry below stands.
+(This repo is public: no client names, phones or emails in this log.)
+
 ## 2026-10-27 · Claude Code · APPROVED: erase current client data, then real MCH import (for Codex)
 
 Aflah approved, in so many words, erasing all current client data, **including the two real paid website bookings**
-BK-00007 (anjali c s, Anasooya, paid 26 Oct) and BK-00010 (Amrutha Biju, Jasmin, paid 27 Oct); he knows they go.
+BK-00007 and BK-00010 (but see the correction above: keep them).
 Claude cancelled test BK-00011 in the app first (removes its Meet event; no reminders). Claude can't delete data or
 reach the server, so this is Codex's job:
 
