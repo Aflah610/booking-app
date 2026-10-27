@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · MCH import checked field by field; "registered by" added
+
+- Compared MCH's Django models and screens (local copy of the MCH source) with scripts/import-mch.ts: every client
+  field, every assignment period (dates, assigned by, reason), every case-history section including the JSON keys
+  (10 MSE items, 3 risks + notes, diagnosis + specifiers, goals/modality) and every session-note field are copied.
+- Gap fixed: MCH clients.created_by now maps to client.registered_by (when that MCH user has an account here).
+- Not copied by design: MCH audit log, psychologist licence/qualification fields.
+
 ## 2026-10-27 · Claude Code · CORRECTION to the erase entry below: KEEP the two paid bookings
 
 Aflah changed his mind: **keep BK-00007 and BK-00010** (real paid website bookings) together with their clients,

@@ -21,6 +21,8 @@ export type MchExport = {
     id: Id; client_code: string; full_name: string; gender: string | null; age: number | null; dob: Day; phone: string; email: string | null;
     address: string | null; current_location: string | null; occupation: string | null; education: string | null; marital_status: string | null;
     registration_date: Day; emergency_contact: string | null; assigned_psychologist_id: Id | null; created_at: string;
+    /** The MCH user who registered the client (exports made before this field was read don't have it). */
+    created_by_id?: Id | null;
   }[];
   assignments: { id: Id; client_id: Id; psychologist_id: Id | null; start_date: string; end_date: Day; assigned_by_id: Id | null; reason: string | null }[];
   case_histories: {
@@ -147,6 +149,7 @@ async function run(tx: Tx, data: MchExport, opts: MchImportOptions, report: MchI
       gender: blank(m.gender), age: m.dob ? null : m.age || null, dateOfBirth: m.dob, address: blank(m.address), location: blank(m.current_location),
       occupation: blank(m.occupation), education: blank(m.education), maritalStatus: blank(m.marital_status),
       emergencyName: emergencyPhone ? null : blank(m.emergency_contact), emergencyPhone,
+      registeredBy: staffForUser(m.created_by_id ?? null),
     };
     const [existing] = await tx.select().from(schema.client).where(eq(schema.client.phoneE164, phone));
     if (existing) {

@@ -14,7 +14,7 @@ function exportWith(over: Partial<MchExport> = {}): MchExport {
   return {
     users: [{ id: 10, name: "Dr. Asha Menon" }, { id: 11, name: "Someone Gone" }],
     psychologists: [{ id: 1, user_id: 10 }, { id: 2, user_id: 11 }],
-    clients: [client(1, "98765 00001"), client(2, "98765 00002", { assigned_psychologist_id: 2 })],
+    clients: [client(1, "98765 00001", { created_by_id: 10 }), client(2, "98765 00002", { assigned_psychologist_id: 2 })],
     assignments: [
       { id: 1, client_id: 1, psychologist_id: 1, start_date: "2026-03-01", end_date: null, assigned_by_id: null, reason: "Initial" },
     ],
@@ -51,6 +51,9 @@ describe("copying from MCH", () => {
     const one = rows.find((r) => r.mchId === 1)!;
     expect(one).toMatchObject({ mchCode: "ML-CL-00001", phoneE164: "+919876500001", age: 30, location: "Kochi", emergencyPhone: "+919000000000", emergencyName: null });
     expect(one.createdAt.toISOString().slice(0, 10)).toBe("2026-03-01");
+    // Who registered the client in MCH carries over when that person has an account here.
+    expect(one.registeredBy).toBe(asha.id);
+    expect(rows.find((r) => r.mchId === 2)!.registeredBy).toBeNull();
 
     const r = await c.caseHistory.open(asha, one.id);
     expect(r).toMatchObject({
