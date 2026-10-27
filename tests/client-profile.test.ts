@@ -143,7 +143,7 @@ describe("adding a client by hand", () => {
     const added = await c.clients.create({ staffId: shana.id }, { name: "Meera", phone: "98765 11111", email: "", whatsappOptIn: false, notes: "" });
     expect(added).toMatchObject({ name: "Meera", phoneE164: "+919876511111", email: null, notes: null, whatsappOptIn: false, registeredBy: shana.id });
     expect(added.number).toBeGreaterThan(0);
-    await expect(c.clients.create({}, { name: "Someone", phone: "+91 98765 11111" })).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("Meera (CL-") });
+    await expect(c.clients.create({}, { name: "Someone", phone: "+91 98765 11111" })).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("Meera (ML-CL-") });
   });
 });
 
