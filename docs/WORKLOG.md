@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · desktop sidebar scrolls, so Sign out is reachable
+
+- On a laptop-height window the admin menu was taller than the screen and the fixed sidebar didn't scroll, so
+  "Roles & access" and the profile menu (Sign out) were off-screen. `.sidebar` now has md:overflow-y-auto.
+
 ## 2026-10-27 · Claude Code · Sign out on phones
 
 - The profile menu (only place with Sign out) was desktop-only (`hidden md:block`), so phones had no way to sign
