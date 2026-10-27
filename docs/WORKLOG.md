@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-27 · Claude Code · firm Meet calendar switched on; Join now pinned in the bookings list
+
+- Live: admin@mindlap.in ("Mindlap Admin", Admin, no services; already Workspace Super admin) connected Google
+  Calendar and is chosen in Settings > Make Meet links from. BK-00011 (Theresa, not connected) got its Meet link from it.
+- Ameen Dev (ameendev@mindlap.in) added as Psychologist; no services or hours yet. Password: he uses Forgot password
+  or Continue with Google (Claude doesn't set passwords).
+- BookingsTable: the Join now column is sticky on the right, so it is visible without scrolling a wide table.
+
 ## 2026-10-27 · Claude Code · desktop sidebar scrolls, so Sign out is reachable
 
 - On a laptop-height window the admin menu was taller than the screen and the fixed sidebar didn't scroll, so

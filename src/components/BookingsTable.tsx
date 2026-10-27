@@ -56,7 +56,8 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
                 </th>
               );
             })}
-            {joins && <th aria-label="Join" />}
+            {/* Pinned to the right edge, so the join button never ends up off-screen in a wide table. */}
+            {joins && <th aria-label="Join" className="sticky right-0 bg-white" />}
           </tr>
         </thead>
         <tbody>
@@ -78,7 +79,7 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
                 </td>
               ))}
               {joins && (
-                <td className="px-4 py-2 text-right">
+                <td className="sticky right-0 bg-white px-4 py-2 text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">
                   {b.status === "upcoming" && b.meetingUrl && <a className="btn-join" href={b.meetingUrl} target="_blank" rel="noreferrer">Join now</a>}
                 </td>
               )}
