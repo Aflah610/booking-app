@@ -14,9 +14,9 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   advisory locks. Service caps also serialise writes for different psychologists. No schema migration required.
 - Final local PostgreSQL suite: 48 files, 529/529 tests passed, including four actual concurrent-request
   regressions. Typecheck, lint, production build and production dependency audit pass (zero vulnerabilities).
-  Fixed cross-suite test leakage of staff_max_per_day; old underpaid receipts cannot be settled by retrying a larger payload.
-- All nine F1-F9 repairs are implemented and committed in three focused changes. Publishing draft PRs next;
-  not live yet. No production client data or settings changed.
+  Fixed cross-suite test leakage of staff_max_per_day and online_payment; old underpaid receipts cannot be settled by retrying a larger payload.
+- All nine F1-F9 repairs are implemented and committed in three focused changes. Draft PRs #11, #12 and #13 are published. #11/#12 pass GitHub CI; #13 revealed the existing online-payment
+  fixture leakage and is being rerun with that reset fixed. Not live yet. No production client data or settings changed.
   OTP migration remains deferred; the single existing OTP WhatsApp sender remains the chosen configuration.
 
 ## 2026-10-28 - Codex - Attendance credits and clinical-note eligibility (F4, F7), not live yet
