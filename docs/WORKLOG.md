@@ -3,6 +3,27 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 - Codex - Full booking flow checkup; nine findings open, no production writes
+
+- Aflah asked for a full checkup. Baseline 36f55c2 plus current website/Worker and live admin/public screens.
+  Saved docs/booking-flow-checkup-2026-10-28.md, with evidence, severity, source references and limits.
+- Local lint/typecheck pass; 117 tests in 12 database-independent suites and 13 Worker regressions pass;
+  production dependency audit zero. Exact-head GitHub PostgreSQL tests/build, Docker and publish all passed.
+- Live health/catalogue/staff/availability ok, seven therapists available, unauthenticated private bookings GET 401.
+  Coordinator form reached Jasmin/29 Oct/09:00 without submission. Six reminders Active, SMTP Connected,
+  shared admin Calendar connected/Meet enabled. Mobile admin profile menu/Sign out reachable; viewport reset.
+- Seven synthetic negative probes reproduced F1 zero/underpayment, F2 interrupted payment retry, F3 lost payment
+  clocks on reschedule, F4 returned credit retained after attendance correction, F8 seconds parsed as 1970 and
+  NEW F9: original signed join link says cancelled after reschedule instead of following its replacement.
+  F5 receipt continuity, F6 scheduling concurrency and F7 released-checkout clinical lists remain code-traced open.
+- Live configuration: Rs 1 prices still public and normal packages consequently filtered out; only reminders
+  configured, no immediate confirmation/change/cancel workflow; firm name still My firm. No settings changed.
+- No clinical content read, real booking/payment, OTP or message sent. SSH unavailable; no firewall change.
+  Automatic review rejected live sessions POST; omitted it and used GET-only/offline checks. Full provider journey
+  and local PostgreSQL integration run not performed. Report distinguishes those limits from passed CI.
+- MCH import is already complete per Claude: data is real now. Do NOT repeat the earlier reset. OTP stays paused.
+  Temporary test config removed. No functional fixes deployed; prioritise payment settlement and rescheduling.
+
 ## 2026-10-28 · Claude Code · therapists no longer see "Connect Google Calendar"
 
 - Aflah: therapists don't need their own calendar now (firm Meet calendar in Settings makes the links).
