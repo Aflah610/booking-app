@@ -12,11 +12,11 @@ export const paymentReport = z.object({
   razorpayPaymentId: id.nullish(),
   method: z.string().trim().max(40).nullish(),
   /** When Razorpay says it happened (ISO 8601 or a Unix time in seconds). Defaults to now. */
-  paidAt: z.union([z.coerce.date(), z.number().int().positive().transform((s) => new Date(s * 1000))]).nullish(),
+  paidAt: z.union([z.number().int().positive().transform((s) => new Date(s * 1000)).pipe(z.date()), z.string().pipe(z.coerce.date()), z.date()]).nullish(),
   errorCode: z.string().trim().max(100).nullish(),
   errorDescription: z.string().trim().max(500).nullish(),
   notes: z.string().trim().max(500).nullish(),
-});
+}).refine(data => data.status !== "paid" || data.amountPaise > 0, { message: "A paid receipt must have a positive amount", path: ["amountPaise"] });
 export type PaymentReportInput = z.input<typeof paymentReport>;
 
 export const resumeInput = z.object({

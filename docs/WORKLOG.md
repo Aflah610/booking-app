@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 - Codex - Payment reliability fixes (F1, F2, F8), not live yet
+
+- Zero-value paid receipts and partial manual settlements are refused; a discount note no longer marks an underpaid
+  booking fully paid. Full known balance is required. Failed attempts can still record zero without granting payment.
+- Receipt, booking settlement, initial assignment and audit now share a Postgres transaction. Retried old receipts
+  reconcile a pending booking instead of silently skipping settlement. Numeric paidAt values mean Unix seconds.
+- Real local PostgreSQL 18 is running on loopback 55433 with synthetic test data only. Regression tests include an
+  actual failing database trigger proving receipt rollback, recovery of an old receipt, and Unix-second parsing.
+  Initial suite: 19/20 passed; fixed the recovered receipt's duplicate flag; full integration run currently running.
+  Lint and typecheck pass. No production data touched; remaining six audit bugs are next on the same repair task.
+
 ## 2026-10-28 - Codex - Temporary Rs 1 prices removed; originals verified live
 
 - Aflah explicitly asked to remove Rs 1 testing prices and restore the real prices. Saved through live admin UI:

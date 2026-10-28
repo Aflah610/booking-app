@@ -1,5 +1,9 @@
 import { desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
+import { booking } from "@/db/schema";
+import type { AuditEntry } from "@/features/audit/audit.types";
+import { markBookingPaid } from "@/features/bookings/bookings.repository";
+import { DomainError } from "@/features/shared/errors";
 import { payment } from "@/db/schema";
 import { PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import type { PaymentDTO } from "./payments.dto";
@@ -56,6 +60,33 @@ export function createPaymentsRepository(db: Db) {
         if (pgError(err).code === PG_UNIQUE_VIOLATION) return null;
         throw err;
       }
+    },
+
+    /** Serialises retries and commits the receipt, settlement, assignment and audit together. */
+    async settle(p: NewPayment, audit: AuditEntry, now: Date) {
+      return db.transaction(async tx => {
+        const [current] = await tx.select({ id: booking.id, amount: booking.amountPaise, paymentStatus: booking.paymentStatus })
+          .from(booking).where(eq(booking.id, p.bookingId)).for("update");
+        if (!current) throw new DomainError("not_found", `Booking ${p.bookingId} not found`);
+        if (p.status === "paid" && current.paymentStatus !== "paid" && current.amount !== null && p.amountPaise !== current.amount) {
+          throw new DomainError("invalid", "Record the full amount due; this payment does not match the booking balance", { reason: "amount_mismatch", expected: current.amount });
+        }
+        const [inserted] = await tx.insert(payment).values({ ...p, paidAt: p.paidAt ?? now })
+          .onConflictDoNothing({ target: payment.razorpayPaymentId }).returning(columns);
+        const [existing] = inserted ? [] : await tx.select(columns).from(payment).where(eq(payment.razorpayPaymentId, p.razorpayPaymentId!));
+        const row = inserted ?? existing;
+        if (!row || row.bookingId !== p.bookingId) throw new DomainError("conflict", "This payment is already recorded against another booking", { reason: "payment_reused" });
+        const duplicate = !inserted;
+        if (row.status !== "paid") return { payment: toDto(row), duplicate, result: "failed" as const, slotReleased: false };
+        // Also reconciles receipts written by the old two-transaction implementation before it crashed.
+        if (duplicate && current.paymentStatus === "paid") return { payment: toDto(row), duplicate, result: "duplicate" as const, slotReleased: false };
+        const paid = await markBookingPaid(tx, p.bookingId, audit, now);
+        if (paid.result === "cancelled" || paid.result === "already") {
+          await tx.update(payment).set({ needsRefund: true }).where(eq(payment.id, row.id));
+          row.needsRefund = true;
+        }
+        return { payment: toDto(row), duplicate, ...paid };
+      });
     },
 
     async findByRazorpayPayment(razorpayPaymentId: string): Promise<PaymentDTO | null> {

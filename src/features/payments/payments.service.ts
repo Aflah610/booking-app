@@ -5,7 +5,7 @@ import type { BookingsRepository } from "@/features/bookings/bookings.repository
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
 import { toE164 } from "@/features/shared/phone";
-import { PAYMENT_WINDOW_MIN, type PaymentDTO } from "./payments.dto";
+import { PAYMENT_WINDOW_MIN } from "./payments.dto";
 import type { PaymentsRepository } from "./payments.repository";
 import { paymentReport, resumeInput, type PaymentReportInput } from "./payments.schemas";
 
@@ -53,18 +53,11 @@ export function createPaymentsService(deps: {
     await expire(now);
     const b = await get(bookingId);
 
-    if (data.razorpayPaymentId) {
-      const seen = await paymentsRepo.findByRazorpayPayment(data.razorpayPaymentId);
-      if (seen) {
-        if (seen.bookingId !== bookingId) throw new DomainError("conflict", `Payment ${data.razorpayPaymentId} is already recorded against another booking`, { reason: "payment_reused" });
-        return { booking: b, payment: seen, duplicate: true as const, warning: null };
-      }
-    }
-    // The website charges what the booking says; a different amount means something is wrong on its side.
-    if (source === "website" && data.status === "paid" && b.amountPaise !== null && data.amountPaise !== b.amountPaise) {
+    // Manual entries also require the full balance. A note is not an implicit discount or write-off.
+    if (data.status === "paid" && b.paymentStatus !== "paid" && b.amountPaise !== null && data.amountPaise !== b.amountPaise) {
       throw new DomainError("invalid", `The amount paid (${data.amountPaise} paise) doesn't match the booking amount (${b.amountPaise} paise)`, { reason: "amount_mismatch", expected: b.amountPaise });
     }
-    const row = await paymentsRepo.record({
+    const settled = await paymentsRepo.settle({
       bookingId,
       status: data.status,
       amountPaise: data.amountPaise,
@@ -79,31 +72,21 @@ export function createPaymentsService(deps: {
       recordedByStaffId: actor.staffId ?? null,
       notes: data.notes ?? null,
       needsRefund: false,
-    });
-    if (!row) return { booking: b, payment: (await paymentsRepo.findByRazorpayPayment(data.razorpayPaymentId!))!, duplicate: true as const, warning: null };
-    // A failed try is only recorded. The booking waits out its 10 minutes, in case the client tries again.
-    if (data.status === "failed") return { booking: b, payment: row, duplicate: false as const, warning: null };
-
-    const paid = await bookingsRepo.markPaid(bookingId, {
-      actor,
-      action: "payment_paid",
-      entity: "booking",
-      entityId: bookingId,
+    }, {
+      actor, action: "payment_paid", entity: "booking", entityId: bookingId,
       details: { amountPaise: data.amountPaise, razorpayPaymentId: data.razorpayPaymentId ?? null, source },
     }, now);
-    if (paid.result === "cancelled") {
-      await paymentsRepo.flagRefund(row.id);
+    const row = settled.payment;
+    if (settled.result === "failed" || settled.result === "duplicate") return { booking: await get(bookingId), payment: row, duplicate: settled.duplicate, warning: null };
+    if (settled.result === "cancelled") {
       throw new DomainError("conflict", "The payment was recorded, but this booking had already been cancelled. Refund it in Razorpay.", { reason: "booking_cancelled", paymentId: row.id });
     }
-    if (paid.result === "already") {
-      await paymentsRepo.flagRefund(row.id);
-      return { booking: b, payment: { ...row, needsRefund: true } as PaymentDTO, duplicate: false as const, warning: "duplicate_payment" as const };
-    }
+    if (settled.result === "already") return { booking: await get(bookingId), payment: row, duplicate: settled.duplicate, warning: "duplicate_payment" as const };
     const after = await get(bookingId);
     // An online booking is confirmed to the client only once it is paid (and only if its time is still theirs).
-    if (after.resumeUntil && !paid.slotReleased) await announce({ type: "booked", bookingId, at: now });
+    if (after.resumeUntil && !settled.slotReleased) await announce({ type: "booked", bookingId, at: now });
     await announce({ type: "payment_success", bookingId, at: now });
-    return { booking: after, payment: row, duplicate: false as const, warning: paid.slotReleased ? ("choose_new_time" as const) : null };
+    return { booking: after, payment: row, duplicate: settled.duplicate, warning: settled.slotReleased ? ("choose_new_time" as const) : null };
   }
 
   return {
