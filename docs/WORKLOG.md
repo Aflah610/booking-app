@@ -3,6 +3,27 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 - Codex - All nine booking checkup bugs fixed and merged
+
+- Aflah requested FIX THE 9 BUGS. PRs #11, #12 and #13 were created as drafts, passed their GitHub checks,
+  then merged in dependency order. Functional merge revision: 50535d4; tested final repair head: 3be4c0c.
+- F1/F2/F8: full positive known balance required; receipt/booking/assignment/audit settle atomically;
+  retry repairs an old pending settlement without accepting an old underpaid receipt; Unix-second paidAt parsing.
+- F3/F5/F9: payment deadlines and release state survive moves; receipts follow current visits and legacy
+  receipts remain visible in current detail/export; original signed join links follow same-client move chains.
+- F4/F7: attendance corrections reclaim returned package/wallet allocations or fail atomically when spent;
+  expired unrefunded credits are not debited again. Failed/released online attempts cannot receive session notes.
+- F6: ordered scheduling locks cover repeat buffer and staff/service daily-cap checks for bookings, holds,
+  reschedules, recovery and late-payment slot restoration. Four real concurrent-request regressions pass.
+- Local PostgreSQL: 529/529 tests in 48 files. Fixed settings leakage in test reset (daily caps/online payments);
+  focused clinical/public-API rerun 28/28. Final GitHub CI (Postgres 16) passed all tests, lint, types, build, audit;
+  Docker also passed. Local build and production audit pass with zero vulnerabilities. Test PostgreSQL stopped.
+- Main uses its normal CI-gated five-minute deploy timer. Live health returned ok and unauthenticated bookings
+  returned 401. SSH to the existing server still times out, so exact deployed revision is not directly verified.
+  No live client/booking/payment/clinical records changed, no migration and no real payment/message created.
+- OTP migration stays deferred; Aflah chose the existing OTP WhatsApp number as the single sender. Immediate
+  confirmation/change/cancel workflows and other configuration gaps are outside this nine-bug repair.
+
 ## 2026-10-28 - Codex - Reschedules, receipts, meeting links and booking races (F3, F5, F6, F9), not live yet
 
 - Rescheduling retains online payment/recovery deadlines and released-slot state; receipts follow the current

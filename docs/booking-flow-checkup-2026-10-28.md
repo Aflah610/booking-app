@@ -8,7 +8,9 @@ findings remain open, plus the live configuration gaps below. No fixes or produc
 
 All nine findings below now have fixes and real PostgreSQL regression coverage on
 `codex/booking-reliability-fixes`. Local validation passed: 529 tests in 48 files, lint, types, production build and production dependency audit.
-Publication and GitHub CI are pending.
+PRs #11, #12 and #13 are merged (functional revision 50535d4). Final GitHub CI passed on 3be4c0c, including
+Postgres 16 integration tests and Docker. The normal main deployment is CI-gated; SSH is unavailable, so the exact
+live revision has not been directly verified.
 The original review below is retained as evidence of the before state, not the repaired behaviour.
 
 - F1/F2/F8: full positive payment amount required; atomic receipt/settlement/retry; Unix-second dates.
