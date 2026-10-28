@@ -6,7 +6,7 @@ import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
 import { assignInitialTherapist, upsertClient } from "@/features/clients/clients.repository";
 import type { Allocation } from "@/features/packages/packages.dto";
-import { applyCredits, moveCredits, returnCredits } from "@/features/packages/packages.repository";
+import { applyCredits, moveCredits, restoreReturnedCredits, returnCredits } from "@/features/packages/packages.repository";
 import { PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import type { BookingDTO, BookingSource, BookingStatus, NoShowBy, PaymentStatus } from "./bookings.dto";
 
@@ -390,6 +390,10 @@ export function createBookingsRepository(db: Db) {
       now: Date = new Date(),
     ) {
       return guarded(async (tx) => {
+        const [before] = await tx.select({ status: booking.status, noShowBy: booking.noShowBy }).from(booking).where(eq(booking.id, id)).for("update");
+        if (before?.status === "no_show" && before.noShowBy === "staff" && !(status === "no_show" && noShowBy === "staff")) {
+          await restoreReturnedCredits(tx, id);
+        }
         const rows = await tx
           .update(booking)
           // The database only allows "no_show_by" on a no-show, so every other status clears it.

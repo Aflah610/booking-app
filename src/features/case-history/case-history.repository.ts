@@ -173,7 +173,7 @@ export function createCaseHistoryRepository(db: Db) {
     },
 
     async bookingClient(bookingId: string): Promise<{ clientId: string; startsAt: Date } | null> {
-      const [row] = await db.select({ clientId: booking.clientId, startsAt: booking.startsAt }).from(booking).where(eq(booking.id, bookingId));
+      const [row] = await db.select({ clientId: booking.clientId, startsAt: booking.startsAt }).from(booking).where(and(eq(booking.id, bookingId), eq(booking.slotReleased, false), sql`${booking.status} <> 'cancelled'`, sql`(${booking.paymentStatus} in ('paid', 'not_required') or ${booking.paymentDueAt} is null)`));
       return row ?? null;
     },
 
@@ -185,7 +185,7 @@ export function createCaseHistoryRepository(db: Db) {
         .innerJoin(service, eq(service.id, booking.serviceId))
         .innerJoin(staff, eq(staff.id, booking.staffId))
         .leftJoin(sessionNote, eq(sessionNote.bookingId, booking.id))
-        .where(and(eq(booking.clientId, clientId), isNull(sessionNote.id), sql`${booking.status} <> 'cancelled'`, sql`${booking.startsAt} <= ${now}`))
+        .where(and(eq(booking.slotReleased, false), sql`(${booking.paymentStatus} in ('paid', 'not_required') or ${booking.paymentDueAt} is null)`, eq(booking.clientId, clientId), isNull(sessionNote.id), sql`${booking.status} <> 'cancelled'`, sql`${booking.startsAt} <= ${now}`))
         .orderBy(desc(booking.startsAt))
         .limit(50);
     },
@@ -205,6 +205,8 @@ export function createCaseHistoryRepository(db: Db) {
         .leftJoin(sessionNote, eq(sessionNote.bookingId, booking.id))
         .where(and(
           isNull(sessionNote.id),
+          eq(booking.slotReleased, false),
+          sql`(${booking.paymentStatus} in ('paid', 'not_required') or ${booking.paymentDueAt} is null)`,
           inArray(booking.status, ["upcoming", "completed"]),
           sql`${booking.endsAt} <= ${now}`,
           sql`${booking.startsAt} >= ${from}`,

@@ -549,3 +549,46 @@ describe("credit that flexes with the price", () => {
     expect((await c.packages.quote(clientId, { serviceId: free.id }, t0)).plan).toMatchObject({ creditsMilli: 0, covered: false });
   });
 });
+
+describe("correcting a staff no-show refund", () => {
+  it("reclaims the same package credit on completion, without charging twice on repeated corrections", async () => {
+    const { counselling, asha, clientId } = await setup();
+    await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
+    const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
+    const now = days(t0, 10);
+    await c.bookings.markStatus(desk, b.id, "no_show", { now, noShowBy: "staff" });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(4);
+    const corrected = await c.bookings.markStatus(desk, b.id, "completed", { now });
+    expect(corrected.creditMilli).toBe(1000);
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
+    await c.bookings.markStatus(desk, b.id, "completed", { now });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
+    await c.bookings.markStatus(desk, b.id, "no_show", { now, noShowBy: "staff" });
+    await c.bookings.markStatus(desk, b.id, "no_show", { now, noShowBy: "client" });
+    expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
+  });
+
+  it("refuses attendance correction atomically when the refunded wallet money was already spent", async () => {
+    const { counselling, asha, clientId } = await setup();
+    await c.packages.topUp({}, clientId, { amountPaise: 100000 }, t0);
+    const original = await book(counselling.id, asha.id, "2026-10-19T10:00");
+    const now = days(t0, 5);
+    await c.bookings.markStatus(desk, original.id, "no_show", { now, noShowBy: "staff" });
+    await book(counselling.id, asha.id, "2026-10-22T10:00", { now });
+    await expect(c.bookings.markStatus(desk, original.id, "completed", { now })).rejects.toMatchObject({ code: "conflict" });
+    expect(await c.bookings.get(original.id)).toMatchObject({ status: "no_show", noShowBy: "staff", creditPaise: 0 });
+    expect((await left(clientId)).walletPaise).toBe(0);
+  });
+});
+
+
+it("corrects attendance without debiting an expired package whose refund never restored a balance", async () => {
+  const { counselling, asha, clientId } = await setup();
+  await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id], { validityDays: 5 })).id }, t0);
+  const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
+  const now = days(t0, 10);
+  await c.bookings.markStatus(desk, b.id, "no_show", { now, noShowBy: "staff" });
+  const corrected = await c.bookings.markStatus(desk, b.id, "completed", { now });
+  expect(corrected).toMatchObject({ status: "completed", creditMilli: 1000 });
+  expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
+});

@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 - Codex - Attendance credits and clinical-note eligibility (F4, F7), not live yet
+
+- Correcting a staff no-show reclaims its returned package/wallet credit inside the attendance transaction.
+  Repeated corrections do not debit twice; already-spent refunded balances refuse the correction atomically.
+  Expired balances that were never restored are not debited again.
+- Pending/failed online checkouts and released slots cannot appear in noteable/pending-note lists or accept
+  a direct linked clinical note. Staff-created unpaid appointments remain eligible.
+- Focused real-Postgres regressions for packages and case history passed. Added an expired-package correction
+  regression to the final full run, currently running. No production clients, balances or notes modified.
+
 ## 2026-10-28 - Codex - Payment reliability fixes (F1, F2, F8), not live yet
 
 - Zero-value paid receipts and partial manual settlements are refused; a discount note no longer marks an underpaid

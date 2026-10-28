@@ -1,4 +1,6 @@
 import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { booking } from "@/db/schema";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import { zonedToUtc } from "@/lib/time";
@@ -261,4 +263,17 @@ describe("follow-up suggestions", () => {
     await expect(c.caseHistory.sendFollowUp(dev, clientId, { suggestedOn: "2026-10-30", whatsapp: true, email: true }, now)).rejects.toMatchObject({ code: "forbidden" });
     expect(await c.caseHistory.sendFollowUp(asha, clientId, { suggestedOn: "2026-10-30", whatsapp: false, email: true }, now)).toEqual({ whatsapp: "not_chosen", email: "no_contact" });
   });
+});
+
+it("excludes released and unpaid website checkouts from note lists and direct note creation", async () => {
+  const { asha, manager, clientId, first } = await setup();
+  const now = at("2026-09-04T12:00");
+  await db.update(booking).set({ paymentStatus: "failed", slotReleased: true, paymentDueAt: at("2026-09-03T09:00") }).where(eq(booking.id, first.id));
+  expect(await c.caseHistory.noteableBookings(asha, clientId, now)).toHaveLength(0);
+  expect(await c.caseHistory.pendingNotes(manager, {}, now)).toHaveLength(0);
+  await expect(c.caseHistory.addNote(asha, clientId, noteFor(first.id))).rejects.toThrow();
+  await db.update(booking).set({ slotReleased: false, paymentStatus: "pending" }).where(eq(booking.id, first.id));
+  expect(await c.caseHistory.noteableBookings(asha, clientId, now)).toHaveLength(0);
+  await db.update(booking).set({ paymentStatus: "paid" }).where(eq(booking.id, first.id));
+  expect(await c.caseHistory.noteableBookings(asha, clientId, now)).toHaveLength(1);
 });
