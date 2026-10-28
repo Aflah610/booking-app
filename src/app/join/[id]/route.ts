@@ -24,7 +24,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   } catch {
     return new Response("Not found", { status: 404 });
   }
-  const b = await bookings.get(id);
+  let b;
+  try {
+    b = await bookings.get(id);
+    const owner = b.clientId;
+    const seen = new Set<string>();
+    while (b.movedToId) {
+      if (seen.has(b.id) || seen.size >= 64) return new Response("Not found", { status: 404 });
+      seen.add(b.id);
+      const next = await bookings.get(b.movedToId);
+      // The original token authorises only this client's actual reschedule chain, never an arbitrary booking.
+      if (next.rescheduledFromId !== b.id || next.clientId !== owner) return new Response("Not found", { status: 404 });
+      b = next;
+    }
+  } catch {
+    return new Response("Not found", { status: 404 });
+  }
   if (b.status === "cancelled") return page("This session was cancelled", "There is nothing to join. Please contact the firm if you think this is a mistake.");
   if (b.meetingUrl) return Response.redirect(b.meetingUrl, 302);
   const firm = await settings.get();

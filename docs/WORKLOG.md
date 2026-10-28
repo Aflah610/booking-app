@@ -3,6 +3,22 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 - Codex - Reschedules, receipts, meeting links and booking races (F3, F5, F6, F9), not live yet
+
+- Rescheduling retains online payment/recovery deadlines and released-slot state; receipts follow the current
+  visit. Existing receipts on older visits remain visible in the current detail and one CSV row. Payment retries
+  addressed to an old visit resolve the current visit, with lineage/ownership checks and a stale-move retry guard.
+- Original signed meeting links follow multiple moves, but refuse cross-client history and reject a child URL
+  carrying only its predecessor's token. Final cancellation remains cancelled.
+- Booking/hold/reschedule/reclaim/payment recovery now recheck buffers and firm/service daily caps after ordered
+  advisory locks. Service caps also serialise writes for different psychologists. No schema migration required.
+- Final local PostgreSQL suite: 48 files, 529/529 tests passed, including four actual concurrent-request
+  regressions. Typecheck, lint, production build and production dependency audit pass (zero vulnerabilities).
+  Fixed cross-suite test leakage of staff_max_per_day and online_payment; old underpaid receipts cannot be settled by retrying a larger payload.
+- All nine F1-F9 repairs are implemented and committed in three focused changes. Draft PRs #11, #12 and #13 are published. #11/#12 pass GitHub CI; #13 revealed the existing online-payment
+  fixture leakage and is being rerun with that reset fixed. Not live yet. No production client data or settings changed.
+  OTP migration remains deferred; the single existing OTP WhatsApp sender remains the chosen configuration.
+
 ## 2026-10-28 - Codex - Attendance credits and clinical-note eligibility (F4, F7), not live yet
 
 - Correcting a staff no-show reclaims its returned package/wallet credit inside the attendance transaction.

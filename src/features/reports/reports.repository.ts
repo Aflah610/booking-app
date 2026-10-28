@@ -1,3 +1,4 @@
+import { paymentAncestors } from "@/features/payments/payments.repository";
 import { registeredClientWhere } from "@/features/clients/clients.repository";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db";
@@ -106,9 +107,9 @@ export function createReportsRepository(db: Db) {
           notes: booking.notes,
           answers: booking.formAnswers,
           amountDuePaise: booking.amountPaise,
-          amountPaidPaise: sql<number | null>`(select sum(p.amount_paise)::int from payment p where p.booking_id = ${booking.id} and p.status = 'paid')`,
-          razorpayPaymentId: sql<string | null>`(select p.razorpay_payment_id from payment p where p.booking_id = ${booking.id} and p.status = 'paid' order by p.paid_at desc limit 1)`,
-          paidAt: sql<Date | null>`(select max(p.paid_at) from payment p where p.booking_id = ${booking.id} and p.status = 'paid')`,
+          amountPaidPaise: sql<number | null>`(select sum(p.amount_paise)::int from payment p where p.booking_id in (${paymentAncestors(booking.id)}) and p.status = 'paid' and not exists (select 1 from booking moved where moved.rescheduled_from_id = ${booking.id}))`,
+          razorpayPaymentId: sql<string | null>`(select p.razorpay_payment_id from payment p where p.booking_id in (${paymentAncestors(booking.id)}) and p.status = 'paid' and not exists (select 1 from booking moved where moved.rescheduled_from_id = ${booking.id}) order by p.paid_at desc limit 1)`,
+          paidAt: sql<Date | null>`(select max(p.paid_at) from payment p where p.booking_id in (${paymentAncestors(booking.id)}) and p.status = 'paid' and not exists (select 1 from booking moved where moved.rescheduled_from_id = ${booking.id}))`,
         })
         .from(booking)
         .innerJoin(service, eq(service.id, booking.serviceId))

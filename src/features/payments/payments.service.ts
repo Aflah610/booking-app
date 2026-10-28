@@ -51,7 +51,16 @@ export function createPaymentsService(deps: {
   async function record(actor: Actor, bookingId: string, input: unknown, source: "website" | "staff", now: Date) {
     const data = paymentReport.parse(input);
     await expire(now);
-    const b = await get(bookingId);
+    let b = await get(bookingId);
+    const seenBookings = new Set<string>();
+    while (b.movedToId) {
+      if (seenBookings.has(b.id) || seenBookings.size >= 64) throw new DomainError("conflict", "Booking move history is invalid");
+      seenBookings.add(b.id);
+      const next = await get(b.movedToId);
+      if (next.rescheduledFromId !== b.id || next.clientId !== b.clientId) throw new DomainError("conflict", "Booking move history does not belong to this client");
+      b = next;
+    }
+    bookingId = b.id;
 
     // Manual entries also require the full balance. A note is not an implicit discount or write-off.
     if (data.status === "paid" && b.paymentStatus !== "paid" && b.amountPaise !== null && data.amountPaise !== b.amountPaise) {
@@ -77,7 +86,7 @@ export function createPaymentsService(deps: {
       details: { amountPaise: data.amountPaise, razorpayPaymentId: data.razorpayPaymentId ?? null, source },
     }, now);
     const row = settled.payment;
-    if (settled.result === "failed" || settled.result === "duplicate") return { booking: await get(bookingId), payment: row, duplicate: settled.duplicate, warning: null };
+    if (settled.result === "failed" || settled.result === "duplicate") return { booking: await get(bookingId), payment: row, duplicate: settled.duplicate, warning: settled.slotReleased ? ("choose_new_time" as const) : null };
     if (settled.result === "cancelled") {
       throw new DomainError("conflict", "The payment was recorded, but this booking had already been cancelled. Refund it in Razorpay.", { reason: "booking_cancelled", paymentId: row.id });
     }
