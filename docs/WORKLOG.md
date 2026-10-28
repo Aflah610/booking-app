@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 · Claude Code · only admins and managers assign a client's psychologist
+
+- Aflah: assigning or reassigning the psychologist is for admin and manager only, as its own permission.
+  `clients.reassign` ("Assign and change a client's psychologist", admin + manager by default) now covers the first
+  assignment too: assignTherapistAction requires it, the client page shows the Assign/Reassign box only with it
+  (others see "Only admins and managers can..."), and the Register client form's Psychologist field shows and
+  applies only with it. CCD can no longer pick the first psychologist. Bookings still record their own psychologist.
+
 ## 2026-10-28 · Claude Code · delete client, and "Past" staff instead of "Inactive"
 
 - New permission `clients.delete` (admin and manager by default; editable in Roles & access).

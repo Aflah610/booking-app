@@ -254,7 +254,7 @@ export async function createClientAction(form: FormData) {
       ...Object.fromEntries(PROFILE_FIELDS.map((k) => [k, str(form, k)])),
       registeredAt: await registeredAt(form, new Date()),
     });
-    if (str(form, "staffId")) await app().clients.assignTherapist({ staffId: me.id }, created.id, { staffId: str(form, "staffId") });
+    if (str(form, "staffId") && allowed(me, "clients.reassign")) await app().clients.assignTherapist({ staffId: me.id }, created.id, { staffId: str(form, "staffId") });
     return `/admin/clients/${created.id}`;
   });
 }
@@ -271,14 +271,10 @@ export async function deleteClientAction(clientId: string, form: FormData) {
 }
 
 export async function assignTherapistAction(clientId: string, form: FormData) {
-  const me = await requirePermission("clients.view");
-  await act(`/admin/clients/${clientId}`, "Psychologist assigned", async () => {
-    // Anyone with the clients list may assign the first psychologist; changing one needs "clients.reassign" (as in the old system).
-    if (!allowed(me, "clients.reassign") && (await app().clients.therapistHistory(clientId)).some((p) => !p.endsAt)) {
-      throw new DomainError("forbidden", "Only managers can change a client's psychologist");
-    }
-    await app().clients.assignTherapist({ staffId: me.id }, clientId, { staffId: str(form, "staffId"), reason: str(form, "reason") });
-  });
+  // Choosing or changing a client's psychologist is for admins and managers ("clients.reassign"), not the front desk.
+  const me = await requirePermission("clients.reassign");
+  await act(`/admin/clients/${clientId}`, "Psychologist assigned", () =>
+    app().clients.assignTherapist({ staffId: me.id }, clientId, { staffId: str(form, "staffId"), reason: str(form, "reason") }));
 }
 
 export type NewApiKeyState ={ key?: string; name?: string; error?: string } | null;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { app } from "@/features/container";
 import { GENDERS, MARITAL_STATUSES } from "@/features/clients/clients.dto";
 import { isoDay } from "@/lib/format";
-import { requirePermission } from "@/lib/session";
+import { allowed, requirePermission } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PhoneField } from "@/components/PhoneField";
 import { PageHeader } from "@/components/Shell";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Register new client" };
 
 export default async function NewClientPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requirePermission("clients.view");
+  const me = await requirePermission("clients.view");
   const { error } = await searchParams;
   const [team, therapistRoles, s] = await Promise.all([app().staff.list(), app().access.rolesWith("casenotes.write"), app().settings.get()]);
   const therapists = team.filter((m) => m.active && therapistRoles.includes(m.accessRole));
@@ -71,13 +71,13 @@ export default async function NewClientPage({ searchParams }: { searchParams: Pr
           <legend className="sr-only">Registration</legend>
           <h2 className="font-semibold sm:col-span-2">Registration</h2>
           {field("registeredOn", "Registration date", { type: "date", max: today, defaultValue: today })}
-          <div>
+          {allowed(me, "clients.reassign") && <div>
             <label className="label" htmlFor="staffId">Psychologist</label>
             <select className="input" id="staffId" name="staffId" defaultValue="">
               <option value="">Assign later</option>
               {therapists.map((m) => <option key={m.id} value={m.id}>{m.name}{m.designation ? ` · ${m.designation}` : ""}</option>)}
             </select>
-          </div>
+          </div>}
           <div className="sm:col-span-2">
             <label className="label" htmlFor="notes">Front-desk notes</label>
             <textarea className="input" id="notes" name="notes" rows={2} placeholder="Non-clinical, e.g. prefers evenings" />

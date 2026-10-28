@@ -63,7 +63,7 @@ export default async function ClientPage({
   const registeredBy = c.registeredBy ? team.find((m) => m.id === c.registeredBy)?.name : null;
   const assignable = team.filter((m) => m.active && m.id !== current?.staffId && therapistRoles.includes(m.accessRole));
   // Anyone with the clients list may assign the first psychologist; changing one is for managers.
-  const canAssign = manages && (!current || allowed(me, "clients.reassign"));
+  const canAssign = allowed(me, "clients.reassign");
   const age = clientAge(c, isoDay(now, tz));
 
   const keyRows: [string, string | null][] = [
@@ -180,6 +180,7 @@ export default async function ClientPage({
               <p className="text-sm text-zinc-600">No psychologist assigned yet.</p>
             )}
 
+            {!canAssign && manages && <p className="mt-3 text-xs text-zinc-500">Only admins and managers can assign or change the psychologist.</p>}
             {canAssign && <details className="mt-4">
               <summary className="cursor-pointer list-none text-sm font-medium underline underline-offset-4">{current ? "Reassign" : "Assign a psychologist"}</summary>
               <form action={assignTherapistAction.bind(null, id)} className="mt-3 grid gap-3 rounded-lg border border-zinc-200 p-3">
