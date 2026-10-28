@@ -13,6 +13,6 @@ export async function reset() {
     truncate role_permission, follow_up_read, follow_up_message, follow_up_request, lead, follow_up, session_note_addendum, session_note, case_history, otp_request, audit_log, slot_hold, booking_calendar_event, calendar_busy, date_override, notification, booking, client_package, package, client_therapist, client, calendar_connection,
       time_off, working_hours, staff_service, service, staff, api_key, workflow, holiday restart identity cascade`);
   // The business row survives a reset. Most tests look at the plain wording of a message, so they start with the styled design off;
-  // the tests of the design turn it on themselves. Start times go back to the default for tests that change them.
-  await db.execute(sql`update business set email_branded = false, slot_interval_min = 30`);
+  // the tests of the design turn it on themselves. Start times and daily caps go back to the defaults for tests that change them.
+  await db.execute(sql`update business set email_branded = false, slot_interval_min = 30, staff_max_per_day = null`);
 }

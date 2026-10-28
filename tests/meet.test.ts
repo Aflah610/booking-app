@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { booking as bookingTable } from "@/db/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db, reset } from "./helpers";
 import { createContainer } from "@/features/container";
@@ -73,8 +75,9 @@ beforeEach(async () => {
   sent.length = 0;
   google = fakeGoogle();
   c = createContainer(db, { manageSecret: SECRET, appUrl: "https://book.example.com", calendarProvider: google.provider, senders: { email: send, whatsapp: send, webhook: send } });
+  (globalThis as unknown as { container?: typeof c }).container = c;
 });
-afterEach(() => firm(false));
+afterEach(async () => { await firm(false); delete (globalThis as unknown as { container?: typeof c }).container; });
 
 describe("making the Meet link", () => {
   it("makes one for an online service when the firm and the therapist both have it on, and keeps it on the booking", async () => {
@@ -308,6 +311,26 @@ describe("the join link", () => {
     await c.bookings.cancel(website, made.booking.id, {}, { now: t0 });
     expect(await (await open(made.booking.id, token)).text()).toContain("cancelled");
   });
+  it("keeps the original signed link usable across repeated moves and still rejects other clients and cancellations", async () => {
+    await firm(true);
+    const { svc, asha } = await setup();
+    const made = await book(svc.id, asha.id, "2026-10-19T10:00", website);
+    const first = made.booking;
+    const second = await c.bookings.reschedule(desk, first.id, { start: at("2026-10-20T10:00") }, { now: t0 });
+    const third = await c.bookings.reschedule(desk, second.id, { start: at("2026-10-21T10:00") }, { now: t0 });
+    await c.bookings.setMeeting(desk, third.id, { action: "manual", url: "https://meet.google.com/moved-room" });
+    const originalLink = await open(first.id, c.bookings.manageToken(first.id)!);
+    expect(originalLink.status).toBe(302);
+    expect(originalLink.headers.get("location")).toBe("https://meet.google.com/moved-room");
+    expect((await open(third.id, c.bookings.manageToken(first.id)!)).status).toBe(404);
+    const other = await c.bookings.create(desk, { serviceId: svc.id, staffId: asha.id, start: at("2026-10-22T10:00"), client: { name: "Other client", phone: "9876512345" } }, { now: t0 });
+    await db.update(bookingTable).set({ clientId: other.booking.clientId }).where(eq(bookingTable.id, third.id));
+    expect((await open(first.id, c.bookings.manageToken(first.id)!)).status).toBe(404);
+    await db.update(bookingTable).set({ clientId: first.clientId }).where(eq(bookingTable.id, third.id));
+    await c.bookings.cancel(desk, third.id, {}, { now: t0 });
+    expect(await (await open(first.id, c.bookings.manageToken(first.id)!)).text()).toContain("cancelled");
+  });
+
 });
 
 describe("making the link right after booking, without a scheduler", () => {

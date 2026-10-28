@@ -1,4 +1,5 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { createPaymentsRepository } from "@/features/payments/payments.repository";
 import { payment } from "@/db/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db, reset } from "./helpers";
@@ -276,4 +277,63 @@ describe("payment reliability regressions", () => {
     const result = await c.payments.report({}, b.id, paid(150000, { paidAt: 1793001600 }), plus(t0, 2));
     expect(result.payment.paidAt).toEqual(new Date("2026-10-26T08:00:00.000Z"));
   });
+});
+
+describe("rescheduled payment history", () => {
+  it("preserves an unpaid booking's original expiry and resume deadlines", async () => {
+    const { svc } = await setup();
+    const original = await book(svc.id, "2026-10-19T10:00");
+    const moved = await c.bookings.reschedule(desk, original.id, { start: at("2026-10-20T10:00") }, { now: plus(t0, 2) });
+    expect(moved).toMatchObject({ paymentDueAt: original.paymentDueAt, resumeUntil: original.resumeUntil, paymentStatus: "pending" });
+    await c.payments.expire(plus(t0, 11));
+    expect(await c.bookings.get(moved.id)).toMatchObject({ paymentStatus: "failed", slotReleased: true });
+    await c.payments.expire(plus(t0, 24 * 60 + 1));
+    expect((await c.bookings.get(moved.id)).status).toBe("cancelled");
+  });
+
+  it("moves a paid receipt across repeated moves and accepts retries addressed to the original booking", async () => {
+    const { svc } = await setup();
+    const original = await book(svc.id, "2026-10-19T10:00");
+    const report = paid(150000, { razorpayPaymentId: "pay_moved" });
+    await c.payments.report({}, original.id, report, plus(t0, 1));
+    const second = await c.bookings.reschedule(desk, original.id, { start: at("2026-10-20T10:00") }, { now: plus(t0, 2) });
+    const third = await c.bookings.reschedule(desk, second.id, { start: at("2026-10-21T10:00") }, { now: plus(t0, 3) });
+    expect(await c.payments.forBooking(third.id)).toHaveLength(1);
+    expect(await c.payments.forBooking(original.id)).toHaveLength(0);
+    const retry = await c.payments.report({}, original.id, report, plus(t0, 4));
+    expect(retry).toMatchObject({ duplicate: true, booking: { id: third.id, paymentStatus: "paid" } });
+    expect(await c.payments.forBooking(third.id)).toHaveLength(1);
+    // Existing moves made before this fix still link their receipt in the current detail and export.
+    const [receipt] = await c.payments.forBooking(third.id);
+    await db.update(payment).set({ bookingId: original.id }).where(eq(payment.id, receipt.id));
+    expect(await c.payments.forBooking(third.id)).toHaveLength(1);
+    const exported = await c.reports.bookingsCsv({ from: "2026-10-19", to: "2026-10-22" });
+    const receiptRows = exported.csv.split("\n").filter(line => line.includes("pay_moved"));
+    expect(receiptRows).toHaveLength(1);
+    expect(receiptRows[0]).toContain("2026-10-21 10:00");
+  });
+});
+
+
+it("refuses a stale settlement after a simultaneous move, then reconciles a retry on the current visit", async () => {
+  const { svc } = await setup();
+  const original = await book(svc.id, "2026-10-19T10:00");
+  const moved = await c.bookings.reschedule(desk, original.id, { start: at("2026-10-20T10:00") }, { now: plus(t0, 2) });
+  await expect(createPaymentsRepository(db).settle({
+    bookingId: original.id, status: "paid", amountPaise: 150000, currency: "INR", razorpayOrderId: null,
+    razorpayPaymentId: "pay_raced_move", method: null, paidAt: null, errorCode: null, errorDescription: null,
+    source: "website", recordedByStaffId: null, notes: null, needsRefund: false,
+  }, { actor: {}, action: "payment_paid", entity: "booking", entityId: original.id }, plus(t0, 3))).rejects.toMatchObject({ details: { reason: "booking_moved" } });
+  expect(await c.payments.forBooking(original.id)).toHaveLength(0);
+  const retry = await c.payments.report({}, original.id, paid(150000, { razorpayPaymentId: "pay_raced_move" }), plus(t0, 4));
+  expect(retry).toMatchObject({ booking: { id: moved.id, paymentStatus: "paid" }, payment: { needsRefund: false } });
+});
+
+
+it("does not turn an old underpaid receipt into a full settlement on retry", async () => {
+  const { svc } = await setup();
+  const b = await book(svc.id, "2026-10-19T10:00");
+  await db.insert(payment).values({ bookingId: b.id, status: "paid", amountPaise: 100, currency: "INR", source: "website", razorpayPaymentId: "pay_old_partial" });
+  await expect(c.payments.report({}, b.id, paid(150000, { razorpayPaymentId: "pay_old_partial" }), plus(t0, 3))).rejects.toMatchObject({ details: { reason: "receipt_amount_mismatch" } });
+  expect((await c.bookings.get(b.id)).paymentStatus).toBe("pending");
 });

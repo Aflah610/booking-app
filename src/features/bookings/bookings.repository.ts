@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, gte, inArray, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import type { Db, Tx } from "@/db";
-import { booking, client, notification, service, slotHold, staff, staffService } from "@/db/schema";
+import { booking, business, client, notification, payment, service, slotHold, staff, staffService } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
@@ -60,7 +60,7 @@ export type NewBooking = {
   notes?: string | null;
   formAnswers?: Record<string, string>;
   /** Set when the booking is paid online: how long the client has to pay, and to come back. */
-  payment?: { status: PaymentStatus; dueAt: Date | null; resumeUntil: Date | null; amountPaise: number | null };
+  payment?: { status: PaymentStatus; dueAt: Date | null; resumeUntil: Date | null; amountPaise: number | null; slotReleased?: boolean };
   /** What the session costs (that therapist's price), kept for the booking list and reports. */
   pricePaise?: number | null;
   /** Spend the client's package session or wallet money on this booking, if they have any that applies. */
@@ -80,10 +80,45 @@ export type WriteResult<T> =
  * stops overlapping bookings; the lock also covers holds and buffers, which the constraint can't see.
  * Locks are taken in a fixed order so two transactions never wait on each other.
  */
-async function lockStaff(tx: Tx, staffIds: string[]) {
+async function lockStaff(tx: Tx, staffIds: string[], serviceId?: string) {
   for (const id of [...new Set(staffIds)].sort()) {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${id}, 0))`);
   }
+  // Service caps cover different people too; use the same lock after the ordered staff locks.
+  if (serviceId) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${"service:" + serviceId}, 0))`);
+}
+
+/** Lock scheduling resources before booking rows, consistently with create/reschedule. */
+export async function lockBookingTime(tx: Tx, id: string) {
+  const [b] = await tx.select({ staffId: booking.staffId, serviceId: booking.serviceId }).from(booking).where(eq(booking.id, id));
+  if (b) await lockStaff(tx, [b.staffId], b.serviceId);
+}
+
+/** Database write guard for the configured buffers and daily caps, after scheduling locks. */
+async function capacityAvailable(tx: Tx, t: { staffId: string; serviceId: string; startsAt: Date; endsAt: Date; now: Date; excludeId?: string }) {
+  const [rules] = await tx.select({ before: service.bufferBeforeMin, after: service.bufferAfterMin, max: service.maxPerDay }).from(service).where(eq(service.id, t.serviceId));
+  const [firm] = await tx.select({ max: business.staffMaxPerDay, zone: business.timezone }).from(business).where(eq(business.id, 1));
+  if (!rules || !firm) return false;
+  const from = new Date(t.startsAt.getTime() - rules.before * 60_000);
+  const to = new Date(t.endsAt.getTime() + rules.after * 60_000);
+  const [busy] = await tx.select({ id: booking.id }).from(booking).innerJoin(service, eq(service.id, booking.serviceId)).where(and(
+    eq(booking.staffId, t.staffId), ne(booking.status, "cancelled"), eq(booking.slotReleased, false),
+    t.excludeId ? ne(booking.id, t.excludeId) : undefined,
+    sql`${booking.startsAt} - make_interval(mins => ${service.bufferBeforeMin}) < ${to}`,
+    sql`${booking.endsAt} + make_interval(mins => ${service.bufferAfterMin}) > ${from}`,
+  )).limit(1);
+  if (busy) return false;
+  const [held] = await tx.select({ id: slotHold.id }).from(slotHold).where(and(eq(slotHold.staffId, t.staffId), gt(slotHold.releaseAt, t.now), lt(slotHold.startsAt, to), gt(slotHold.endsAt, from))).limit(1);
+  if (held) return false;
+  if (rules.max !== null || firm.max !== null) {
+    const [count] = await tx.select({
+      staff: sql<number>`count(*) filter (where ${booking.staffId} = ${t.staffId})::int`,
+      service: sql<number>`count(*) filter (where ${booking.serviceId} = ${t.serviceId})::int`,
+    }).from(booking).where(and(ne(booking.status, "cancelled"), eq(booking.slotReleased, false), t.excludeId ? ne(booking.id, t.excludeId) : undefined,
+      sql`(${booking.startsAt} at time zone ${firm.zone})::date = (${t.startsAt.toISOString()}::timestamptz at time zone ${firm.zone})::date`));
+    if ((firm.max !== null && count.staff >= firm.max) || (rules.max !== null && count.service >= rules.max)) return false;
+  }
+  return true;
 }
 
 /** Uses up the caller's hold (it must match the staff member and times) and checks nobody else holds the time. */
@@ -134,6 +169,7 @@ async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?:
       formAnswers: b.formAnswers ?? {},
       paymentStatus: b.payment?.status ?? extra.paymentStatus ?? "pending",
       paymentDueAt: b.payment?.dueAt ?? null,
+      slotReleased: b.payment?.slotReleased ?? false,
       resumeUntil: b.payment?.resumeUntil ?? null,
       amountPaise: b.payment?.amountPaise ?? extra.amountPaise ?? null,
       pricePaise: b.pricePaise ?? extra.pricePaise ?? null,
@@ -177,30 +213,30 @@ class Refused extends Error {
 
 /** The receipt and its booking must settle inside the caller's transaction. */
 export async function markBookingPaid(tx: Tx, id: string, audit: AuditEntry, now: Date): Promise<{ result: "cancelled" | "already" | "paid"; slotReleased: boolean }> {
-        const [b] = await tx
-          .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId, clientId: booking.clientId })
-          .from(booking)
-          .where(eq(booking.id, id))
-          .for("update");
-        if (!b || b.status === "cancelled") return { result: "cancelled" as const, slotReleased: true };
-        if (b.paymentStatus === "paid") return { result: "already" as const, slotReleased: b.slotReleased };
-        await lockStaff(tx, [b.staffId]);
-        let slotReleased = b.slotReleased;
-        if (slotReleased) {
-          try {
-            // A savepoint: if someone took the time meanwhile, only this step is undone.
-            await tx.transaction((sp) => sp.update(booking).set({ slotReleased: false }).where(eq(booking.id, id)));
-            slotReleased = false;
-          } catch (err) {
-            if (pgError(err).code !== PG_EXCLUSION_VIOLATION) throw err;
-          }
-        }
-        await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
-        if (!slotReleased) {
-          await assignInitialTherapist(tx, b.clientId, b.staffId, now, audit);
-        }
-        await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
-        return { result: "paid" as const, slotReleased };
+  await lockBookingTime(tx, id);
+  const [b] = await tx
+    .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId, clientId: booking.clientId, serviceId: booking.serviceId, startsAt: booking.startsAt, endsAt: booking.endsAt })
+    .from(booking)
+    .where(eq(booking.id, id))
+    .for("update");
+  if (!b || b.status === "cancelled") return { result: "cancelled" as const, slotReleased: true };
+  if (b.paymentStatus === "paid") return { result: "already" as const, slotReleased: b.slotReleased };
+  let slotReleased = b.slotReleased;
+  if (slotReleased && await capacityAvailable(tx, { ...b, now, excludeId: id })) {
+    try {
+      // A savepoint: if someone took the time meanwhile, only this step is undone.
+      await tx.transaction((sp) => sp.update(booking).set({ slotReleased: false }).where(eq(booking.id, id)));
+      slotReleased = false;
+    } catch (err) {
+      if (pgError(err).code !== PG_EXCLUSION_VIOLATION) throw err;
+    }
+  }
+  await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
+  if (!slotReleased) {
+    await assignInitialTherapist(tx, b.clientId, b.staffId, now, audit);
+  }
+  await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
+  return { result: "paid" as const, slotReleased };
 
 }
 
@@ -301,9 +337,10 @@ export function createBookingsRepository(db: Db) {
 
     async create(b: NewBooking, opts: { holdTokenHash?: string | null; now: Date; assignTherapist?: boolean; audit: Omit<AuditEntry, "entityId"> }) {
       return guarded(async (tx) => {
-        await lockStaff(tx, [b.staffId]);
+        await lockStaff(tx, [b.staffId], b.serviceId);
         const blocked = await claimTime(tx, { ...b, holdTokenHash: opts.holdTokenHash, now: opts.now });
         if (blocked) throw new Refused(blocked);
+        if (!await capacityAvailable(tx, { ...b, now: opts.now })) throw new Refused("slot_taken");
         const id = await insertBooking(tx, b);
         let paidByCredit = false;
         if (b.credit) paidByCredit = (await settleWithCredit(tx, id, b.serviceId, b.credit, opts.now)).covered;
@@ -326,7 +363,7 @@ export function createBookingsRepository(db: Db) {
       opts: { holdTokenHash?: string | null; now: Date; audit: AuditEntry },
     ) {
       return guarded(async (tx) => {
-        const [old] = await tx
+        let [old] = await tx
           .select({
             staffId: booking.staffId,
             clientId: booking.clientId,
@@ -336,11 +373,17 @@ export function createBookingsRepository(db: Db) {
             paymentStatus: booking.paymentStatus,
             amountPaise: booking.amountPaise,
             pricePaise: booking.pricePaise,
+            paymentDueAt: booking.paymentDueAt,
+            resumeUntil: booking.resumeUntil,
+            slotReleased: booking.slotReleased,
           })
           .from(booking)
           .where(eq(booking.id, oldId));
         if (!old) throw new Refused("not_upcoming");
-        await lockStaff(tx, [old.staffId, next.staffId]);
+        await lockStaff(tx, [old.staffId, next.staffId], next.serviceId);
+        const [current] = await tx.select().from(booking).where(eq(booking.id, oldId)).for("update");
+        if (!current) throw new Refused("not_upcoming");
+        old = current;
         const cancelled = await tx
           .update(booking)
           .set({ status: "cancelled", cancellationReason: next.reason, cancelledBy: next.cancelledBy })
@@ -350,14 +393,18 @@ export function createBookingsRepository(db: Db) {
         await tx.delete(notification).where(and(eq(notification.bookingId, oldId), eq(notification.status, "queued")));
         const blocked = await claimTime(tx, { ...next, holdTokenHash: opts.holdTokenHash, now: opts.now });
         if (blocked) throw new Refused(blocked);
+        if (!await capacityAvailable(tx, { ...next, now: opts.now, excludeId: oldId })) throw new Refused("slot_taken");
         const id = await insertBooking(
           tx,
           // The client keeps the same manage link for the moved booking.
           // The client's answers and what they have paid belong to the visit, not to the time slot, so they move too.
-          { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash, formAnswers: old.formAnswers },
+          { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash, formAnswers: old.formAnswers,
+            payment: { status: old.paymentStatus, dueAt: old.paymentDueAt, resumeUntil: old.resumeUntil, amountPaise: old.amountPaise, slotReleased: old.slotReleased } },
           { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise, pricePaise: old.pricePaise },
         );
         await moveCredits(tx, oldId, id);
+        // Receipts belong to the visit; move them with it so the active booking/export has one payment history.
+        await tx.update(payment).set({ bookingId: id }).where(eq(payment.bookingId, oldId));
         await writeAudit(tx, { ...opts.audit, details: { ...opts.audit.details, newBookingId: id } });
         return id;
       });
@@ -459,9 +506,12 @@ export function createBookingsRepository(db: Db) {
       opts: { now: Date; audit: AuditEntry },
     ) {
       return guarded(async (tx) => {
+        const [original] = await tx.select({ staffId: booking.staffId, serviceId: booking.serviceId }).from(booking).where(eq(booking.id, id));
+        if (!original) throw new Refused("not_upcoming");
+        await lockStaff(tx, [original.staffId, t.staffId], original.serviceId);
         const [b] = await tx.select({ staffId: booking.staffId, clientId: booking.clientId, status: booking.status }).from(booking).where(eq(booking.id, id)).for("update");
         if (!b || b.status !== "upcoming") throw new Refused("not_upcoming");
-        await lockStaff(tx, [b.staffId, t.staffId]);
+        if (b.staffId !== original.staffId || !await capacityAvailable(tx, { ...t, serviceId: original.serviceId, now: opts.now, excludeId: id })) throw new Refused("slot_taken");
         const blocked = await claimTime(tx, { staffId: t.staffId, startsAt: t.startsAt, endsAt: t.endsAt, now: opts.now });
         if (blocked) throw new Refused(blocked);
         await tx
@@ -568,13 +618,14 @@ export function createBookingsRepository(db: Db) {
     /** A short hold on a time while the client finishes the website form. */
     async createHold(h: { staffId: string; serviceId: string; startsAt: Date; endsAt: Date; tokenHash: string; releaseAt: Date; now: Date }) {
       return guarded(async (tx) => {
-        await lockStaff(tx, [h.staffId]);
+        await lockStaff(tx, [h.staffId], h.serviceId);
         const blocked = await claimTime(tx, { ...h, holdTokenHash: null });
         if (blocked) throw new Refused(blocked);
+        if (!await capacityAvailable(tx, h)) throw new Refused("slot_taken");
         const [clash] = await tx
           .select({ id: booking.id })
           .from(booking)
-          .where(and(eq(booking.staffId, h.staffId), ne(booking.status, "cancelled"), lt(booking.startsAt, h.endsAt), gt(booking.endsAt, h.startsAt)))
+          .where(and(eq(booking.staffId, h.staffId), ne(booking.status, "cancelled"), eq(booking.slotReleased, false), lt(booking.startsAt, h.endsAt), gt(booking.endsAt, h.startsAt)))
           .limit(1);
         if (clash) throw new Refused("slot_taken");
         await tx.insert(slotHold).values({

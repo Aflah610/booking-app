@@ -4,6 +4,20 @@ Reviewed by Codex for Aflah. Booking-app baseline: 36f55c2, plus the current web
 Outcome: the normal screens and availability work, but the flow cannot be signed off as reliable. Nine functional
 findings remain open, plus the live configuration gaps below. No fixes or production data changes in this review.
 
+## Repair status - 28 October 2026
+
+All nine findings below now have fixes and real PostgreSQL regression coverage on
+`codex/booking-reliability-fixes`. Local validation passed: 529 tests in 48 files, lint, types, production build and production dependency audit.
+Publication and GitHub CI are pending.
+The original review below is retained as evidence of the before state, not the repaired behaviour.
+
+- F1/F2/F8: full positive payment amount required; atomic receipt/settlement/retry; Unix-second dates.
+- F3/F5/F9: payment clocks, receipts and original signed meeting links survive rescheduling.
+- F4/F7: attendance corrections reclaim refunds; failed/released online attempts cannot receive clinical notes.
+- F6: concurrent writes recheck buffers and daily caps inside scheduling locks, including cross-staff service caps.
+- The temporary Rs 1 prices were separately restored and verified live (see work log). Other configuration gaps
+  described below were outside this nine-bug repair.
+
 ## What passed
 
 - Local lint and TypeScript checks passed. Twelve database-independent suites passed 117 tests: availability/slots,
