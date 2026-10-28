@@ -5,6 +5,7 @@ import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
 import { upsertClient } from "@/features/clients/clients.repository";
+import { DomainError } from "@/features/shared/errors";
 import { PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
 import {
   allocate,
@@ -177,6 +178,34 @@ export async function returnCredits(tx: Tx, bookingId: string, now: Date): Promi
   }
   if (uses.length) await tx.update(booking).set({ creditMilli: 0, creditPaise: 0 }).where(eq(booking.id, bookingId));
   return back;
+}
+
+/** Undo a staff no-show's refund before changing attendance; insufficient returned balance refuses the correction. */
+export async function restoreReturnedCredits(tx: Tx, bookingId: string) {
+  const uses = await tx.select().from(creditUse).where(and(eq(creditUse.bookingId, bookingId), sql`${creditUse.returnedAt} is not null`)).for("update");
+  let milli = 0;
+  let wallet = 0;
+  for (const use of uses) {
+    if (use.clientPackageId) {
+      const [pkg] = await tx.select().from(clientPackage).where(eq(clientPackage.id, use.clientPackageId)).for("update");
+      // An already-expired balance was never restored by returnCredits, so it must not be debited twice.
+      const wasReturned = pkg && (!pkg.expiresAt || pkg.expiresAt > use.returnedAt!);
+      if (wasReturned) {
+        if (pkg.creditsLeftMilli < use.creditsMilli || pkg.valueLeftPaise < use.valuePaise) throw new DomainError("conflict", "The returned package credit has already been used. Restore the balance before correcting attendance.");
+        await tx.update(clientPackage).set({ creditsLeftMilli: pkg.creditsLeftMilli - use.creditsMilli, valueLeftPaise: pkg.valueLeftPaise - use.valuePaise }).where(eq(clientPackage.id, pkg.id));
+      }
+      milli += use.creditsMilli;
+    } else if (use.walletLotId) {
+      const [lot] = await tx.select().from(walletLot).where(eq(walletLot.id, use.walletLotId)).for("update");
+      if (lot && lot.expiresAt > use.returnedAt!) {
+        if (lot.remainingPaise < use.amountPaise) throw new DomainError("conflict", "The returned wallet money has already been used. Restore the balance before correcting attendance.");
+        await tx.update(walletLot).set({ remainingPaise: lot.remainingPaise - use.amountPaise }).where(eq(walletLot.id, lot.id));
+      }
+      wallet += use.amountPaise;
+    }
+    await tx.update(creditUse).set({ returnedAt: null }).where(eq(creditUse.id, use.id));
+  }
+  if (uses.length) await tx.update(booking).set({ creditMilli: milli, creditPaise: wallet }).where(eq(booking.id, bookingId));
 }
 
 /** A moved booking is a new row; what paid for the old one now pays for the new one. */
