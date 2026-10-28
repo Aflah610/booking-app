@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 - Codex - Temporary Rs 1 prices removed; originals verified live
+
+- Aflah explicitly asked to remove Rs 1 testing prices and restore the real prices. Saved through live admin UI:
+  Individual therapy ec04ab46-9f5f-4d7c-b899-8e13d875c229 = Rs 1000; couple therapy
+  afbe25e7-5071-4d1d-b427-6bccae8107e6 = Rs 1500; Rashin 23926164-1d05-45eb-a4d7-554b7db77ec9
+  explicit Individual therapy override = Rs 1000 (not blank). His couple override remains blank/inherited.
+- Public Worker catalogue independently returns 1000/1500 for both base prices and Rashin, with all six normal
+  4/8/12-session package options restored. Package prices, duration and buffers unchanged; no bookings or charges.
+- First individual-service save hit the app error page and did not persist. Reloaded, verified still Rs 1,
+  retried from fresh page, then Saved and new paise value verified. Other saves succeeded normally.
+- No functional bug fixes in this task. All nine checkup findings remain open; explained with hypothetical
+  everyday examples, distinguishing reproduced defects from code-traced concurrency/reporting risks.
+
 ## 2026-10-28 · Claude Code · only admins and managers assign a client's psychologist
 
 - Aflah: assigning or reassigning the psychologist is for admin and manager only, as its own permission.
