@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 · Claude Code · delete client, and "Past" staff instead of "Inactive"
+
+- New permission `clients.delete` (admin and manager by default; editable in Roles & access).
+  Client edit page has a "Delete client" box: type the client ID (ML-CL-NNNNN) to confirm.
+  Deletes the client with their psychologist periods, case history, notes, leads, credits and follow-ups (cascade).
+  Refused when the client has any booking or payment, because those are money/session records.
+  The audit row keeps the client number only. clients.service `remove`, repository `bookingAndPaymentCounts` / `remove`.
+- Staff wording: Active/Inactive is now Current/Past (staff list badge and filter, profile switch "Current staff").
+  Past staff sort to the bottom. "Former" badges and filter groups on Clients and Case histories now say "Past".
+  Same `active` column; admins and managers (staff.manage) could already switch it.
+- Anasooya left: website updated (mindlap-therapy 28e7c5f). Her booking-app record is untouched; move her to Past
+  and reassign her clients when Aflah says who takes them.
 ## 2026-10-28 - Codex - Full booking flow checkup; nine findings open, no production writes
 
 - Aflah asked for a full checkup. Baseline 36f55c2 plus current website/Worker and live admin/public screens.

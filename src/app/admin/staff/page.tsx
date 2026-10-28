@@ -17,7 +17,8 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
     (!needle || s.name.toLowerCase().includes(needle) || s.email.toLowerCase().includes(needle))
     && (!role || s.accessRole === role)
     && (!designation || (designation === "none" ? !s.designation : s.designation === designation))
-    && (!status || s.active === (status === "active")));
+    && (!status || s.active === (status === "active")))
+    .sort((a, b) => Number(b.active) - Number(a.active));
   const filtered = Boolean(needle || role || designation || status);
   return (
     <>
@@ -46,9 +47,9 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         <div>
           <label className="label" htmlFor="status">Status</label>
           <select className="input w-auto" id="status" name="status" defaultValue={status ?? ""}>
-            <option value="">Active and inactive</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="">Current and past</option>
+            <option value="active">Current</option>
+            <option value="inactive">Past</option>
           </select>
         </div>
         <button className="btn" type="submit">Apply</button>
@@ -68,7 +69,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
                 <td className="text-zinc-600">{s.designation ?? "–"}</td>
                 <td>{ACCESS_ROLE_LABEL[s.accessRole]}</td>
                 <td className="text-zinc-600">{s.timezone}</td>
-                <td><span className="badge">{s.active ? "Active" : "Inactive"}</span></td>
+                <td>{s.active ? <span className="badge">Current</span> : <span className="badge border-red-300 text-red-700">Past</span>}</td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td colSpan={6} className="text-center text-zinc-500">No staff match these filters.</td></tr>}

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { app } from "@/features/container";
 import { DomainError, isDomainError } from "@/features/shared/errors";
 import { DESIGNATIONS } from "@/features/staff/staff.dto";
+import { clientReference } from "@/features/clients/clients.dto";
 import { act, optional, optionalNumber, str } from "@/lib/form-actions";
 import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
@@ -51,7 +52,7 @@ export async function updateStaffAction(staffId: string, form: FormData) {
     const changesAdmin = accessRole !== target.accessRole && (accessRole === "admin" || target.accessRole === "admin");
     if (changesAdmin && !hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can change admin roles");
     if (staffId === me.id && (accessRole !== me.accessRole || form.get("active") !== "on")) {
-      throw new DomainError("invalid", "You can't change your own role or deactivate yourself");
+      throw new DomainError("invalid", "You can't change your own role or move yourself to past staff");
     }
     await app().staff.update({ staffId: me.id }, staffId, {
       name: str(form, "name"),
@@ -255,6 +256,17 @@ export async function createClientAction(form: FormData) {
     });
     if (str(form, "staffId")) await app().clients.assignTherapist({ staffId: me.id }, created.id, { staffId: str(form, "staffId") });
     return `/admin/clients/${created.id}`;
+  });
+}
+
+export async function deleteClientAction(clientId: string, form: FormData) {
+  const me = await requirePermission("clients.delete");
+  await act(`/admin/clients/${clientId}/edit`, "Client deleted", async () => {
+    const c = await app().clients.get(clientId);
+    // Typing the client ID stops a slip of the mouse deleting someone.
+    if (str(form, "confirm").toUpperCase() !== clientReference(c.number)) throw new DomainError("invalid", `Type ${clientReference(c.number)} to confirm`);
+    await app().clients.remove({ staffId: me.id }, clientId);
+    return "/admin/clients";
   });
 }
 

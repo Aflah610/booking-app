@@ -62,7 +62,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <option value="">All psychologists</option>
                   <option value="unassigned">Unassigned clients</option>
                   <optgroup label="Active">{therapists.filter((m) => m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>
-                  {therapists.some((m) => !m.active) && <optgroup label="Former">{therapists.filter((m) => !m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>}
+                  {therapists.some((m) => !m.active) && <optgroup label="Past">{therapists.filter((m) => !m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>}
                 </select>
               </div>
               <fieldset className="flex flex-wrap items-end gap-2">
@@ -126,7 +126,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <td className="whitespace-nowrap">
                     {c.therapistName ? (
                       <>
-                        <p>{c.therapistName}{!c.therapistActive && <span className="badge ml-1.5 border-red-300 text-red-700">Former</span>}</p>
+                        <p>{c.therapistName}{!c.therapistActive && <span className="badge ml-1.5 border-red-300 text-red-700">Past</span>}</p>
                         {c.assignedByName && <p className="text-xs text-zinc-600">assigned by {c.assignedByName}</p>}
                       </>
                     ) : <span className="text-zinc-500">Unassigned</span>}

@@ -97,7 +97,7 @@ describe("therapist assignment", () => {
     await c.clients.assignTherapist({}, clientId, { staffId: asha.id });
     await expect(c.clients.assignTherapist({}, clientId, { staffId: asha.id, reason: "again" })).rejects.toMatchObject({ code: "conflict" });
     await c.staff.update({}, dev.id, { active: false });
-    await expect(c.clients.assignTherapist({}, clientId, { staffId: dev.id, reason: "x" })).rejects.toMatchObject({ code: "invalid", message: `Staff member ${dev.id} is not active` });
+    await expect(c.clients.assignTherapist({}, clientId, { staffId: dev.id, reason: "x" })).rejects.toMatchObject({ code: "invalid", message: `Staff member ${dev.id} is past staff` });
   });
 
   it("keeps a therapist who has since left in the history, marked inactive", async () => {
@@ -236,5 +236,23 @@ describe("registered clients versus failed online attempts", () => {
     expect(rows.map((r) => r.id)).toContain(imported.id);
     expect(rows.map((r) => r.name)).toContain("Credit customer");
     expect(credited).toBeTruthy();
+  });
+});
+
+describe("deleting a client", () => {
+  it("removes a client without bookings, with their psychologist history, and audits the number only", async () => {
+    const asha = await c.staff.create({}, { name: "Asha", email: "asha@firm.test", designation: "Psychologist" });
+    const ravi = await c.clients.create({}, { name: "Ravi", phone: "98765 43210" });
+    await c.clients.assignTherapist({}, ravi.id, { staffId: asha.id });
+    await c.clients.remove({}, ravi.id);
+    await expect(c.clients.get(ravi.id)).rejects.toMatchObject({ code: "not_found" });
+    const audit = (await db.execute(sql`select details from audit_log where entity = 'client' and action = 'delete'`)).rows as { details: unknown }[];
+    expect(audit).toEqual([{ details: { number: ravi.number } }]);
+  });
+
+  it("keeps a client who has bookings", async () => {
+    const { clientId } = await setup();
+    await expect(c.clients.remove({}, clientId)).rejects.toMatchObject({ code: "conflict" });
+    expect((await c.clients.get(clientId)).id).toBe(clientId);
   });
 });

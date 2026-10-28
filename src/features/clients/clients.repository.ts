@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbOrTx } from "@/db";
-import { booking, client, clientTherapist, followUpRequest, staff } from "@/db/schema";
+import { booking, client, clientTherapist, creditPurchase, followUpRequest, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import { OPEN_REQUEST_STATUSES } from "@/features/follow-up-desk/follow-up-desk.dto";
@@ -190,6 +190,22 @@ export function createClientsRepository(db: Db) {
       const rows = await db.execute(sql`select exists (select 1 from client_therapist where client_id = ${clientId} and staff_id = ${staffId})
         or exists (select 1 from booking where client_id = ${clientId} and staff_id = ${staffId}) as yes`);
       return Boolean((rows.rows[0] as { yes: boolean }).yes);
+    },
+
+    /** Bookings and payments keep the client: they are the practice's money and session records. */
+    async bookingAndPaymentCounts(id: string): Promise<{ bookings: number; payments: number }> {
+      const [b] = await db.select({ n: sql<number>`count(*)::int` }).from(booking).where(eq(booking.clientId, id));
+      const [p] = await db.select({ n: sql<number>`count(*)::int` }).from(creditPurchase).where(eq(creditPurchase.clientId, id));
+      return { bookings: b.n, payments: p.n };
+    },
+
+    /** Deletes the client; psychologist periods, case history, leads, credits and follow-ups go with them (cascade). */
+    remove(id: string, audit: AuditEntry) {
+      return db.transaction(async (tx) => {
+        const gone = await tx.delete(client).where(eq(client.id, id)).returning({ id: client.id });
+        if (gone.length) await writeAudit(tx, audit);
+        return gone.length > 0;
+      });
     },
 
     async staffIsActive(staffId: string): Promise<boolean | null> {

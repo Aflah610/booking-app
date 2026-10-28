@@ -4,11 +4,11 @@ import { app } from "@/features/container";
 import { clientReference, GENDERS, MARITAL_STATUSES } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { isoDay, phoneLabel } from "@/lib/format";
-import { requirePermission } from "@/lib/session";
+import { allowed, requirePermission } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PhoneField } from "@/components/PhoneField";
 import { PageHeader } from "@/components/Shell";
-import { updateClientProfileAction } from "../../../actions";
+import { deleteClientAction, updateClientProfileAction } from "../../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export default async function EditClientPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requirePermission("clients.view");
+  const me = await requirePermission("clients.view");
   const { id } = await params;
   const { error } = await searchParams;
   const c = await app().clients.get(id).catch((err) => {
@@ -114,6 +114,20 @@ export default async function EditClientPage({
           <Link href={`/admin/clients/${id}`} className="btn-ghost">Cancel</Link>
         </div>
       </form>
+      {allowed(me, "clients.delete") && (
+        <form action={deleteClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
+          <h2 className="font-semibold text-red-700">Delete client</h2>
+          <p className="text-sm text-zinc-600">
+            For duplicates and test records. This removes {c.name}, their case history and session notes for good; it can&apos;t be undone.
+            A client with bookings or payments can&apos;t be deleted.
+          </p>
+          <div className="max-w-xs">
+            <label className="label" htmlFor="confirm">Type {clientReference(c.number)} to confirm</label>
+            <input className="input" id="confirm" name="confirm" autoComplete="off" required />
+          </div>
+          <div><button className="btn-ghost text-red-700" type="submit">Delete client</button></div>
+        </form>
+      )}
     </>
   );
 }

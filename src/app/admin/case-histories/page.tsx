@@ -87,7 +87,7 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
                 <option value="">All therapists</option>
                 <option value="unassigned">Unassigned</option>
                 <optgroup label="Active">{team.filter((m) => m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>
-                {team.some((m) => !m.active) && <optgroup label="Former">{team.filter((m) => !m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>}
+                {team.some((m) => !m.active) && <optgroup label="Past">{team.filter((m) => !m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>}
               </select>
             </div>
             <div>
@@ -138,7 +138,7 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
                     <span className="flex items-center gap-2">
                       <Initials name={r.therapistName} muted={!r.therapistActive} />
                       {r.therapistName}
-                      {!r.therapistActive && <span className="badge border-red-300 text-red-700">Former</span>}
+                      {!r.therapistActive && <span className="badge border-red-300 text-red-700">Past</span>}
                     </span>
                   ) : <span className="text-zinc-500">Unassigned</span>}
                 </td>

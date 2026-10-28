@@ -64,12 +64,25 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     /** The full edit form: contact details plus every profile field. */
     updateProfile: async (actor: Actor, id: string, input: unknown) => save(actor, id, withRegistration(clientProfileInput.parse(input))),
 
+    /** For removing duplicates and test records. A client with bookings or payments stays, so the accounts add up. */
+    async remove(actor: Actor, id: string) {
+      const c = await get(id);
+      const { bookings, payments } = await clientsRepo.bookingAndPaymentCounts(id);
+      if (bookings || payments) {
+        const what = [bookings && `${bookings} booking${bookings === 1 ? "" : "s"}`, payments && `${payments} payment${payments === 1 ? "" : "s"}`].filter(Boolean).join(" and ");
+        throw new DomainError("conflict", `${clientReference(c.number)} has ${what}, so it can't be deleted`);
+      }
+      // Personal data: the audit row keeps the client number, not the name.
+      await clientsRepo.remove(id, { actor, action: "delete", entity: "client", entityId: id, details: { number: c.number } });
+      return c;
+    },
+
     async assignTherapist(actor: Actor, clientId: string, input: unknown, now = new Date()) {
       const { staffId, reason } = assignTherapistInput.parse(input);
       await get(clientId);
       const active = await clientsRepo.staffIsActive(staffId);
       if (active === null) throw new DomainError("not_found", `Staff member ${staffId} not found`);
-      if (!active) throw new DomainError("invalid", `Staff member ${staffId} is not active`);
+      if (!active) throw new DomainError("invalid", `Staff member ${staffId} is past staff`);
       const current = await clientsRepo.currentTherapistId(clientId);
       if (current === staffId) throw new DomainError("conflict", `Staff member ${staffId} is already this client's therapist`);
       // Someone reading the history later needs to know why the client moved.

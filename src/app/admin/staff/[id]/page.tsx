@@ -191,8 +191,9 @@ export default async function StaffDetail({
               </select>
             </div>
             <div><label className="label" htmlFor="timezone">Time zone</label><TimezoneSelect value={member.timezone} /></div>
-            <label className="flex items-center gap-3 text-sm sm:col-span-2">
-              <input type="checkbox" className="toggle" name="active" defaultChecked={member.active} /> Active (can sign in and be booked)
+            <label className="flex items-start gap-3 text-sm sm:col-span-2">
+              <input type="checkbox" className="toggle mt-0.5" name="active" defaultChecked={member.active} />
+              <span>Current staff <span className="block text-xs text-zinc-600">Can sign in and be booked. Switch off when someone leaves: they move to Past staff and their history stays.</span></span>
             </label>
             {hasRole(me, "admin") && (
               <label className="flex items-start gap-3 text-sm sm:col-span-2">
