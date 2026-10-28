@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-28 · Claude Code · therapists no longer see "Connect Google Calendar"
+
+- Aflah: therapists don't need their own calendar now (firm Meet calendar in Settings makes the links).
+  /admin/staff/[id] shows the Google Calendar section only to admins, or when that person is already connected
+  (so they can still manage or disconnect). The connect route itself is unchanged. ServiceFields hint updated.
+
 ## 2026-10-27 · Claude Code · Staff page filters
 
 - /admin/staff: search (name or email), Role, Designation (incl. "Not set") and Status filters above the table,

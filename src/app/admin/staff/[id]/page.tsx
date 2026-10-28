@@ -54,6 +54,8 @@ export default async function StaffDetail({
     staff.servicePrices(id),
   ]);
   const google = calendar.connection;
+  // Meet links come from the firm calendar (Settings), so therapists no longer connect their own; admins still can.
+  const showCalendar = hasRole(me, "admin") || Boolean(google);
 
   return (
     <>
@@ -131,7 +133,7 @@ export default async function StaffDetail({
         </form>
       </section>
 
-      <section className="mt-12">
+      {showCalendar && <section className="mt-12">
         <h2 className="mb-1 font-semibold">Google Calendar</h2>
         <p className="mb-3 max-w-2xl text-sm text-zinc-600">
           Bookings appear in the calendar, and anything already in it blocks those hours from being booked.
@@ -167,7 +169,7 @@ export default async function StaffDetail({
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       {isManager && (
         <section className="mt-12">

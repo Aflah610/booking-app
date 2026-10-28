@@ -23,7 +23,7 @@ export function ServiceFields({ s }: { s?: ServiceDTO }) {
           <option value="in_person">In person</option>
           <option value="google_meet">Online with Google Meet</option>
         </select>
-        <p className="mt-1 text-xs text-zinc-600">Online sessions get a Meet link in the therapist&apos;s calendar event. It needs &ldquo;Online sessions&rdquo; switched on in Settings and the therapist&apos;s Google Calendar connected.</p>
+        <p className="mt-1 text-xs text-zinc-600">Online sessions get a Meet link in the therapist&apos;s calendar event. It needs &ldquo;Online sessions&rdquo; switched on in Settings; the calendar chosen there makes the link.</p>
       </div>
       <div className="sm:col-span-2">
         <label className="label" htmlFor="location">Where it happens</label>
