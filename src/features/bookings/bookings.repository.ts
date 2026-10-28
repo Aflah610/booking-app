@@ -175,6 +175,35 @@ class Refused extends Error {
   }
 }
 
+/** The receipt and its booking must settle inside the caller's transaction. */
+export async function markBookingPaid(tx: Tx, id: string, audit: AuditEntry, now: Date): Promise<{ result: "cancelled" | "already" | "paid"; slotReleased: boolean }> {
+        const [b] = await tx
+          .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId, clientId: booking.clientId })
+          .from(booking)
+          .where(eq(booking.id, id))
+          .for("update");
+        if (!b || b.status === "cancelled") return { result: "cancelled" as const, slotReleased: true };
+        if (b.paymentStatus === "paid") return { result: "already" as const, slotReleased: b.slotReleased };
+        await lockStaff(tx, [b.staffId]);
+        let slotReleased = b.slotReleased;
+        if (slotReleased) {
+          try {
+            // A savepoint: if someone took the time meanwhile, only this step is undone.
+            await tx.transaction((sp) => sp.update(booking).set({ slotReleased: false }).where(eq(booking.id, id)));
+            slotReleased = false;
+          } catch (err) {
+            if (pgError(err).code !== PG_EXCLUSION_VIOLATION) throw err;
+          }
+        }
+        await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
+        if (!slotReleased) {
+          await assignInitialTherapist(tx, b.clientId, b.staffId, now, audit);
+        }
+        await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
+        return { result: "paid" as const, slotReleased };
+
+}
+
 export function createBookingsRepository(db: Db) {
   const base = () =>
     db
@@ -412,33 +441,8 @@ export function createBookingsRepository(db: Db) {
      * Records a payment. If the time had been given back, it is taken again when nobody else has it;
      * otherwise the booking stays paid with its time released, and the client is asked to choose a new one.
      */
-    async markPaid(id: string, audit: AuditEntry, now = new Date()): Promise<{ result: "cancelled" | "already" | "paid"; slotReleased: boolean }> {
-      return db.transaction(async (tx) => {
-        const [b] = await tx
-          .select({ status: booking.status, paymentStatus: booking.paymentStatus, slotReleased: booking.slotReleased, staffId: booking.staffId, clientId: booking.clientId })
-          .from(booking)
-          .where(eq(booking.id, id))
-          .for("update");
-        if (!b || b.status === "cancelled") return { result: "cancelled" as const, slotReleased: true };
-        if (b.paymentStatus === "paid") return { result: "already" as const, slotReleased: b.slotReleased };
-        await lockStaff(tx, [b.staffId]);
-        let slotReleased = b.slotReleased;
-        if (slotReleased) {
-          try {
-            // A savepoint: if someone took the time meanwhile, only this step is undone.
-            await tx.transaction((sp) => sp.update(booking).set({ slotReleased: false }).where(eq(booking.id, id)));
-            slotReleased = false;
-          } catch (err) {
-            if (pgError(err).code !== PG_EXCLUSION_VIOLATION) throw err;
-          }
-        }
-        await tx.update(booking).set({ paymentStatus: "paid", paymentDueAt: null }).where(eq(booking.id, id));
-        if (!slotReleased) {
-          await assignInitialTherapist(tx, b.clientId, b.staffId, now, audit);
-        }
-        await writeAudit(tx, { ...audit, details: { ...audit.details, timeKept: !slotReleased } });
-        return { result: "paid" as const, slotReleased };
-      });
+    async markPaid(id: string, audit: AuditEntry, now = new Date()) {
+      return db.transaction(tx => markBookingPaid(tx, id, audit, now));
     },
 
     /**

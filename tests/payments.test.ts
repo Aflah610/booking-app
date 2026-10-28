@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+import { payment } from "@/db/schema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db, reset } from "./helpers";
 import { createContainer } from "@/features/container";
@@ -104,13 +106,16 @@ describe("reporting a payment", () => {
     await expect(c.payments.report({}, other.id, body, plus(t0, 3))).rejects.toMatchObject({ code: "conflict" });
   });
 
-  it("refuses an amount that doesn't match, but accepts any amount typed by staff", async () => {
+  it("refuses zero and partial receipts, including staff entries with a discount note", async () => {
     const { svc } = await setup();
     const b = await book(svc.id, "2026-10-19T10:00");
     await expect(c.payments.report({}, b.id, paid(100000), plus(t0, 2))).rejects.toMatchObject({ code: "invalid", details: { reason: "amount_mismatch", expected: 150000 } });
     expect((await c.bookings.get(b.id)).paymentStatus).toBe("pending");
-    const manual = await c.payments.recordManual({ staffId: undefined }, b.id, { status: "paid", amountPaise: 100000, notes: "Discount agreed on the phone" }, plus(t0, 2));
-    expect(manual.payment).toMatchObject({ source: "staff", amountPaise: 100000 });
+    await expect(c.payments.recordManual({}, b.id, { status: "paid", amountPaise: 100000, notes: "Discount agreed on the phone" }, plus(t0, 2))).rejects.toMatchObject({ code: "invalid" });
+    await expect(c.payments.recordManual({}, b.id, { status: "paid", amountPaise: 0 }, plus(t0, 2))).rejects.toThrow();
+    expect(await c.payments.forBooking(b.id)).toHaveLength(0);
+    const manual = await c.payments.recordManual({}, b.id, { status: "paid", amountPaise: 150000 }, plus(t0, 2));
+    expect(manual.payment).toMatchObject({ source: "staff", amountPaise: 150000 });
     expect(manual.booking.paymentStatus).toBe("paid");
   });
 
@@ -232,5 +237,43 @@ describe("the 10 minutes and the 24 hours", () => {
     await c.payments.report({}, b.id, paid(), plus(t0, 3));
     const moved = await c.bookings.reschedule(website, b.id, { start: at("2026-10-22T10:00") }, { now: plus(t0, 4) });
     expect(moved).toMatchObject({ paymentStatus: "paid", amountPaise: 150000 });
+  });
+});
+
+describe("payment reliability regressions", () => {
+  it("rolls back the receipt if settlement fails, then succeeds on the same payment retry", async () => {
+    const { svc } = await setup();
+    const b = await book(svc.id, "2026-10-19T10:00");
+    const body = paid(150000, { razorpayPaymentId: "pay_atomic" });
+    await db.execute(sql`create function reliability_fail_settle() returns trigger language plpgsql as $$ begin raise exception 'synthetic settlement interruption'; end $$`);
+    await db.execute(sql`create trigger reliability_fail_settle before update of payment_status on booking for each row when (new.payment_status = 'paid') execute function reliability_fail_settle()`);
+    try {
+      await expect(c.payments.report({}, b.id, body, plus(t0, 2))).rejects.toThrow();
+      expect(await c.payments.forBooking(b.id)).toHaveLength(0);
+      expect((await c.bookings.get(b.id)).paymentStatus).toBe("pending");
+    } finally {
+      await db.execute(sql`drop trigger reliability_fail_settle on booking`);
+      await db.execute(sql`drop function reliability_fail_settle()`);
+    }
+    const retry = await c.payments.report({}, b.id, body, plus(t0, 3));
+    expect(retry.booking.paymentStatus).toBe("paid");
+    expect(await c.payments.forBooking(b.id)).toHaveLength(1);
+  });
+
+  it("reconciles a receipt left pending by the old implementation rather than dropping its retry", async () => {
+    const { svc } = await setup();
+    const b = await book(svc.id, "2026-10-19T10:00");
+    await db.insert(payment).values({ bookingId: b.id, status: "paid", amountPaise: 150000, currency: "INR", source: "website", razorpayPaymentId: "pay_legacy" });
+    const retry = await c.payments.report({}, b.id, paid(150000, { razorpayPaymentId: "pay_legacy" }), plus(t0, 3));
+    expect(retry.booking.paymentStatus).toBe("paid");
+    expect(retry.duplicate).toBe(true);
+    expect(await c.payments.forBooking(b.id)).toHaveLength(1);
+  });
+
+  it("parses a numeric Razorpay paidAt as Unix seconds, not milliseconds in 1970", async () => {
+    const { svc } = await setup();
+    const b = await book(svc.id, "2026-10-19T10:00");
+    const result = await c.payments.report({}, b.id, paid(150000, { paidAt: 1793001600 }), plus(t0, 2));
+    expect(result.payment.paidAt).toEqual(new Date("2026-10-26T08:00:00.000Z"));
   });
 });
