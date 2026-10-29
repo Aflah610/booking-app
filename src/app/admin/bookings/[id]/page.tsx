@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
-import { bookingReference } from "@/features/bookings/bookings.dto";
+import { bookingReference, isConfirmedSession } from "@/features/bookings/bookings.dto";
 import { addDays } from "@/features/availability/slots";
 import { isDomainError } from "@/features/shared/errors";
 import { isOnlineSession } from "@/features/bookings/meeting";
@@ -32,6 +32,8 @@ export default async function BookingPage({
   });
   // Other staff's bookings look exactly like missing ones.
   if (b.staffId !== me.id && !isFrontDesk(me)) notFound();
+  // Psychologists don't see unpaid or failed online attempts, even by direct link.
+  if (!isFrontDesk(me) && !isConfirmedSession(b)) notFound();
   const s = await settings.get();
   const [paymentRows, creditUses, credit, therapistCalendar] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId), app().calendar.status(b.staffId)]);
   // Match link creation: the firm calendar covers therapists without their own connection.

@@ -298,6 +298,7 @@ export function createBookingsRepository(db: Db) {
       to?: Date | null;
       order?: "asc" | "desc";
       limit: number;
+      confirmedOnly?: boolean;
     }): Promise<BookingDTO[]> {
       const where: (SQL | undefined)[] = [
         q.statuses?.length ? inArray(booking.status, q.statuses) : undefined,
@@ -312,6 +313,10 @@ export function createBookingsRepository(db: Db) {
         q.phoneE164 ? eq(client.phoneE164, q.phoneE164) : undefined,
         q.from ? gte(booking.endsAt, q.from) : undefined,
         q.to ? lte(booking.startsAt, q.to) : undefined,
+        // Same rule as isConfirmedSession.
+        q.confirmedOnly
+          ? sql`not ${booking.slotReleased} and ${booking.paymentStatus} <> 'failed' and (${booking.paymentStatus} <> 'pending' or ${booking.source} = 'staff')`
+          : undefined,
       ];
       return base()
         .where(and(...where))

@@ -33,6 +33,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       from: zonedToUtc(`${monday}T00:00`, tz),
       to: zonedToUtc(`${addDays(monday, 7)}T00:00`, tz),
       limit: 500,
+      confirmedOnly: !isFrontDesk(me),
     }),
     isFrontDesk(me) ? staff.list() : Promise.resolve([me]),
   ]);

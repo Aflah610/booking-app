@@ -136,6 +136,7 @@ export function createBookingsService(deps: {
         to: q.to ?? v.to,
         order: v.order,
         limit: q.limit,
+        confirmedOnly: q.confirmedOnly,
       });
     },
 

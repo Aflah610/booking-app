@@ -81,6 +81,15 @@ export type PublicPaymentDTO = {
   credit: { credits: number; walletPaise: number };
 };
 
+/**
+ * A session that is really on: paid, or not needing payment, or booked by the desk and not yet settled. Online attempts
+ * still waiting for payment, failed payments and released slots are not, so psychologists never see them.
+ */
+export function isConfirmedSession(b: Pick<BookingDTO, "paymentStatus" | "slotReleased" | "source">): boolean {
+  if (b.slotReleased || b.paymentStatus === "failed") return false;
+  return b.paymentStatus !== "pending" || b.source === "staff";
+}
+
 export function paymentAction(b: Pick<BookingDTO, "status" | "paymentStatus" | "slotReleased" | "resumeUntil">, now: Date): PublicPaymentDTO["action"] {
   if (b.status !== "upcoming") return "none";
   if (b.paymentStatus === "paid") return b.slotReleased ? "choose_new_time" : "none";

@@ -3,6 +3,15 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 · Claude Code · psychologists see only confirmed sessions
+
+- Aflah: therapists should only see paid bookings, never failed ones. bookings.list gets `confirmedOnly`
+  (rule in bookings.dto `isConfirmedSession`: not slot-released, not failed, and not pending unless the desk booked it).
+  Used for non-front-desk viewers on Today, Bookings, Calendar and the client page's booking history; the booking
+  detail page 404s for them on an unconfirmed booking. Desk bookings awaiting payment still show (real sessions).
+- Contact details: re-checked after Codex's #15 (withoutContact); psychologists see no client phone or email.
+- Test: tests/confirmed-sessions.test.ts.
+
 ## 2026-10-29 · Claude Code · Reschedule for admin, manager and CCD
 
 - New permission `bookings.reschedule` ("Reschedule bookings"): admin, manager and CCD by default; psychologists

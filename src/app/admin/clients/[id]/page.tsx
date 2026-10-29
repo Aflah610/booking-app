@@ -43,7 +43,7 @@ export default async function ClientPage({
     throw err;
   });
   const [history, s, periods, team, caseView, therapistRoles] = await Promise.all([
-    bookings.list({ view: "all", clientId: id, staffId: isFrontDesk(me) ? undefined : me.id, limit: 200 }),
+    bookings.list({ view: "all", clientId: id, staffId: isFrontDesk(me) ? undefined : me.id, confirmedOnly: !isFrontDesk(me), limit: 200 }),
     settings.get(),
     clients.therapistHistory(id),
     staff.list(),
