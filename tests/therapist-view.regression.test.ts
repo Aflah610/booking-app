@@ -337,3 +337,29 @@ describe("CCD assisted booking screens", () => {
     expect(fresh).toContain('name="followUp"');
   });
 });
+
+
+describe("payment collection request boundary", () => {
+  it("rejects invalid commands before the provider, requires a valid payment-only grant, and proxies only that booking", async () => {
+    const { mine } = await setup();
+    await db.execute(sql`update booking set payment_status = 'pending', amount_paise = 100000, price_paise = 100000 where id = ${mine.id}`);
+    const container = createContainer(db, { manageSecret: "synthetic-route-secret-1234567890" });
+    runtime.container = container;
+    const link = (await container.bookings.paymentLink(mine.id))!;
+    const provider = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ order_id: "order_synthetic", key_id: "synthetic", amount: 100000, currency: "INR" }));
+    const { NextRequest } = await import("next/server");
+    const { POST } = await import("@/app/api/collect/[id]/route");
+    const call = (body: unknown) => POST(new NextRequest("https://book.invalid/api/collect/"+mine.id, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({ id: mine.id }) });
+    for (const body of [null, {}, { op: "order", token: "bad" }, { op: "verify", token: link.token, razorpay_signature: "invalid" }]) expect((await call(body)).status).toBe(400);
+    expect(provider).not.toHaveBeenCalled();
+    runtime.me = null;
+    expect((await call({ op: "order", token: link.token })).status).toBe(200);
+    expect(provider).toHaveBeenCalledTimes(1);
+    const posted = JSON.parse(String(provider.mock.calls[0][1]?.body));
+    expect(posted).toMatchObject({ booking_id: mine.id, collection_token: link.token });
+    expect(posted).not.toHaveProperty("phone");
+    await db.execute(sql`update booking set payment_status = 'paid' where id = ${mine.id}`);
+    expect(await (await call({ op: "order", token: link.token })).json()).toMatchObject({ booked: true });
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+});
