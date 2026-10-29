@@ -50,3 +50,15 @@ export const bookingListQuery = z.object({
   confirmedOnly: z.boolean().optional(),
 });
 export type BookingListQuery = z.input<typeof bookingListQuery>;
+
+
+const collectionToken = z.string().min(1).max(100);
+export const collectionTokenInput = z.object({ token: collectionToken });
+export const collectionCommandInput = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("order"), token: collectionToken }),
+  z.object({ op: z.literal("verify"), token: collectionToken,
+    razorpay_order_id: z.string().regex(/^order_[A-Za-z0-9]+$/),
+    razorpay_payment_id: z.string().regex(/^pay_[A-Za-z0-9]+$/),
+    razorpay_signature: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+]);

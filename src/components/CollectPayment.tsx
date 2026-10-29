@@ -5,6 +5,7 @@ type Order = { order_id: string; key_id: string; amount: number; currency: strin
 declare global { interface Window { Razorpay?: new (options: Record<string, unknown>) => { open(): void; on(event: string, fn: () => void): void } } }
 export function CollectPayment({ id, token, amount }: { id: string; token: string; amount: number }) {
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
+  const [consent, setConsent] = useState(false);
   async function call(op: string, extra: Record<string, unknown> = {}) {
     const r = await fetch(`/api/collect/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, op, ...extra }) });
     const data = await r.json();
@@ -12,6 +13,7 @@ export function CollectPayment({ id, token, amount }: { id: string; token: strin
     return data;
   }
   async function pay() {
+    if (!consent) return;
     setBusy(true); setNotice("");
     try {
       if (!window.Razorpay) throw new Error("Secure payment is still loading. Please try again in a moment.");
@@ -28,5 +30,5 @@ export function CollectPayment({ id, token, amount }: { id: string; token: strin
       checkout.open();
     } catch (error) { setNotice(error instanceof Error ? error.message : "Payment unavailable"); setBusy(false); }
   }
-  return <div className="grid gap-3"><button type="button" className="w-full rounded-full bg-slate-500 px-6 py-4 font-semibold text-white transition hover:bg-slate-600 disabled:opacity-50" onClick={pay} disabled={busy}>{busy ? "Confirming payment…" : `Pay ₹${(amount/100).toLocaleString("en-IN")}`}</button><p className="text-sm text-zinc-600" role="status">{notice}</p></div>;
+  return <div className="grid gap-3"><label className="card flex items-start gap-3 p-4 text-sm text-zinc-600"><input type="checkbox" className="mt-1" checked={consent} onChange={e => setConsent(e.target.checked)} /><span>I agree to the <a className="underline" href="https://mindlap.in/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a> and <a className="underline" href="https://mindlap.in/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>, and consent to therapy.</span></label><button type="button" className="w-full rounded-full bg-slate-500 px-6 py-4 font-semibold text-white transition hover:bg-slate-600 disabled:opacity-50" onClick={pay} disabled={busy || !consent}>{busy ? "Confirming payment…" : `Pay ₹${(amount/100).toLocaleString("en-IN")}`}</button><p className="text-sm text-zinc-600" role="status">{notice}</p></div>;
 }

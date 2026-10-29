@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - CCD checkout consent and input validation
+
+- Preserved the normal checkout terms/privacy and therapy consent step on the new QR payment page.
+  Client must tick consent before opening payment; skipping OTP does not skip consent.
+- Collection UI/server API boundaries use Zod, including null/invalid JSON and signed provider fields.
+  No payment/capability rules changed. PR #19 merged as a97b890; Worker hardening 3b84bfa is deployed
+  as 48df288a-e819-4108-8d4f-cff4d9bc84e7. All 561 feature-suite tests passed; PR #19 full CI passed.
+  The hardened route boundary and CCD/therapist screens pass all 21 focused integration tests.
+- This small follow-up is not live yet; validating before release. No live client records changed.
+
 ## 2026-10-29 - Codex - CCD-assisted booking, follow-up classification and payment QR
 
 - Aflah confirmed either condition is enough: matching an established client's normalised number OR CCD
