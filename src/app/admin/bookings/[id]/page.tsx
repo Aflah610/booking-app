@@ -43,7 +43,8 @@ export default async function BookingPage({
   const started = b.startsAt <= now;
   // Moving, cancelling and payments are the coordinators' work (bookings.create); others only see the booking.
   const canBook = allowed(me, "bookings.create");
-  const canMove = canBook && b.status === "upcoming" && !started;
+  // Rescheduling has its own permission, so managers can move sessions without taking bookings or payments.
+  const canMove = allowed(me, "bookings.reschedule") && b.status === "upcoming" && !started;
   const moving = canMove && sp.move === "1";
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDay(b.startsAt, tz);
 

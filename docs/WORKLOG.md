@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 · Claude Code · Reschedule for admin, manager and CCD
+
+- New permission `bookings.reschedule` ("Reschedule bookings"): admin, manager and CCD by default; psychologists
+  and BDE not. The booking page's Reschedule button and rescheduleBookingAction use it (was bookings.create, which
+  managers lack). Cancelling and payments still need bookings.create (CCD/admin). Test in tests/access.test.ts.
+
 ## 2026-10-29 - Codex - Therapist-only workspace privacy review
 
 - Aflah requested therapists see only their own work/details. Existing direct booking/staff/client/report guards,
