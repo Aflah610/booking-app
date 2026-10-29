@@ -16,7 +16,8 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   refused that separate permission reduction; an explicit question to Aflah is pending. Personal calendar
   busy-time settings can still influence availability independently of the restricted schedule editor.
 - Added real-PostgreSQL route/action regressions covering therapist refusal and actual manager/CCD/admin
-  schedule writes. Validation and publication in progress; not live yet. No live schedules or client data changed.
+  schedule writes. All 538 tests in 49 files pass, including nine therapist-view regressions; lint, typecheck
+  and production build pass. Publishing for CI; not live yet. No live schedules or client data changed.
 
 ## 2026-10-29 - Codex - Therapist-only workspace privacy review
 
