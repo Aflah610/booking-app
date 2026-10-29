@@ -183,7 +183,7 @@ export default async function ClientPage({
 
             {!canAssign && manages && <p className="mt-3 text-xs text-zinc-500">Only admins and managers can assign or change the psychologist.</p>}
             {canAssign && <details className="mt-4">
-              <summary className="cursor-pointer list-none text-sm font-medium underline underline-offset-4">{current ? "Reassign" : "Assign a psychologist"}</summary>
+              <summary className="btn-ghost cursor-pointer list-none select-none">{current ? "Change psychologist" : "Assign a psychologist"}</summary>
               <form action={assignTherapistAction.bind(null, id)} className="mt-3 grid gap-3 rounded-lg border border-zinc-200 p-3">
                 <div>
                   <label className="label" htmlFor="staffId">Psychologist</label>
@@ -197,7 +197,8 @@ export default async function ClientPage({
                     <input className="input" id="reason" name="reason" required placeholder="e.g. psychologist left the firm" />
                   </div>
                 )}
-                <div><button className="btn" type="submit" disabled={assignable.length === 0}>{current ? "Reassign" : "Assign"}</button></div>
+                {current && <p className="text-xs text-zinc-500">Sessions already booked stay with {current.staffName}. Use Reschedule on a booking to move it.</p>}
+                <div><button className="btn" type="submit" disabled={assignable.length === 0}>{current ? "Change psychologist" : "Assign"}</button></div>
               </form>
             </details>}
 

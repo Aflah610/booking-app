@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 · Claude Code · "Change psychologist" button on the client page
+
+- The existing Reassign link (clients.reassign: admin + manager) was easy to miss: now a "Change psychologist"
+  button, with a note that already-booked sessions stay with the current psychologist (use Reschedule to move them).
+  Behaviour unchanged: reason required, history kept, open follow-ups move to the new psychologist.
+
 ## 2026-10-29 · Claude Code · Calendar picker lists psychologists only
 
 - Psychologists already see only their own diary (staffFilter = me.id, no picker). For admin/manager/CCD the
