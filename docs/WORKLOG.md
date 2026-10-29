@@ -13,8 +13,9 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   hidden phone/email. Credit tabs and editable package/wallet forms require packages.manage, including direct URLs.
 - Verified live Roles & access: Psychologist has only clients.own, followups.own and casenotes.write enabled.
   Kept configured role permissions and admins' wider access. No live account roles, clients, bookings or data changed.
-- Six new real-PostgreSQL route/render regressions passed; added an admin-access regression. Full validation and
-  publication in progress; not live yet. The wider website audit remains unfinished in the website repo.
+- Seven new real-PostgreSQL route/render regressions cover isolation, direct URLs/actions, hidden contacts and
+  retained admin access. All 536 tests in 49 files pass; lint, typecheck and production build pass.
+  Publishing for CI and merge; not live yet. The wider website audit remains unfinished in the website repo.
 
 ## 2026-10-29 - Codex - Shared calendar warning on booking details
 
