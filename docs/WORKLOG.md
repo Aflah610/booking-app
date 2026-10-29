@@ -11,7 +11,8 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 - Released payment attempts say no meeting link is being prepared, rather than displaying a misleading
   calendar warning. No calendar settings, payments, bookings or client data changed.
 - Lint, TypeScript and production build pass. All 529 tests in 48 files pass against isolated local
-  PostgreSQL. PR #14 is published; awaiting CI and merge, not live yet.
+  PostgreSQL. PR #14 passed GitHub check and Docker CI and merged as 61ed3fa.
+  Main is queued for its normal CI-gated five-minute server deployment; live UI revision is not yet verified.
 
 ## 2026-10-28 - Codex - All nine booking checkup bugs fixed and merged
 
