@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { can, DEFAULT_PERMISSIONS } from "@/features/access/permissions";
 import type { Me } from "@/lib/session";
 import type { Container } from "@/features/container";
-import { c, reset } from "./helpers";
+import { sql } from "drizzle-orm";
+import { c, db, reset } from "./helpers";
 
 const runtime = vi.hoisted(() => ({ me: null as Me | null, container: null as Container | null }));
 vi.mock("@/features/container", async (original) => ({ ...await original<typeof import("@/features/container")>(), app: () => runtime.container }));
@@ -46,7 +47,7 @@ async function setup() {
   await c.clients.assignTherapist({}, mine.clientId, { staffId: own.id });
   await c.bookings.setMeeting({}, sharedOther.id, { action: "manual", url: "https://meet.google.com/aaa-bbbb-ccc" });
   runtime.me = { ...own, permissions: new Set(DEFAULT_PERMISSIONS.psychologist) };
-  return { own, other, mine, sharedOther, privateOther };
+  return { own, other, mine, sharedOther, privateOther, book };
 }
 
 describe("therapist pages keep work and contacts scoped", () => {
@@ -63,7 +64,8 @@ describe("therapist pages keep work and contacts scoped", () => {
   });
 
   it("ignores another staff id in bookings and calendar filters without listing other staff", async () => {
-    const { other } = await setup();
+    const { other, mine } = await setup();
+    await db.execute(sql`update booking set payment_status = 'paid' where id = ${mine.id}`);
     const { default: Bookings } = await import("@/app/admin/bookings/page");
     const { default: Calendar } = await import("@/app/admin/calendar/page");
     for (const page of [await Bookings({ searchParams: Promise.resolve({ staff: other.id }) }), await Calendar({ searchParams: Promise.resolve({ staff: other.id }) })]) {
@@ -242,6 +244,36 @@ describe("therapist pages keep work and contacts scoped", () => {
       }
       for (const method of [options, sync, disconnect]) expect(method).toHaveBeenCalledTimes(permitted ? 1 : 0);
     }
+  });
+
+
+  it("shows only paid and fully prepaid sessions on the calendar for every role, filtering before the row limit", async () => {
+    const { own, mine, sharedOther, privateOther, book } = await setup();
+    const free = await book(own.id, "12:00", "Free Client", "9812345680");
+    const cancelled = await book(own.id, "14:00", "Cancelled Paid Client", "9812345681");
+    const released = await book(own.id, "15:00", "Released Paid Client", "9812345682");
+    const prepaid = await book(own.id, "16:00", "Prepaid Client", "9812345683");
+    const partial = await book(own.id, "17:00", "Partial Credit Client", "9812345684");
+    await db.execute(sql`update booking set payment_status = 'paid' where id in (${mine.id}, ${cancelled.id}, ${released.id}, ${prepaid.id})`);
+    await c.bookings.cancel({ mode: "staff" }, cancelled.id, {}, { now });
+    await db.execute(sql`update booking set slot_released = true where id = ${released.id}`);
+    await db.execute(sql`update booking set credit_milli = 1000 where id = ${prepaid.id}`);
+    await db.execute(sql`update booking set payment_status = 'pending', source = 'web', credit_milli = 500 where id = ${partial.id}`);
+    await db.execute(sql`update booking set payment_status = 'failed', source = 'web', slot_released = false where id = ${sharedOther.id}`);
+    await db.execute(sql`update booking set payment_status = 'pending', source = 'staff' where id = ${privateOther.id}`);
+    const { default: Calendar } = await import("@/app/admin/calendar/page");
+    const list = vi.spyOn(c.bookings, "list");
+    for (const role of ["psychologist", "manager", "ccd", "admin"] as const) {
+      const member = role === "psychologist" ? own : await c.staff.create({}, { name: `Diary ${role}`, email: `diary-${role}@firm.test`, accessRole: role });
+      runtime.me = { ...member, permissions: await c.access.permissionsFor(role) };
+      const markup = html(await Calendar({ searchParams: Promise.resolve({}) }));
+      expect(markup).toContain("Paid sessions only");
+      expect(markup).toContain(`/admin/bookings/${mine.id}`);
+      expect(markup).toContain(`/admin/bookings/${prepaid.id}`);
+      for (const b of [sharedOther, privateOther, free, cancelled, released, partial]) expect(markup).not.toContain(`/admin/bookings/${b.id}`);
+    }
+    expect(list.mock.calls.every(([q]) => q?.paymentStatus === "paid")).toBe(true);
+    expect(await c.bookings.get(sharedOther.id)).toMatchObject({ paymentStatus: "failed", slotReleased: false });
   });
 
 });
