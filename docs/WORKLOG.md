@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - In progress: completed intake edit approvals
+
+- Aflah requested psychologists cannot directly edit existing completed case histories. They must request
+  manager approval, visible to admins too. Implementing a section-specific, single-save approval with a
+  24-hour expiry; initial assessments and new session notes remain separate. Managers see administrative
+  request metadata, not clinical content. No live clinical records are opened or changed.
+- Model/migration in progress on codex/case-history-edit-requests; not live and not ready to merge yet.
+
 ## 2026-10-29 - Codex - Calendar paid-only for every role
 
 - Aflah reported an unpaid attempt appearing on the calendar and requested paid clients only. Read-only live
