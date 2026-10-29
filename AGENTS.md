@@ -53,6 +53,14 @@ project for the same owner, Aflah.
 - Follow-up client pickers and submissions require at least one completed, unreleased, non-failed session
   with the selected psychologist; merely started/upcoming sessions do not qualify. Signed past legacy
   session notes without a booking also count. This applies to coordinators and managers too.
+- CCD booking uses the authenticated New booking form without client OTP. A matching established-client phone
+  OR a staff Follow-up tick classifies a new visit as follow-up; reuse the normalised phone record. Failed-only
+  web contacts do not count as established clients. Rescheduling preserves the visit classification. This label
+  does not mark attendance/payment or bypass the completed-session rule of the follow-up desk.
+- Pending, unreleased future staff bookings can show a payment-only QR/link to staff with bookings.create.
+  Links bind booking, balance and expiry (24 hours or session start), grant no account/manage access, and expire
+  on move/cancel/balance change. Public /pay uses Razorpay through the Worker; captured payments use existing
+  verified reporting/webhooks. QR generation is local; coordinators copy/share links or download the PNG.
 - Case history mirrors the old system MCH (6 steps). MCH data is copied with `scripts/import-mch.ts`
   (dry run by default). Never print or log clients' clinical text.
 - The website (`mindlap.in`, repo `mindlap-therapy`) talks to this app through its Cloudflare Worker.

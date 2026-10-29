@@ -41,6 +41,8 @@ export type BookingDTO = {
   /** Who missed the appointment, when it was marked a no-show. */
   noShowBy: NoShowBy | null;
   source: BookingSource;
+  isFollowUp: boolean;
+  followUpSource: "existing_client" | "staff" | null;
   notes: string | null;
   /** Answers to the service's extra questions, keyed by the question as it was worded at booking time. */
   formAnswers: Record<string, string>;

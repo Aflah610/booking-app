@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { can, DEFAULT_PERMISSIONS } from "@/features/access/permissions";
 import type { Me } from "@/lib/session";
-import type { Container } from "@/features/container";
+import { createContainer, type Container } from "@/features/container";
 import { sql } from "drizzle-orm";
 import { c, db, reset } from "./helpers";
 
@@ -312,5 +312,28 @@ describe("case-history correction pages", () => {
     expect(html(await New(props))).not.toContain("Shared Client</option>");
     await db.execute(sql`update booking set status = 'completed', starts_at = '2026-09-01', ends_at = '2026-09-01 01:00:00+00' where id = ${mine.id}`);
     expect(html(await New(props))).toContain("Shared Client</option>");
+  });
+});
+
+
+describe("CCD assisted booking screens", () => {
+  it("shows CCD no-OTP booking controls and QR sharing, never payment QR controls to psychologists", async () => {
+    const { own, mine } = await setup();
+    await db.execute(sql`update booking set payment_status = 'pending', amount_paise = 100000, price_paise = 100000 where id = ${mine.id}`);
+    runtime.container = createContainer(db, { manageSecret: "synthetic-qr-secret-1234567890" });
+    const { default: Detail } = await import("@/app/admin/bookings/[id]/page");
+    const props = { params: Promise.resolve({ id: mine.id }), searchParams: Promise.resolve({}) };
+    expect(html(await Detail(props))).not.toContain("Download QR");
+    const ccd = await c.staff.create({}, { name: "Coordinator", email: "qr-ccd@firm.test", designation: "Consultation Coordinator" });
+    runtime.me = { ...ccd, permissions: new Set(DEFAULT_PERMISSIONS.ccd) };
+    const markup = html(await Detail(props));
+    expect(markup).toContain("Download QR");
+    expect(markup).toContain("Copy payment link");
+    expect(markup).toContain("data:image/png;base64,");
+    expect(markup).not.toContain("/pay/"+mine.id+"?phone=");
+    const { default: New } = await import("@/app/admin/bookings/new/page");
+    const fresh = html(await New({ searchParams: Promise.resolve({ service: mine.serviceId, staff: own.id, date: "2026-11-02", start: "2026-11-02T10:30:00.000Z" }) }));
+    expect(fresh).toContain("without OTP");
+    expect(fresh).toContain('name="followUp"');
   });
 });

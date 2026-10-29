@@ -302,6 +302,13 @@
       "when": 1793284445287,
       "tag": "0042_case_history_edit_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793294384977,
+      "tag": "0043_ccd_followup_classification",
+      "breakpoints": true
     }
   ]
 }
