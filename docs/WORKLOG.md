@@ -3,6 +3,24 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - Availability belongs to managers and CCD
+
+- Aflah changed the policy: psychologists no longer control availability, including their own. New
+  availability.manage permission defaults to managers, CCD and admins. No database migration required.
+- Sidebar availability leads to a therapist picker at /admin/availability. All five schedule actions
+  require that permission: weekly hours, add/remove time off, and add/remove date overrides. A psychologist's
+  direct own-profile URL no longer exposes availability. Existing booking/calendar views stay available.
+- CCD can manage therapist schedules without gaining staff profile, role, price, Google connection or
+  performance-report controls. Staff/profile and calendar connection permissions remain separate.
+- Aflah explicitly approved the separate Google restriction after automatic review requested clarification.
+  Google connect/callback/options/sync/disconnect now require staff.manage, including self-service URLs.
+  Callback permission is rechecked before accepting a consent code. No stored Google connections are revoked.
+- Added real-PostgreSQL route/action regressions covering therapist refusal and actual manager/CCD/admin
+  schedule writes. All 538 tests in 49 files pass, including nine therapist-view regressions; lint, typecheck
+  and production build pass for the availability-only revision. Added approved Google guards to PR #16;
+  validating the combined revision. Merged Claude's newer confirmed-session, follow-up, reschedule and
+  calendar-picker work from b0e5f07; both new permissions are retained. Not live yet. No live schedules or client data changed.
+
 ## 2026-10-29 · Claude Code · "Change psychologist" button on the client page
 
 - The existing Reassign link (clients.reassign: admin + manager) was easy to miss: now a "Change psychologist"

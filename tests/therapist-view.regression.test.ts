@@ -8,8 +8,9 @@ import { c, reset } from "./helpers";
 
 const runtime = vi.hoisted(() => ({ me: null as Me | null, container: null as Container | null }));
 vi.mock("@/features/container", async (original) => ({ ...await original<typeof import("@/features/container")>(), app: () => runtime.container }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/auth", () => ({ signOut: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(`redirect:${url}`); }, notFound: () => { throw new Error("not-found"); } }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/", redirect: (url: string) => { throw new Error(`redirect:${url}`); }, notFound: () => { throw new Error("not-found"); } }));
 vi.mock("@/components/ColumnsManager", () => ({ ColumnsManager: () => null }));
 vi.mock("@/components/PrintButton", () => ({ PrintButton: () => null }));
 vi.mock("@/lib/session", () => ({
@@ -151,6 +152,96 @@ describe("therapist pages keep work and contacts scoped", () => {
     const { GET } = await import("@/app/admin/export/therapist/[id]/route");
     const response = await GET(new Request("https://example.test/download"), { params: Promise.resolve({ id: mine.staffId }) });
     expect(await response.text()).toContain("9812345678");
+  });
+
+
+  it("removes availability from psychologists' menu and blocks their own schedule page and every save action", async () => {
+    const { own } = await setup();
+    const { Shell } = await import("@/components/Shell");
+    expect(html(await Shell({ me: runtime.me!, children: null }))).not.toContain('href="/admin/availability"');
+    const { default: Picker } = await import("@/app/admin/availability/page");
+    const { default: Staff } = await import("@/app/admin/staff/[id]/page");
+    await expect(Picker()).rejects.toThrow("redirect:");
+    await expect(Staff({ params: Promise.resolve({ id: own.id }), searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:");
+    const a = await import("@/app/admin/actions");
+    const before = await c.schedules.weeklyHours(own.id);
+    for (const action of [() => a.setHoursAction(own.id, new FormData()), () => a.addTimeOffAction(own.id, new FormData()), () => a.removeTimeOffAction(own.id, "missing"), () => a.setDateOverrideAction(own.id, new FormData()), () => a.removeDateOverrideAction(own.id, "2026-11-03")]) {
+      await expect(action()).rejects.toThrow("redirect:");
+    }
+    expect(await c.schedules.weeklyHours(own.id)).toEqual(before);
+  });
+
+  it("gives managers, CCD and admins a therapist picker and real schedule edits without granting CCD profile or calendar controls", async () => {
+    const { own } = await setup();
+    const { default: Picker } = await import("@/app/admin/availability/page");
+    const { default: Staff } = await import("@/app/admin/staff/[id]/page");
+    const { Shell } = await import("@/components/Shell");
+    const a = await import("@/app/admin/actions");
+    for (const role of ["manager", "ccd", "admin"] as const) {
+      const member = await c.staff.create({}, { name: role, email: `${role}@firm.test`, accessRole: role });
+      runtime.me = { ...member, permissions: await c.access.permissionsFor(role) };
+      expect(html(await Shell({ me: runtime.me, children: null }))).toContain('href="/admin/availability"');
+      expect(html(await Picker())).toContain(`/admin/staff/${own.id}`);
+      const page = html(await Staff({ params: Promise.resolve({ id: own.id }), searchParams: Promise.resolve({}) }));
+      expect(page).toContain("Save hours");
+      if (role === "ccd") {
+        expect(page).not.toContain("Save profile");
+        expect(page).not.toContain("own@firm.test");
+        expect(page).not.toContain("Google Calendar");
+        await expect(a.updateStaffAction(own.id, new FormData())).rejects.toThrow("redirect:");
+      }
+      const hours = new FormData(); hours.set("day1", "09:00-12:00");
+      await expect(a.setHoursAction(own.id, hours)).rejects.toThrow("ok=Working");
+      expect(await c.schedules.weeklyHours(own.id)).toEqual([{ weekday: 1, startTime: "09:00", endTime: "12:00" }]);
+      const override = new FormData(); override.set("date", "2026-11-03"); override.set("off", "on");
+      await expect(a.setDateOverrideAction(own.id, override)).rejects.toThrow("ok=Date");
+      expect(await c.schedules.dateOverrides(own.id, "2026-11-03", "2026-11-04")).toHaveLength(1);
+      await expect(a.removeDateOverrideAction(own.id, "2026-11-03")).rejects.toThrow("ok=Date");
+      expect(await c.schedules.dateOverrides(own.id, "2026-11-03", "2026-11-04")).toEqual([]);
+      const off = new FormData(); off.set("startsAt", "2026-11-03T10:00"); off.set("endsAt", "2026-11-03T11:00");
+      await expect(a.addTimeOffAction(own.id, off)).rejects.toThrow("ok=Time");
+      const blocks = await c.schedules.timeOffBetween(own.id, now, new Date("2026-11-04"));
+      expect(blocks).toHaveLength(1);
+      await expect(a.removeTimeOffAction(own.id, blocks[0].id)).rejects.toThrow("ok=Time");
+      expect(await c.schedules.timeOffBetween(own.id, now, new Date("2026-11-04"))).toEqual([]);
+    }
+  });
+
+
+  it("blocks psychologists' and CCD's direct Google controls, including a valid consent callback, while keeping manager/admin control", async () => {
+    const { own } = await setup();
+    const actions = await import("@/app/admin/actions");
+    const connect = await import("@/app/api/calendar/google/connect/route");
+    const callback = await import("@/app/api/calendar/google/callback/route");
+    const connectUrl = vi.spyOn(c.calendar, "connectUrl").mockReturnValue("https://accounts.google.com/o/oauth2/v2/auth");
+    const stateOwner = vi.spyOn(c.calendar, "stateOwner").mockReturnValue(own.id);
+    const complete = vi.spyOn(c.calendar, "completeConnect").mockResolvedValue(own.id);
+    const options = vi.spyOn(c.calendar, "setOptions").mockResolvedValue(undefined);
+    const sync = vi.spyOn(c.calendar, "syncNow").mockResolvedValue(undefined);
+    const disconnect = vi.spyOn(c.calendar, "disconnect").mockResolvedValue(undefined);
+    for (const role of ["psychologist", "ccd", "manager", "admin"] as const) {
+      const member = role === "psychologist" ? own : await c.staff.create({}, { name: `Calendar ${role}`, email: `calendar-${role}@firm.test`, accessRole: role });
+      runtime.me = { ...member, permissions: await c.access.permissionsFor(role) };
+      vi.clearAllMocks();
+      const permitted = role === "manager" || role === "admin";
+      const response = await connect.GET(new Request(`https://example.test/api/calendar/google/connect?staff=${own.id}`));
+      const returned = await callback.GET(new Request("https://example.test/api/calendar/google/callback?state=valid-test-state&code=test-code"));
+      if (!permitted) {
+        expect(response.headers.get("location")).toContain("error=forbidden");
+        expect(returned.headers.get("location")).toContain("error=forbidden");
+        expect(connectUrl).not.toHaveBeenCalled();
+        expect(stateOwner).not.toHaveBeenCalled();
+        expect(complete).not.toHaveBeenCalled();
+      } else {
+        expect(response.headers.get("location")).toContain("https://accounts.google.com/");
+        expect(connectUrl).toHaveBeenCalledWith(own.id);
+        expect(complete).toHaveBeenCalledWith("test-code", "valid-test-state");
+      }
+      for (const action of [() => actions.calendarOptionsAction(own.id, new FormData()), () => actions.syncCalendarAction(own.id), () => actions.disconnectCalendarAction(own.id)]) {
+        await expect(action()).rejects.toThrow(permitted ? "ok=" : "redirect:forbidden");
+      }
+      for (const method of [options, sync, disconnect]) expect(method).toHaveBeenCalledTimes(permitted ? 1 : 0);
+    }
   });
 
 });

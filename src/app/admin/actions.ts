@@ -12,14 +12,7 @@ import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay } from "@/lib/format";
-import { allowed, requirePermission, requireStaff, hasRole } from "@/lib/session";
-
-/** Staff may edit their own hours and time off; managers and admins may edit anyone's. */
-async function requireSelfOrManager(staffId: string) {
-  const me = await requireStaff();
-  if (me.id !== staffId && !allowed(me, "staff.manage")) redirect("/?error=forbidden");
-  return me;
-}
+import { allowed, requirePermission, hasRole } from "@/lib/session";
 
 /** The chosen role; anything unexpected becomes the least powerful one that treats clients. */
 const accessRoleOf = (form: FormData): AccessRole => ACCESS_ROLES.find((r) => r === str(form, "accessRole")) ?? "psychologist";
@@ -79,7 +72,7 @@ export async function updateStaffAction(staffId: string, form: FormData) {
 }
 
 export async function setHoursAction(staffId: string, form: FormData) {
-  const me = await requireSelfOrManager(staffId);
+  const me = await requirePermission("availability.manage");
   await act(`/admin/staff/${staffId}`, "Working hours saved", async () => {
     const ranges = [0, 1, 2, 3, 4, 5, 6].flatMap((d) => parseDayRanges(d, str(form, `day${d}`)));
     await app().schedules.setWeeklyHours({ staffId: me.id }, staffId, ranges);
@@ -87,7 +80,7 @@ export async function setHoursAction(staffId: string, form: FormData) {
 }
 
 export async function addTimeOffAction(staffId: string, form: FormData) {
-  const me = await requireSelfOrManager(staffId);
+  const me = await requirePermission("availability.manage");
   await act(`/admin/staff/${staffId}`, "Time off added", async () => {
     const target = await app().staff.get(staffId);
     // The form sends local wall-clock times; interpret them in the staff member's time zone.
@@ -100,7 +93,7 @@ export async function addTimeOffAction(staffId: string, form: FormData) {
 }
 
 export async function removeTimeOffAction(staffId: string, timeOffId: string) {
-  const me = await requireSelfOrManager(staffId);
+  const me = await requirePermission("availability.manage");
   await act(`/admin/staff/${staffId}`, "Time off removed", () =>
     app().schedules.removeTimeOff({ staffId: me.id }, staffId, timeOffId),
   );
@@ -145,7 +138,7 @@ export async function deleteServiceAction(serviceId: string) {
 }
 
 export async function setDateOverrideAction(staffId: string, form: FormData) {
-  const me = await requireSelfOrManager(staffId);
+  const me = await requirePermission("availability.manage");
   await act(`/admin/staff/${staffId}`, "Date-specific hours saved", async () => {
     const off = form.get("off") === "on";
     const ranges = off
@@ -159,7 +152,7 @@ export async function setDateOverrideAction(staffId: string, form: FormData) {
 }
 
 export async function removeDateOverrideAction(staffId: string, date: string) {
-  const me = await requireSelfOrManager(staffId);
+  const me = await requirePermission("availability.manage");
   await act(`/admin/staff/${staffId}`, "Date-specific hours removed", () =>
     app().schedules.removeDateOverride({ staffId: me.id }, staffId, date),
   );
@@ -312,18 +305,18 @@ export async function removeHolidayAction(id: string) {
 }
 
 export async function disconnectCalendarAction(staffId: string) {
-  await requireSelfOrManager(staffId);
+  await requirePermission("staff.manage");
   await act(`/admin/staff/${staffId}`, "Google Calendar disconnected", () => app().calendar.disconnect(staffId));
 }
 
 export async function calendarOptionsAction(staffId: string, form: FormData) {
-  await requireSelfOrManager(staffId);
+  await requirePermission("staff.manage");
   await act(`/admin/staff/${staffId}`, "Calendar settings saved", () =>
     app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on", inviteClients: form.get("inviteClients") === "on", createMeetLinks: form.get("createMeetLinks") === "on" }),
   );
 }
 
 export async function syncCalendarAction(staffId: string) {
-  await requireSelfOrManager(staffId);
+  await requirePermission("staff.manage");
   await act(`/admin/staff/${staffId}`, "Calendar synced", () => app().calendar.syncNow(staffId));
 }

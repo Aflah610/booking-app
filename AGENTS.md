@@ -26,6 +26,10 @@ project for the same owner, Aflah.
 - Roles: admin, manager, psychologist, BDE (sales), CCD. Permissions in `src/features/access/permissions.ts`,
   editable by the admin. Only CCD books for clients; psychologists see only their own clients, without
   contact details; managers see only *pending* case notes (a note is due 24 hours after the session).
+- Availability is controlled by managers, CCD and admins (availability.manage), never by psychologists
+  by default, including their own hours, date overrides and time off. /admin/availability is the therapist
+  picker; CCD availability access does not grant staff-profile, role, price or Google-connection management.
+  Google connect/callback/options/sync/disconnect require staff.manage even for the person's own calendar.
 - Therapist views follow their permissions on every page and direct URL: own diaries, own client-session history
   and own performance only by default. Never fetch/display firm totals or other staff filters without bookings.all.
   Apply clients.contact to report pages, CSV and search matching, not just visible labels. Client credit controls

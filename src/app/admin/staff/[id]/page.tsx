@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import { DESIGNATIONS } from "@/features/staff/staff.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { addDays, localDate } from "@/features/availability/slots";
-import { requireStaff, hasRole } from "@/lib/session";
+import { requireStaff, hasRole, allowed } from "@/lib/session";
 import { formatInZone } from "@/lib/time";
 import { longDayLabel } from "@/lib/format";
 import { HoursEditor } from "@/components/HoursEditor";
@@ -34,8 +34,9 @@ export default async function StaffDetail({
   const { id } = await params;
   const { error, ok } = await searchParams;
   const me = await requireStaff();
-  const isManager = hasRole(me, "manager");
-  if (me.id !== id && !isManager) redirect("/?error=forbidden");
+  const isManager = allowed(me, "staff.manage");
+  const canAvailability = allowed(me, "availability.manage");
+  if (!isManager && !canAvailability) redirect("/?error=forbidden");
 
   const { staff, catalog, schedules } = app();
   const member = await staff.get(id).catch((err) => {
@@ -55,17 +56,18 @@ export default async function StaffDetail({
   ]);
   const google = calendar.connection;
   // Meet links come from the firm calendar (Settings), so therapists no longer connect their own; admins still can.
-  const showCalendar = hasRole(me, "admin") || Boolean(google);
+  const showCalendar = isManager && (hasRole(me, "admin") || Boolean(google));
 
   return (
     <>
       <PageHeader
         title={me.id === id ? "Availability" : member.name}
         subtitle={`Times are in ${member.timezone}.`}
-        action={<Link href={`/admin/reports/therapists/${id}`} className="btn-ghost">Performance report</Link>}
+        action={allowed(me, "reports.view") ? <Link href={`/admin/reports/therapists/${id}`} className="btn-ghost">Performance report</Link> : undefined}
       />
       <Notice error={error} ok={ok} />
 
+      {canAvailability && <>
       <div className="grid gap-8 xl:grid-cols-[1fr_22rem]">
         <section>
           <h2 className="mb-3 font-semibold">Weekly hours</h2>
@@ -133,6 +135,7 @@ export default async function StaffDetail({
         </form>
       </section>
 
+      </>}
       {showCalendar && <section className="mt-12">
         <h2 className="mb-1 font-semibold">Google Calendar</h2>
         <p className="mb-3 max-w-2xl text-sm text-zinc-600">

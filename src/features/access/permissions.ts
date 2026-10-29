@@ -16,6 +16,7 @@ export const ACCESS_ROLE_LABEL: Record<AccessRole, string> = {
 export const PERMISSIONS = [
   "bookings.all",
   "bookings.create",
+  "availability.manage",
   "bookings.reschedule",
   "clients.view",
   "clients.contact",
@@ -44,6 +45,7 @@ export const PERMISSION_GROUPS: { title: string; items: { key: Permission; label
     title: "Bookings",
     items: [
       { key: "bookings.create", label: "Book sessions for clients", hint: "Make, move and cancel bookings from the admin panel." },
+      { key: "availability.manage", label: "Manage therapist availability", hint: "Set weekly hours, date overrides and time off. Managers and CCD by default." },
       { key: "bookings.reschedule", label: "Reschedule bookings", hint: "Move a session to another time or psychologist. Admins, managers and coordinators by default." },
       { key: "bookings.all", label: "See every diary", hint: "Without this, people see only their own sessions." },
     ],
@@ -98,12 +100,12 @@ const all = new Set<Permission>(PERMISSIONS);
 export const DEFAULT_PERMISSIONS: Record<AccessRole, ReadonlySet<Permission>> = {
   admin: all,
   manager: new Set<Permission>([
-    "bookings.all", "bookings.reschedule", "clients.view", "clients.contact", "clients.reassign", "clients.delete", "leads.all", "followups.all", "casenotes.pending",
+    "bookings.all", "availability.manage", "bookings.reschedule", "clients.view", "clients.contact", "clients.reassign", "clients.delete", "leads.all", "followups.all", "casenotes.pending",
     "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage",
   ]),
   psychologist: new Set<Permission>(["clients.own", "followups.own", "casenotes.write"]),
   bde: new Set<Permission>(["leads.own", "clients.contact"]),
-  ccd: new Set<Permission>(["bookings.all", "bookings.create", "bookings.reschedule", "clients.view", "clients.contact", "followups.all"]),
+  ccd: new Set<Permission>(["bookings.all", "availability.manage", "bookings.create", "bookings.reschedule", "clients.view", "clients.contact", "followups.all"]),
 };
 
 /** For staff saved before access roles existed, or added without one. */
