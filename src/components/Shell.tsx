@@ -44,7 +44,7 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
               <NavLink href="/" icon="home" exact>Today</NavLink>
               <NavLink href="/admin/bookings" icon="list">Bookings</NavLink>
               <NavLink href="/admin/calendar" icon="calendar">Calendar</NavLink>
-              <NavLink href={`/admin/staff/${me.id}`} icon="clock">Availability</NavLink>
+              {can("availability.manage") && <NavLink href="/admin/availability" icon="clock">Availability</NavLink>}
               {showLeads && <NavLink href="/admin/leads" icon="inbox" count={newLeads}>Leads</NavLink>}
               {!can("clients.view") && can("clients.own") && <NavLink href="/admin/clients" icon="user">My clients</NavLink>}
               {canUseFollowUps(me) && <NavLink href="/admin/follow-ups" icon="chat" count={followUpNews}>Follow-ups</NavLink>}
