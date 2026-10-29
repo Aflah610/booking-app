@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - Shared calendar warning on booking details
+
+- Aflah reported therapists being told to connect Google despite using the admin's shared calendar.
+  Booking details now resolve the therapist calendar first, then the configured firm calendar, matching
+  Meet creation. Missing/disabled/error warnings describe the effective calendar, not the therapist.
+- Released payment attempts say no meeting link is being prepared, rather than displaying a misleading
+  calendar warning. No calendar settings, payments, bookings or client data changed.
+- Lint, TypeScript and production build pass. All 529 tests in 48 files pass against isolated local
+  PostgreSQL. PR #14 is published; awaiting CI and merge, not live yet.
+
 ## 2026-10-28 - Codex - All nine booking checkup bugs fixed and merged
 
 - Aflah requested FIX THE 9 BUGS. PRs #11, #12 and #13 were created as drafts, passed their GitHub checks,

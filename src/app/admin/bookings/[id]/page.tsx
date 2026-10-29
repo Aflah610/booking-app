@@ -33,7 +33,10 @@ export default async function BookingPage({
   // Other staff's bookings look exactly like missing ones.
   if (b.staffId !== me.id && !isFrontDesk(me)) notFound();
   const s = await settings.get();
-  const [paymentRows, creditUses, credit, calendar] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId), app().calendar.status(b.staffId)]);
+  const [paymentRows, creditUses, credit, therapistCalendar] = await Promise.all([app().payments.forBooking(b.id), app().packages.usesForBooking(b.id), app().packages.summary(b.clientId), app().calendar.status(b.staffId)]);
+  // Match link creation: the firm calendar covers therapists without their own connection.
+  const firmCalendar = !therapistCalendar.connection ? await app().calendar.meetCalendar() : null;
+  const calendar = firmCalendar?.staffId ? await app().calendar.status(firmCalendar.staffId) : therapistCalendar;
   const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const tz = s.timezone;
   const now = new Date();
@@ -111,10 +114,10 @@ export default async function BookingPage({
                 );
               }
               if (online) {
-                const blocked = !conn ? "The therapist has not connected Google Calendar, so Google can't make a link." : !conn.createMeetLinks ? "The therapist has switched off Meet links in their Google Calendar settings." : !conn.pushBookings ? "The therapist's calendar isn't receiving bookings (turned off in their settings)." : conn.errorCount >= 5 ? `Google Calendar sync has stopped: ${conn.lastError ?? "reconnect needed"}.` : null;
+                const blocked = b.slotReleased ? null : !conn ? "No Google Calendar is connected for these sessions. An admin can choose the shared calendar in Settings." : !conn.createMeetLinks ? "Meet links are switched off for the calendar used by this session." : !conn.pushBookings ? "The calendar used by this session isn't receiving bookings (turned off in its settings)." : conn.errorCount >= 5 ? `Google Calendar sync has stopped: ${conn.lastError ?? "reconnect needed"}.` : null;
                 return (
                   <div className="grid gap-3 text-sm">
-                    <p className={blocked ? "font-medium text-red-700" : "text-zinc-600"}>{blocked ?? "The link is being prepared and appears here within about a minute."}</p>
+                    <p className={blocked ? "font-medium text-red-700" : "text-zinc-600"}>{b.slotReleased ? "This slot has been released. No meeting link is being prepared." : blocked ?? "The link is being prepared and appears here within about a minute."}</p>
                     {live && (
                       <div className="flex flex-wrap items-center gap-2">
                         <form action={manualMeetingAction.bind(null, b.id)} className="flex flex-wrap gap-2">
