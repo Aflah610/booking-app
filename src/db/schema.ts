@@ -346,6 +346,7 @@ const oneOf = (column: unknown, values: readonly string[]) => sql`${column} in (
 
 /** A client's clinical record: the intake assessment. Session notes hang off it. */
 export const caseHistory = pgTable("case_history", {
+  intakeRevision: integer("intake_revision").notNull().default(0),
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().unique().references(() => client.id, { onDelete: "cascade" }),
   status: text("status").$type<(typeof CASE_STATUS)[number]>().notNull().default("intake_pending"),
@@ -419,6 +420,29 @@ export const caseHistory = pgTable("case_history", {
   check("case_history_risk_suicide", oneOf(t.riskSuicide, RISK)),
   check("case_history_risk_self_harm", oneOf(t.riskSelfHarm, RISK)),
   check("case_history_risk_others", oneOf(t.riskOthers, RISK)),
+]);
+
+/** Administrative approval metadata; previous clinical values are never exposed in the review queue. */
+export const caseEditRequest = pgTable("case_edit_request", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  caseHistoryId: uuid("case_history_id").notNull().references(() => caseHistory.id, { onDelete: "cascade" }),
+  requesterId: uuid("requester_id").notNull().references(() => staff.id),
+  step: integer("step").notNull(),
+  reason: text("reason").notNull(),
+  revision: integer("revision").notNull(),
+  status: text("status").$type<"pending" | "approved" | "rejected" | "used" | "expired">().notNull().default("pending"),
+  reviewerId: uuid("reviewer_id").references(() => staff.id),
+  decisionReason: text("decision_reason"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  previousValues: jsonb("previous_values").$type<Record<string, unknown>>(),
+  createdAt: createdAt(),
+}, (t) => [
+  check("case_edit_request_step", sql`${t.step} between 2 and 6`),
+  check("case_edit_request_status", sql`${t.status} in ('pending','approved','rejected','used','expired')`),
+  uniqueIndex("case_edit_request_open_idx").on(t.caseHistoryId, t.requesterId).where(sql`${t.status} in ('pending','approved')`),
+  index("case_edit_request_status_idx").on(t.status, t.createdAt),
 ]);
 
 export const sessionNote = pgTable("session_note", {

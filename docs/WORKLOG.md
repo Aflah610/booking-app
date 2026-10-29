@@ -3,6 +3,25 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - Completed intake approvals and completed-session follow-ups
+
+- Aflah approved manager approval followed by correction by the psychologist. Completed intakes now lock
+  direct edits for ordinary psychologists. A request identifies one section plus an administrative reason;
+  managers/admins review it in /admin/case-edit-requests. Admins see decisions too. Managers receive no clinical
+  fields or previous clinical values. A psychologist sees only their own requests.
+- Approval permits one save within 24 hours, bound to requester and intake revision. Reassignment invalidates
+  it even if the client later returns to that psychologist. Grant consumption, private old field values,
+  clinical update and audit commit atomically. Initial drafting, new session notes, signed-note addenda and
+  explicit clinical-admin oversight retain existing rules. Additive migration 0042 creates requests/revisions.
+- Aflah also reported failed attempts in the follow-up client picker. Eligibility now requires an explicitly
+  completed, unreleased, non-failed session with the selected psychologist; merely reaching the start time
+  no longer counts. Signed past notes without a booking preserve MCH legacy-session eligibility. Draft/future
+  notes and booking-linked notes cannot bypass booking eligibility. Applied to picker and submission for all
+  roles, including managers/CCD. Existing historical follow-up threads are retained.
+- Focused real-Postgres service and route/render tests pass, including reuse, expiry, reassignment/back,
+  concurrent requests/decisions/saves, rollback, role privacy and failed/incomplete follow-up attempts.
+  Lint and TypeScript pass. Full test suite and production build are running; not live yet.
+
 ## 2026-10-29 - Codex - Calendar paid-only for every role
 
 - Aflah reported an unpaid attempt appearing on the calendar and requested paid clients only. Read-only live

@@ -148,20 +148,19 @@ export function createFollowUpDeskRepository(db: Db) {
       return row?.id ?? null;
     },
 
-    /** The clients a psychologist can ask about: those assigned to them now, or who have booked with them. */
-    /**
-     * Clients this psychologist has actually seen: a session with them that has taken place (not cancelled, missed,
-     * unpaid or failed), or a session note they wrote (sessions copied from MCH). Someone who has only booked isn't one yet.
-     */
-    clientsOf(staffId: string) {
+    /** Completed sessions only, including signed past sessions imported without a booking from MCH. */
+    clientsOf(staffId?: string) {
       return db
         .selectDistinct({ id: client.id, name: client.name, phoneE164: client.phoneE164 })
         .from(client)
         .where(or(
-          sql`exists (select 1 from ${booking} b where b.client_id = ${client.id} and b.staff_id = ${staffId} and b.starts_at <= now()
-            and b.status in ('upcoming', 'completed') and not b.slot_released
+          sql`exists (select 1 from ${booking} b where b.client_id = ${client.id}
+            ${staffId ? sql`and b.staff_id = ${staffId}` : sql``}
+            and b.starts_at <= now() and b.status = 'completed' and not b.slot_released
             and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff'))`,
-          sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id where h.client_id = ${client.id} and n.author_id = ${staffId})`,
+          sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
+            where h.client_id = ${client.id} ${staffId ? sql`and n.author_id = ${staffId}` : sql``}
+            and n.booking_id is null and n.signed_at is not null and n.session_at <= now())`,
         ))
         .orderBy(asc(client.name))
         .limit(1000);

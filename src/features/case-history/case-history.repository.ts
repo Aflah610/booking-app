@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import type { Db } from "@/db";
-import { booking, caseHistory, client, clientTherapist, followUp, service, sessionNote, sessionNoteAddendum, staff } from "@/db/schema";
+import type { Db, DbOrTx } from "@/db";
+import { booking, caseEditRequest, caseHistory, client, clientTherapist, followUp, service, sessionNote, sessionNoteAddendum, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
-import type { CaseRecordDTO, Delivery, FollowUpDTO, IntakeFields, NoteableBooking, PendingNoteRow, SessionNoteDTO } from "./case-history.dto";
+import type { CaseEditRequestDTO, CaseRecordDTO, Delivery, FollowUpDTO, IntakeFields, NoteableBooking, PendingNoteRow, SessionNoteDTO } from "./case-history.dto";
 import { overallRisk, type Risk } from "./choices";
 
 const completedBy = alias(staff, "completed_by");
@@ -47,6 +47,21 @@ export type RawListRow = {
 };
 
 export function createCaseHistoryRepository(db: Db) {
+  // Assignment changes lock the client too: an approved edit must not outlive reassignment.
+  async function lockIntake(tx: DbOrTx, id: string) {
+    const [head] = await tx.select({ clientId: caseHistory.clientId }).from(caseHistory).where(eq(caseHistory.id, id));
+    if (!head) return null;
+    await tx.select({ id: client.id }).from(client).where(eq(client.id, head.clientId)).for("update");
+    const [row] = await tx.select({ id: caseHistory.id, clientId: caseHistory.clientId, status: caseHistory.status,
+      intakeCompletedAt: caseHistory.intakeCompletedAt, intakeRevision: caseHistory.intakeRevision }).from(caseHistory).where(eq(caseHistory.id, id)).for("update");
+    return row;
+  }
+  async function owns(tx: DbOrTx, clientId: string, staffId: string) {
+    const [row] = await tx.select({ id: clientTherapist.id }).from(clientTherapist).where(and(eq(clientTherapist.clientId, clientId), eq(clientTherapist.staffId, staffId), isNull(clientTherapist.endsAt)));
+    return Boolean(row);
+  }
+  const finished = (r: { intakeCompletedAt: Date | null; status: string }) => Boolean(r.intakeCompletedAt) || r.status !== "intake_pending";
+
   async function notesFor(caseHistoryId: string): Promise<SessionNoteDTO[]> {
     const notes = await db
       .select(noteColumns)
@@ -118,10 +133,71 @@ export function createCaseHistoryRepository(db: Db) {
       return { ...row, risk: overallRisk([row.riskSuicide, row.riskSelfHarm, row.riskOthers]), notes: await notesFor(row.id), followUps: await followUpsFor(row.id) };
     },
 
-    updateIntake(caseHistoryId: string, data: Partial<IntakeFields> & { updatedBy: string | null; status?: CaseRecordDTO["status"]; intakeCompletedAt?: Date; intakeCompletedBy?: string | null }, audit: AuditEntry) {
+    async intakeState(clientId: string) {
+      const [r] = await db.select({ id: caseHistory.id, status: caseHistory.status, intakeCompletedAt: caseHistory.intakeCompletedAt, revision: caseHistory.intakeRevision }).from(caseHistory).where(eq(caseHistory.clientId, clientId));
+      return r ?? null;
+    },
+    async approvedEditSteps(caseHistoryId: string, requesterId: string, revision: number, now: Date) {
+      const rows = await db.select({ step: caseEditRequest.step }).from(caseEditRequest).where(and(eq(caseEditRequest.caseHistoryId, caseHistoryId), eq(caseEditRequest.requesterId, requesterId), eq(caseEditRequest.revision, revision), eq(caseEditRequest.status, "approved"), sql`${caseEditRequest.expiresAt} > ${now}`));
+      return rows.map((r) => r.step);
+    },
+    createEditRequest(data: { caseHistoryId: string; requesterId: string; step: number; reason: string; now: Date }, audit: AuditEntry) {
       return db.transaction(async (tx) => {
-        await tx.update(caseHistory).set(data).where(eq(caseHistory.id, caseHistoryId));
+        const r = await lockIntake(tx, data.caseHistoryId);
+        if (!r || !finished(r) || !(await owns(tx, r.clientId, data.requesterId))) return null;
+        await tx.update(caseEditRequest).set({ status: "expired" }).where(and(eq(caseEditRequest.caseHistoryId, r.id), eq(caseEditRequest.requesterId, data.requesterId), inArray(caseEditRequest.status, ["pending", "approved"]), sql`(${caseEditRequest.revision} <> ${r.intakeRevision} or ${caseEditRequest.expiresAt} <= ${data.now})`));
+        const [existing] = await tx.select({ id: caseEditRequest.id }).from(caseEditRequest).where(and(eq(caseEditRequest.caseHistoryId, r.id), eq(caseEditRequest.requesterId, data.requesterId), inArray(caseEditRequest.status, ["pending", "approved"])));
+        if (existing) return null;
+        const [created] = await tx.insert(caseEditRequest).values({ caseHistoryId: r.id, requesterId: data.requesterId, step: data.step, reason: data.reason, revision: r.intakeRevision, createdAt: data.now }).returning({ id: caseEditRequest.id });
+        await writeAudit(tx, { ...audit, entityId: created.id });
+        return created.id;
+      });
+    },
+    reviewEditRequest(id: string, reviewerId: string, approved: boolean, decisionReason: string, now: Date, audit: AuditEntry) {
+      return db.transaction(async (tx) => {
+        const [head] = await tx.select({ caseHistoryId: caseEditRequest.caseHistoryId }).from(caseEditRequest).where(eq(caseEditRequest.id, id));
+        if (!head) return false;
+        const r = await lockIntake(tx, head.caseHistoryId);
+        const [request] = await tx.select().from(caseEditRequest).where(eq(caseEditRequest.id, id)).for("update");
+        if (!r || !request || request.status !== "pending" || request.requesterId === reviewerId) return false;
+        if (approved && (request.revision !== r.intakeRevision || !(await owns(tx, r.clientId, request.requesterId)))) return false;
+        await tx.update(caseEditRequest).set({ status: approved ? "approved" : "rejected", reviewerId, decisionReason, reviewedAt: now, expiresAt: approved ? new Date(now.getTime() + 24 * 3600_000) : null }).where(eq(caseEditRequest.id, id));
         await writeAudit(tx, audit);
+        return true;
+      });
+    },
+    async editRequests(requesterId?: string, clientId?: string, now = new Date()): Promise<CaseEditRequestDTO[]> {
+      const requester = alias(staff, "edit_requester"), reviewer = alias(staff, "edit_reviewer");
+      const rows = await db.select({ id: caseEditRequest.id, clientId: client.id, clientName: client.name, clientNumber: client.number,
+        requesterId: caseEditRequest.requesterId, requesterName: requester.name, step: caseEditRequest.step, reason: caseEditRequest.reason,
+        status: caseEditRequest.status, decisionReason: caseEditRequest.decisionReason, reviewerName: reviewer.name,
+        createdAt: caseEditRequest.createdAt, reviewedAt: caseEditRequest.reviewedAt, expiresAt: caseEditRequest.expiresAt, usedAt: caseEditRequest.usedAt,
+        revision: caseEditRequest.revision, currentRevision: caseHistory.intakeRevision,
+      }).from(caseEditRequest).innerJoin(caseHistory, eq(caseHistory.id, caseEditRequest.caseHistoryId)).innerJoin(client, eq(client.id, caseHistory.clientId))
+        .innerJoin(requester, eq(requester.id, caseEditRequest.requesterId)).leftJoin(reviewer, eq(reviewer.id, caseEditRequest.reviewerId))
+        .where(and(requesterId ? eq(caseEditRequest.requesterId, requesterId) : undefined, clientId ? eq(client.id, clientId) : undefined)).orderBy(sql`case when ${caseEditRequest.status} = 'pending' then 0 when ${caseEditRequest.status} = 'approved' then 1 else 2 end`, desc(caseEditRequest.createdAt)).limit(200);
+      return rows.map(({ revision, currentRevision, ...r }) => ({ ...r, status: ["pending", "approved"].includes(r.status) && (revision !== currentRevision || Boolean(r.expiresAt && r.expiresAt <= now)) ? "expired" : r.status }));
+    },
+    async pendingEditCount() {
+      const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(caseEditRequest).innerJoin(caseHistory, eq(caseHistory.id, caseEditRequest.caseHistoryId)).where(and(eq(caseEditRequest.status, "pending"), eq(caseEditRequest.revision, caseHistory.intakeRevision)));
+      return r.n;
+    },
+    updateIntake(caseHistoryId: string, data: Partial<IntakeFields> & { updatedBy: string | null; status?: CaseRecordDTO["status"]; intakeCompletedAt?: Date; intakeCompletedBy?: string | null }, audit: AuditEntry, guard: { ownerId: string | null; step: number | null; now: Date }) {
+      return db.transaction(async (tx) => {
+        const r = await lockIntake(tx, caseHistoryId);
+        if (!r || (guard.ownerId && !(await owns(tx, r.clientId, guard.ownerId)))) return false;
+        let approvedId: string | null = null;
+        if (guard.ownerId && finished(r)) {
+          if (!guard.step) return false;
+          const [grant] = await tx.select({ id: caseEditRequest.id }).from(caseEditRequest).where(and(eq(caseEditRequest.caseHistoryId, r.id), eq(caseEditRequest.requesterId, guard.ownerId), eq(caseEditRequest.step, guard.step), eq(caseEditRequest.status, "approved"), eq(caseEditRequest.revision, r.intakeRevision), sql`${caseEditRequest.expiresAt} > ${guard.now}`)).for("update");
+          if (!grant) return false;
+          approvedId = grant.id;
+          const [previous] = await tx.select(intakeColumns).from(caseHistory).where(eq(caseHistory.id, r.id));
+          await tx.update(caseEditRequest).set({ status: "used", usedAt: guard.now, previousValues: Object.fromEntries(Object.entries(previous).filter(([key]) => key in data)) }).where(eq(caseEditRequest.id, grant.id));
+        }
+        await tx.update(caseHistory).set({ ...data, intakeRevision: sql`${caseHistory.intakeRevision} + 1` }).where(eq(caseHistory.id, caseHistoryId));
+        await writeAudit(tx, { ...audit, details: { ...audit.details, ...(approvedId ? { approvalId: approvedId } : {}) } });
+        return true;
       });
     },
 

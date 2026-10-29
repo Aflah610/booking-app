@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
-import type { CaseRecordDTO } from "@/features/case-history/case-history.dto";
+import { EDIT_SECTIONS, type CaseRecordDTO } from "@/features/case-history/case-history.dto";
 import { LABEL, PART_OF_DAY } from "@/features/case-history/choices";
 import { clientReference } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
@@ -10,7 +10,7 @@ import { requireStaff } from "@/lib/session";
 import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
 import { Notice } from "@/components/Notice";
 import { NoteFields, SessionNoteCard } from "@/components/SessionNote";
-import { addNoteAction, sendFollowUpAction } from "../actions";
+import { addNoteAction, sendFollowUpAction, requestIntakeEditAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Case history" };
@@ -34,6 +34,8 @@ export default async function CasePage({ params, searchParams }: { params: Promi
     app().caseHistory.noteableBookings(me, clientId),
   ]);
   const writable = await app().caseHistory.canWrite(me, clientId);
+  const editSteps = await app().caseHistory.intakeEditSteps(me, clientId);
+  const requestable = writable && me.accessRole === "psychologist" && !me.clinicalAdmin && (Boolean(record.intakeCompletedAt) || record.status !== "intake_pending");
   const tz = s.timezone;
   const therapist = periods[0] && !periods[0].endsAt ? periods[0] : null;
   const r = record;
@@ -61,9 +63,23 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/admin/clients/${clientId}`} className="btn-ghost">Client profile</Link>
-          {writable && <Link href={`/admin/case-histories/${clientId}/intake?step=1`} className="btn">{empty ? "Start case history" : "Edit case history"}</Link>}
+          {editSteps.length > 0 && <Link href={`/admin/case-histories/${clientId}/intake?step=${editSteps[0]}`} className="btn">{requestable ? "Edit approved section" : empty ? "Start case history" : "Edit case history"}</Link>}
+          {requestable && <Link href="/admin/case-edit-requests" className="btn-ghost">My edit requests</Link>}
         </div>
       </header>
+
+      {requestable && editSteps.length === 0 && <details className="card mb-6 p-5">
+        <summary className="cursor-pointer font-medium">Request an edit to this completed case history</summary>
+        <p className="my-3 text-sm text-zinc-600">A manager must approve the correction. Approval is for one save of the selected section, within 24 hours. Admins can see the request and decision.</p>
+        <form action={requestIntakeEditAction.bind(null, clientId)} className="grid max-w-xl gap-3">
+          <label className="label" htmlFor="edit-section">Section to correct</label>
+          <select className="input" id="edit-section" name="step">{Object.entries(EDIT_SECTIONS).map(([step, title]) => <option key={step} value={step}>{title}</option>)}</select>
+          <label className="label" htmlFor="edit-reason">Reason for requesting an edit</label>
+          <textarea className="input" id="edit-reason" name="reason" rows={3} required minLength={10} maxLength={1000} placeholder="Explain the correction needed without copying clinical notes. The manager and admins will read this reason." />
+          <div><button className="btn" type="submit">Send edit request</button></div>
+        </form>
+      </details>}
+      {requestable && editSteps.length > 0 && <p className="mb-6 text-sm text-zinc-600">Your manager approved one correction. Saving the approved section locks it again.</p>}
 
       <h2 className="mb-3 text-[11px] font-medium uppercase tracking-wider text-zinc-500">Initial assessment</h2>
       {empty ? (
@@ -73,17 +89,17 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         </div>
       ) : (
         <div className="mb-10 grid gap-4 lg:grid-cols-2">
-          <Section title="Complaints & HPI" writable={writable} step={2} clientId={clientId}>
+          <Section title="Complaints & HPI" writable={editSteps.includes(2)} step={2} clientId={clientId}>
             <Text value={r.presentingComplaints} />
             <Facts rows={[["Onset", v(r.onset)], ["Duration", r.duration], ["Severity", v(r.severity)]]} />
             {r.historyPresent && <Text label="History of present illness" value={r.historyPresent} />}
           </Section>
-          <Section title="Diagnosis" writable={writable} step={6} clientId={clientId}>
+          <Section title="Diagnosis" writable={editSteps.includes(6)} step={6} clientId={clientId}>
             {r.diagnosisLabel ? <p className="font-medium">{r.diagnosisLabel}{r.diagnosisCode && !r.diagnosisLabel.startsWith(r.diagnosisCode) && <span className="ml-2 text-sm font-normal text-zinc-600">{r.diagnosisCode}</span>}</p> : <p className="text-sm text-zinc-500">Not recorded</p>}
             <Facts rows={[["Secondary", r.diagnosisSecondary], ["Specifiers", r.diagnosisSpecifiers]]} />
             {r.formulation && <Text label="Formulation" value={r.formulation} />}
           </Section>
-          <Section title="Mental status" writable={writable} step={5} clientId={clientId}>
+          <Section title="Mental status" writable={editSteps.includes(5)} step={5} clientId={clientId}>
             <Facts rows={[
               ["Appearance", r.mseAppearance], ["Behaviour", r.mseBehaviour ?? v(r.mseCooperation)], ["Eye contact", r.mseEyeContact], ["Rapport", v(r.mseRapport)],
               ["Speech", r.mseSpeech], ["Mood & affect", r.mseMoodAffect ?? ([r.mseMood, v(r.mseAffect)].filter(Boolean).join(", ") || null)],
@@ -92,7 +108,7 @@ export default async function CasePage({ params, searchParams }: { params: Promi
             ]} />
             {r.clinicalObservation && <Text label="Clinical observation" value={r.clinicalObservation} />}
           </Section>
-          <Section title="Risk" writable={writable} step={6} clientId={clientId}>
+          <Section title="Risk" writable={editSteps.includes(6)} step={6} clientId={clientId}>
             <dl className="grid gap-2 text-sm">
               {([["Suicide", r.riskSuicide], ["Self-harm", r.riskSelfHarm], ["Homicide", r.riskOthers]] as const).map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between gap-3"><dt className="text-zinc-600">{label}</dt><dd><RiskBadge risk={value} /></dd></div>
@@ -100,16 +116,16 @@ export default async function CasePage({ params, searchParams }: { params: Promi
             </dl>
             {r.riskNotes && <Text label="Risk notes" value={r.riskNotes} />}
           </Section>
-          <Section title="Treatment plan" writable={writable} step={6} clientId={clientId}>
+          <Section title="Treatment plan" writable={editSteps.includes(6)} step={6} clientId={clientId}>
             <Facts rows={[
               ["Modality", r.approach], ["Frequency", r.frequency], ["Short-term goals", r.goalsShort], ["Long-term goals", r.goalsLong],
               ["Overall strategy", r.planNotes], ["Therapist notes", r.therapistNotes], ["Remarks", r.remarks],
             ]} />
           </Section>
-          <Section title="Medical & family" writable={writable} step={3} clientId={clientId}>
+          <Section title="Medical & family" writable={editSteps.includes(3)} step={3} clientId={clientId}>
             <Facts rows={[["Medical", r.medicalHistory], ["Medication", r.medication], ["Past psychiatric", r.pastPsychiatric], ["Family", r.familyHistory]]} />
           </Section>
-          <Section title="Life history" writable={writable} step={4} clientId={clientId}>
+          <Section title="Life history" writable={editSteps.includes(4)} step={4} clientId={clientId}>
             <Facts rows={[
               ["Personal", r.personalHistory], ["Education", r.educationalHistory], ["Occupation", r.occupationalHistory],
               ["Relationships", r.relationshipHistory], ["Substance use", r.substanceUse], ["Social & living", r.socialHistory],

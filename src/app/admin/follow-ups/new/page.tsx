@@ -17,9 +17,9 @@ export default async function NewFollowUpPage({ searchParams }: { searchParams: 
   if (!canUseFollowUps(me)) redirect("/?error=forbidden");
   const sp = await searchParams;
   const all = seesAllFollowUps(me);
-  // Psychologists choose among their own clients; coordinators and managers among everyone (a client may phone in).
+  // Completed sessions only; psychologists remain scoped to their own sessions.
   const [clients, psychologists] = await Promise.all([
-    all ? app().clients.list({ limit: 1000 }).then((rows) => rows.map((c) => ({ id: c.id, name: c.name, phoneE164: c.phoneE164 }))) : app().followUps.clientsOf(me.id),
+    app().followUps.clientsOf(all ? undefined : me.id),
     all ? app().followUps.psychologists() : Promise.resolve([]),
   ]);
   const chosen = sp.client && isUuid(sp.client) ? sp.client : "";
@@ -34,7 +34,7 @@ export default async function NewFollowUpPage({ searchParams }: { searchParams: 
       </div>
       <Notice error={sp.error} />
       {clients.length === 0 ? (
-        <p className="card max-w-2xl p-6 text-sm text-zinc-600">You don&apos;t have any clients yet. Clients appear here once they&apos;re assigned to you or have booked with you.</p>
+        <p className="card max-w-2xl p-6 text-sm text-zinc-600">Clients appear here after at least one completed session. Failed attempts and sessions still to be completed are excluded.</p>
       ) : (
         <form action={requestFollowUpAction} className="card grid max-w-2xl gap-4 p-5 sm:grid-cols-2">
           <div className="sm:col-span-2">

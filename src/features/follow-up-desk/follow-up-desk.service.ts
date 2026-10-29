@@ -55,8 +55,8 @@ export function createFollowUpDeskService({ deskRepo, clinicianRoles }: {
       const d = requestInput.parse(input);
       if (!seesAllFollowUps(viewer) && d.psychologistId !== viewer.id) throw new DomainError("forbidden", "You can only ask about your own clients");
       if (!(await deskRepo.psychologists(await clinicianRoles())).some((p) => p.id === d.psychologistId)) throw new DomainError("invalid", `Staff member ${d.psychologistId} doesn't see clients`);
-      if (!seesAllFollowUps(viewer) && !(await deskRepo.clientsOf(viewer.id)).some((c) => c.id === d.clientId)) {
-        throw new DomainError("forbidden", "You can only ask about your own clients");
+      if (!(await deskRepo.clientsOf(d.psychologistId)).some((c) => c.id === d.clientId)) {
+        throw new DomainError("forbidden", "Follow-ups require at least one completed session with this psychologist");
       }
       const existing = await deskRepo.openRequestFor(d.clientId);
       if (existing) throw new DomainError("conflict", `This client already has an open follow-up (with ${existing.psychologistName})`);
@@ -89,7 +89,7 @@ export function createFollowUpDeskService({ deskRepo, clinicianRoles }: {
       });
     },
 
-    clientsOf: (staffId: string) => deskRepo.clientsOf(staffId),
+    clientsOf: (staffId?: string) => deskRepo.clientsOf(staffId),
     psychologists: async () => deskRepo.psychologists(await clinicianRoles()),
 
     /** Booking the client with the request's psychologist closes the request as booked. */

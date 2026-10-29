@@ -163,3 +163,11 @@ export type PendingNoteRow = {
 export const NOTE_DUE_HOURS = 24;
 
 export type PendingNoteDTO = PendingNoteRow & { dueAt: Date; overdue: boolean };
+
+/** Reviewers see administrative metadata only, never clinical fields or previousValues. */
+export const EDIT_SECTIONS: Record<number, string> = { 2: "Complaints and history", 3: "Medical and family history", 4: "Life history", 5: "Mental status", 6: "Diagnosis, risk and treatment plan" };
+export type CaseEditRequestDTO = {
+  id: string; clientId: string; clientName: string; clientNumber: number; requesterId: string; requesterName: string;
+  step: number; reason: string; status: "pending" | "approved" | "rejected" | "used" | "expired";
+  decisionReason: string | null; reviewerName: string | null; createdAt: Date; reviewedAt: Date | null; expiresAt: Date | null; usedAt: Date | null;
+};
