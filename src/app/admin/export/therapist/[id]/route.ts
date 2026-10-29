@@ -1,3 +1,4 @@
+import { withoutPerformanceContact } from "@/lib/contact";
 import { app } from "@/features/container";
 import { therapistCsv } from "@/features/performance/performance.csv";
 import { isDomainError } from "@/features/shared/errors";
@@ -13,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (me.id !== id && !allowed(me, "reports.view")) return Response.json({ error: { code: "forbidden", message: "Managers only" } }, { status: 403 });
   try {
     const detail = await app().performance.therapist({ staffId: id, period: new URL(req.url).searchParams.get("period") ?? undefined });
-    const { csv, filename } = therapistCsv(detail, await app().settings.get());
+    const { csv, filename } = therapistCsv(withoutPerformanceContact(me, detail), await app().settings.get());
     return new Response(csv, {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store" },
     });

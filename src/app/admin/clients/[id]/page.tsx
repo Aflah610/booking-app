@@ -4,7 +4,7 @@ import { app } from "@/features/container";
 import { clientStatus, type ClientStatus } from "@/features/clients/client-status";
 import { clientAge, clientReference, type ClientDTO } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
-import { allowed } from "@/lib/session";
+import { allowed, isFrontDesk } from "@/lib/session";
 import { requireClientAccess } from "@/lib/client-access";
 import { BookingRow } from "@/components/BookingRow";
 import { ClientCredits } from "@/components/ClientCredits";
@@ -33,8 +33,9 @@ export default async function ClientPage({
   // Psychologists open their own clients read-only, without contact details.
   const manages = allowed(me, "clients.view");
   const contact = allowed(me, "clients.contact");
+  const canCredits = allowed(me, "packages.manage");
   const sp = await searchParams;
-  const tab = sp.tab && sp.tab in TABS ? (sp.tab as keyof typeof TABS) : "case";
+  const tab = sp.tab && sp.tab in TABS && (sp.tab !== "credits" || canCredits) ? (sp.tab as keyof typeof TABS) : "case";
   const view = sp.bookings && sp.bookings in BOOKING_VIEWS ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
   const { clients, bookings, settings, staff } = app();
   const c = await clients.get(id).catch((err) => {
@@ -42,7 +43,7 @@ export default async function ClientPage({
     throw err;
   });
   const [history, s, periods, team, caseView, therapistRoles] = await Promise.all([
-    bookings.list({ view: "all", clientId: id, limit: 200 }),
+    bookings.list({ view: "all", clientId: id, staffId: isFrontDesk(me) ? undefined : me.id, limit: 200 }),
     settings.get(),
     clients.therapistHistory(id),
     staff.list(),
@@ -110,7 +111,7 @@ export default async function ClientPage({
           </div>
 
           <nav className="tabs" aria-label="Client sections">
-            {Object.entries(TABS).map(([key, label]) => (
+            {Object.entries(TABS).filter(([key]) => key !== "credits" || canCredits).map(([key, label]) => (
               <Link key={key} href={`?tab=${key}`} className={`tab ${tab === key ? "tab-active" : ""}`} aria-current={tab === key ? "page" : undefined}>{label}</Link>
             ))}
           </nav>
@@ -134,7 +135,7 @@ export default async function ClientPage({
             </>
           )}
 
-          {tab === "credits" && <ClientCredits clientId={id} tz={tz} bookingPrefix={s.bookingPrefix} />}
+          {tab === "credits" && canCredits && <ClientCredits clientId={id} tz={tz} bookingPrefix={s.bookingPrefix} />}
         </section>
 
         <aside className="grid content-start gap-8 lg:border-l lg:border-zinc-200 lg:pl-8">

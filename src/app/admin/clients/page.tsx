@@ -23,7 +23,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const tz = (await app().settings.get()).timezone;
   const range = dayRange(sp.from, sp.to, tz);
   const [rows, team, therapistRoles] = await Promise.all([
-    app().clients.directory({ q: sp.q, therapist: everyone ? sp.therapist : undefined, treatedBy: everyone ? undefined : me.id, ...range }),
+    app().clients.directory({ q: sp.q, searchContact: contact, therapist: everyone ? sp.therapist : undefined, treatedBy: everyone ? undefined : me.id, ...range }),
     everyone ? app().staff.list() : Promise.resolve([]),
     app().access.rolesWith("casenotes.write"),
   ]);

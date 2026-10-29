@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { withoutPerformanceContact } from "@/lib/contact";
 import { notFound, redirect } from "next/navigation";
 import { app } from "@/features/container";
 import { bookingReference } from "@/features/bookings/bookings.dto";
@@ -41,13 +42,14 @@ export default async function TherapistPage({ params, searchParams }: { params: 
   const { period } = await searchParams;
   const me = await requireStaff();
   if (me.id !== id && !allowed(me, "reports.view")) redirect("/?error=forbidden");
-  const [d, firm] = await Promise.all([
+  const [raw, firm] = await Promise.all([
     app().performance.therapist({ staffId: id, period }).catch((err) => {
       if (isDomainError(err) && err.code === "not_found") notFound();
       throw err;
     }),
     app().settings.get(),
   ]);
+  const d = withoutPerformanceContact(me, raw);
   const t = d.therapist;
   const first = t.retention.steps[0];
   const tz = firm.timezone;
@@ -55,7 +57,7 @@ export default async function TherapistPage({ params, searchParams }: { params: 
 
   return (
     <>
-      <p className="no-print mb-2 text-sm"><Link href={`/admin/reports/therapists?${query}`} className="text-zinc-500 hover:text-black">← All therapists</Link></p>
+      {allowed(me, "reports.view") && <p className="no-print mb-2 text-sm"><Link href={`/admin/reports/therapists?${query}`} className="text-zinc-500 hover:text-black">← All therapists</Link></p>}
       <PageHeader
         title={t.name}
         subtitle={`${t.designation ? `${t.designation} · ` : ""}${d.label}, ${dayLabel(d.from, tz)} to ${dayLabel(d.to, tz)}`}

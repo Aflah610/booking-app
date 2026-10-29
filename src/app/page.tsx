@@ -25,7 +25,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const to = zonedToUtc(`${addDays(today, 1)}T00:00`, tz);
   const [mineAll, everyone, nextAll, savedColumns] = await Promise.all([
     bookings.list({ view: "all", staffId: me.id, from, to, limit: 100 }),
-    bookings.list({ view: "all", from, to, limit: 500 }),
+    allowed(me, "bookings.all") ? bookings.list({ view: "all", from, to, limit: 500 }) : Promise.resolve([]),
     // From tomorrow on: today's sessions are already shown under "My day".
     bookings.list({ view: "upcoming", staffId: me.id, from: to, limit: 5 }),
     preferences.get(me.id, columnPrefKey("today")),
@@ -36,8 +36,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const live = (list: typeof mine) => list.filter((b) => b.status !== "cancelled" && !b.slotReleased);
   const stats = [
     { label: "My bookings today", value: live(mine).length },
-    { label: "Firm bookings today", value: live(everyone).length },
-    { label: "Cancelled today", value: everyone.filter((b) => b.status === "cancelled").length },
+    ...(allowed(me, "bookings.all") ? [{ label: "Firm bookings today", value: live(everyone).length }] : []),
+    { label: allowed(me, "bookings.all") ? "Cancelled today" : "My cancellations today", value: (allowed(me, "bookings.all") ? everyone : mine).filter((b) => b.status === "cancelled").length },
   ];
 
   return (

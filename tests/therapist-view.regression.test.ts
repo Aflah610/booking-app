@@ -1,0 +1,156 @@
+import React, { type ReactElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { can, DEFAULT_PERMISSIONS } from "@/features/access/permissions";
+import type { Me } from "@/lib/session";
+import type { Container } from "@/features/container";
+import { c, reset } from "./helpers";
+
+const runtime = vi.hoisted(() => ({ me: null as Me | null, container: null as Container | null }));
+vi.mock("@/features/container", async (original) => ({ ...await original<typeof import("@/features/container")>(), app: () => runtime.container }));
+vi.mock("@/auth", () => ({ signOut: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(`redirect:${url}`); }, notFound: () => { throw new Error("not-found"); } }));
+vi.mock("@/components/ColumnsManager", () => ({ ColumnsManager: () => null }));
+vi.mock("@/components/PrintButton", () => ({ PrintButton: () => null }));
+vi.mock("@/lib/session", () => ({
+  allowed: can,
+  isFrontDesk: (me: Me) => can(me, "bookings.all"),
+  currentStaff: async () => runtime.me,
+  requireStaff: async () => runtime.me,
+  hasRole: (me: Me, min: "staff" | "manager" | "admin") => ({staff:0,manager:1,admin:2}[me.role] >= {staff:0,manager:1,admin:2}[min]),
+  requirePermission: async (...permissions: Parameters<typeof can>[1][]) => {
+    if (!runtime.me || !permissions.some((p) => can(runtime.me!, p))) throw new Error("redirect:forbidden");
+    return runtime.me;
+  },
+}));
+
+const now = new Date("2026-11-02T02:30:00Z");
+const html = (element: ReactNode) => renderToStaticMarkup(element);
+beforeEach(async () => { await reset(); runtime.container = c; vi.stubGlobal("React", React); vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(now); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+async function setup() {
+  const own = await c.staff.create({}, { name: "Own Therapist", email: "own@firm.test", designation: "Psychologist" });
+  const other = await c.staff.create({}, { name: "Private Other Therapist", email: "other@firm.test", designation: "Psychologist" });
+  const svc = await c.catalog.create({}, { name: "Therapy", durationMin: 60 });
+  for (const member of [own, other]) {
+    await c.staff.setServices({}, member.id, [svc.id]);
+    await c.schedules.setWeeklyHours({}, member.id, [0,1,2,3,4,5,6].map((weekday) => ({ weekday, startTime: "09:00", endTime: "20:00" })));
+  }
+  const book = async (staffId: string, hour: string, name: string, phone: string) => (await c.bookings.create({ mode: "staff" }, {
+    serviceId: svc.id, staffId, start: `2026-11-02T${hour}:00+05:30`, client: { name, phone, email: "hidden-inbox@example.test" }, useCredits: false,
+  }, { now })).booking;
+  const mine = await book(own.id, "10:00", "Shared Client", "9812345678");
+  const sharedOther = await book(other.id, "12:00", "Shared Client", "9812345678");
+  const privateOther = await book(other.id, "15:00", "Private Other Client", "9812345679");
+  await c.clients.assignTherapist({}, mine.clientId, { staffId: own.id });
+  await c.bookings.setMeeting({}, sharedOther.id, { action: "manual", url: "https://meet.google.com/aaa-bbbb-ccc" });
+  runtime.me = { ...own, permissions: new Set(DEFAULT_PERMISSIONS.psychologist) };
+  return { own, other, mine, sharedOther, privateOther };
+}
+
+describe("therapist pages keep work and contacts scoped", () => {
+  it("does not query or display practice-wide totals on Today", async () => {
+    const { own } = await setup();
+    const list = vi.spyOn(c.bookings, "list");
+    const { default: Home } = await import("@/app/page");
+    const page = await Home({ searchParams: Promise.resolve({}) });
+    const markup = html((page as ReactElement<{ children: ReactNode }>).props.children);
+    expect(markup).toContain("My bookings today");
+    expect(markup).not.toContain("Firm bookings today");
+    expect(markup).not.toContain("Private Other Client");
+    expect(list.mock.calls.every(([f]) => f?.staffId === own.id)).toBe(true);
+  });
+
+  it("ignores another staff id in bookings and calendar filters without listing other staff", async () => {
+    const { other } = await setup();
+    const { default: Bookings } = await import("@/app/admin/bookings/page");
+    const { default: Calendar } = await import("@/app/admin/calendar/page");
+    for (const page of [await Bookings({ searchParams: Promise.resolve({ staff: other.id }) }), await Calendar({ searchParams: Promise.resolve({ staff: other.id }) })]) {
+      const markup = html(page);
+      expect(markup).toContain("Shared Client");
+      expect(markup).not.toContain("Private Other Client");
+      expect(markup).not.toContain("Private Other Therapist");
+      expect(markup).not.toContain("Everyone");
+      expect(markup).not.toContain("9812345678");
+    }
+  });
+
+  it("hides another therapist's session and join link on a shared client's booking history", async () => {
+    const { mine, sharedOther } = await setup();
+    const { default: Client } = await import("@/app/admin/clients/[id]/page");
+    const markup = html(await Client({ params: Promise.resolve({ id: mine.clientId }), searchParams: Promise.resolve({ tab: "bookings" }) }));
+    expect(markup).toContain(`/admin/bookings/${mine.id}`);
+    expect(markup).not.toContain(`/admin/bookings/${sharedOther.id}`);
+    expect(markup).not.toContain("https://meet.google.com/aaa-bbbb-ccc");
+    expect(markup).not.toContain("?tab=credits");
+    const direct = html(await Client({ params: Promise.resolve({ id: mine.clientId }), searchParams: Promise.resolve({ tab: "credits" }) }));
+    expect(direct).not.toContain("Sell a package");
+    expect(direct).not.toContain("Add wallet money");
+  });
+
+  it("refuses direct booking, client, staff and report links belonging to another therapist", async () => {
+    const { other, privateOther } = await setup();
+    const { default: Booking } = await import("@/app/admin/bookings/[id]/page");
+    const { default: Client } = await import("@/app/admin/clients/[id]/page");
+    const { default: Staff } = await import("@/app/admin/staff/[id]/page");
+    const { default: Report } = await import("@/app/admin/reports/therapists/[id]/page");
+    await expect(Booking({ params: Promise.resolve({ id: privateOther.id }), searchParams: Promise.resolve({}) })).rejects.toThrow("not-found");
+    await expect(Client({ params: Promise.resolve({ id: privateOther.clientId }), searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:");
+    await expect(Staff({ params: Promise.resolve({ id: other.id }), searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:");
+    await expect(Report({ params: Promise.resolve({ id: other.id }), searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:");
+    const { updateBookingNotesAction, recordPaymentAction } = await import("@/app/admin/bookings/actions");
+    const { setHoursAction, updateStaffAction } = await import("@/app/admin/actions");
+    await expect(updateBookingNotesAction(privateOther.id, new FormData())).rejects.toThrow("own diary");
+    await expect(setHoursAction(other.id, new FormData())).rejects.toThrow("redirect:");
+    await expect(updateStaffAction(other.id, new FormData())).rejects.toThrow("redirect:");
+    const ownBooking = (await c.bookings.list({ view: "all", staffId: runtime.me!.id }))[0];
+    await expect(recordPaymentAction(ownBooking.id, new FormData())).rejects.toThrow("redirect:");
+  });
+
+  it("does not expose hidden phone numbers in own performance pages or CSV, or allow another therapist's CSV", async () => {
+    const { own, other } = await setup();
+    const { default: Report } = await import("@/app/admin/reports/therapists/[id]/page");
+    const { GET } = await import("@/app/admin/export/therapist/[id]/route");
+    const markup = html(await Report({ params: Promise.resolve({ id: own.id }), searchParams: Promise.resolve({}) }));
+    expect(markup).toContain("Shared Client");
+    expect(markup).not.toContain("9812345678");
+    expect(markup).not.toContain("All therapists");
+    const response = await GET(new Request("https://example.test/admin/export/therapist/own"), { params: Promise.resolve({ id: own.id }) });
+    const csv = await response.text();
+    expect(csv).toContain("Shared Client");
+    expect(csv).not.toContain("9812345678");
+    expect((await GET(new Request("https://example.test/admin/export/therapist/other"), { params: Promise.resolve({ id: other.id }) })).status).toBe(403);
+  });
+
+  it("searches only names and client IDs without contact permission, and counts only own bookings", async () => {
+    const { own, mine } = await setup();
+    const f = { treatedBy: own.id, searchContact: false };
+    const ownRows = await c.clients.directory({ ...f, q: "Shared Client" });
+    expect(ownRows.map((r) => [r.id, r.bookings])).toEqual([[mine.clientId, 1]]);
+    expect(await c.clients.directory({ ...f, q: "9812345678" })).toEqual([]);
+    expect(await c.clients.directory({ ...f, q: "hidden-inbox" })).toEqual([]);
+    expect(await c.clients.directory({ ...f, q: "Private Other Client" })).toEqual([]);
+    expect((await c.clients.directory({ q: "9812345678" })).map((r) => r.bookings)).toEqual([2]);
+    const { default: Clients } = await import("@/app/admin/clients/page");
+    expect(html(await Clients({ searchParams: Promise.resolve({ q: "9812345678" }) }))).not.toContain("Shared Client");
+  });
+
+  it("retains practice-wide views and contact downloads for an admin", async () => {
+    const { mine } = await setup();
+    const admin = await c.staff.create({}, { name: "Admin", email: "admin@firm.test", role: "admin" });
+    runtime.me = { ...admin, permissions: new Set(DEFAULT_PERMISSIONS.admin) };
+    const { default: Home } = await import("@/app/page");
+    const page = await Home({ searchParams: Promise.resolve({}) });
+    expect(html((page as ReactElement<{ children: ReactNode }>).props.children)).toContain("Firm bookings today");
+    const { default: Bookings } = await import("@/app/admin/bookings/page");
+    expect(html(await Bookings({ searchParams: Promise.resolve({}) }))).toContain("Private Other Client");
+    const { default: Client } = await import("@/app/admin/clients/[id]/page");
+    const markup = html(await Client({ params: Promise.resolve({ id: mine.clientId }), searchParams: Promise.resolve({ tab: "bookings" }) }));
+    expect(markup).toContain("https://meet.google.com/aaa-bbbb-ccc");
+    expect(markup).toContain("?tab=credits");
+    const { GET } = await import("@/app/admin/export/therapist/[id]/route");
+    const response = await GET(new Request("https://example.test/download"), { params: Promise.resolve({ id: mine.staffId }) });
+    expect(await response.text()).toContain("9812345678");
+  });
+
+});

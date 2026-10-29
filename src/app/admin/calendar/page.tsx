@@ -34,7 +34,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       to: zonedToUtc(`${addDays(monday, 7)}T00:00`, tz),
       limit: 500,
     }),
-    staff.list(),
+    isFrontDesk(me) ? staff.list() : Promise.resolve([me]),
   ]);
   // A booking whose payment ran out has given its time back, so it takes no space on the diary.
   const live = rows.filter((b) => b.status !== "cancelled" && !b.slotReleased);
@@ -51,14 +51,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         subtitle={`Week of ${dayLabel(new Date(`${monday}T12:00:00Z`), "UTC")}`}
         action={
           <div className="flex items-center gap-2">
-            <form action="/admin/calendar" className="flex gap-2">
+            {isFrontDesk(me) && <form action="/admin/calendar" className="flex gap-2">
               <input type="hidden" name="week" value={monday} />
               <select className="input w-44" name="staff" defaultValue={staffFilter ?? "all"} aria-label="Staff member">
                 <option value="all">Everyone</option>
                 {people.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <button className="btn-ghost" type="submit">Show</button>
-            </form>
+            </form>}
             <Link className="btn-ghost" href={href(addDays(monday, -7))} aria-label="Previous week">‹</Link>
             <Link className="btn-ghost" href={href(today)}>Today</Link>
             <Link className="btn-ghost" href={href(addDays(monday, 7))} aria-label="Next week">›</Link>
