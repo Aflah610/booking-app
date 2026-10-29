@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - Therapist-only workspace privacy review
+
+- Aflah requested therapists see only their own work/details. Existing direct booking/staff/client/report guards,
+  diary staff-ID enforcement, clinical ownership and follow-up ownership were reviewed.
+- Fixed Today fetching/displaying firm totals for therapists, staff names in diary filters, shared-client booking
+  histories exposing other therapists' sessions/Meet links, and own-performance pages/CSV leaking client phones.
+- Own-client directory counts only the viewer's bookings. Contact-restricted directory searches no longer match
+  hidden phone/email. Credit tabs and editable package/wallet forms require packages.manage, including direct URLs.
+- Verified live Roles & access: Psychologist has only clients.own, followups.own and casenotes.write enabled.
+  Kept configured role permissions and admins' wider access. No live account roles, clients, bookings or data changed.
+- Seven new real-PostgreSQL route/render regressions cover isolation, direct URLs/actions, hidden contacts and
+  retained admin access. All 536 tests in 49 files pass; lint, typecheck and production build pass.
+  Publishing for CI and merge; not live yet. The wider website audit remains unfinished in the website repo.
+
 ## 2026-10-29 - Codex - Shared calendar warning on booking details
 
 - Aflah reported therapists being told to connect Google despite using the admin's shared calendar.

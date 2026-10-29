@@ -37,7 +37,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const staffFilter = !manager ? me.id : sp.staff === "all" ? null : sp.staff || null;
   const { bookings, catalog, staff, settings, preferences } = app();
   const [people, services, s, savedColumns] = await Promise.all([
-    staff.list(),
+    manager ? staff.list() : Promise.resolve([me]),
     catalog.list(),
     settings.get(),
     preferences.get(me.id, columnPrefKey("bookings")),
@@ -103,7 +103,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           <div>
             <label className="label !text-xs" htmlFor="staff">Therapist</label>
             <select className="input" id="staff" name="staff" defaultValue={staffFilter ?? "all"} disabled={!manager}>
-              <option value="all">Everyone</option>
+              {manager && <option value="all">Everyone</option>}
               {people.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.id === me.id ? `${p.name} (me)` : p.name}</option>)}
             </select>
           </div>

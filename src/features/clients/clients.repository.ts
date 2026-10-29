@@ -160,7 +160,7 @@ export function createClientsRepository(db: Db) {
           c.location, c.address, c.languages, c.emergency_name as "emergencyName", c.emergency_relation as "emergencyRelation",
           c.emergency_phone as "emergencyPhone", c.referral_source as "referralSource", c.consent_signed_at as "consentSignedAt",
           c.registered_by as "registeredBy", c.created_at as "createdAt",
-          (select count(*)::int from booking b where b.client_id = c.id) as bookings,
+          (select count(*)::int from booking b where b.client_id = c.id and ${f.treatedBy ? sql`b.staff_id = ${f.treatedBy}` : sql`true`}) as bookings,
           t.staff_id as "therapistId", ts.name as "therapistName", ts.active as "therapistActive",
           ab.name as "assignedByName", rb.name as "registeredByName", ch.status as "caseStatus"
         from client c
@@ -170,7 +170,7 @@ export function createClientsRepository(db: Db) {
         left join staff rb on rb.id = c.registered_by
         left join case_history ch on ch.client_id = c.id
         where ${registeredClientWhere("c")}
-          and ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} or c.phone_as_entered ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
+          and ${like ? sql`(c.name ilike ${like} ${f.searchContact !== false ? sql`or c.phone_e164 ilike ${like} or c.phone_as_entered ilike ${like} or c.email ilike ${like}${digits.length >= 3 ? sql` or c.phone_e164 like ${`%${digits}%`}` : sql``}` : sql``}${digits ? sql` or c.number::text = ${String(Number(digits))}` : sql``})` : sql`true`}
           and ${f.therapist === "unassigned" ? sql`t.staff_id is null` : f.therapist ? sql`t.staff_id = ${f.therapist}` : sql`true`}
           and ${f.treatedBy ? sql`(exists (select 1 from client_therapist x where x.client_id = c.id and x.staff_id = ${f.treatedBy})
             or exists (select 1 from booking x where x.client_id = c.id and x.staff_id = ${f.treatedBy}))` : sql`true`}

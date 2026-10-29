@@ -73,6 +73,8 @@ export type ClientDirectoryRow = ClientDTO & {
 
 export type ClientDirectoryFilters = {
   q?: string;
+  /** False when the viewer cannot see contact details: search names and client IDs only. */
+  searchContact?: boolean;
   /** A staff id, or "unassigned". */
   therapist?: string;
   /** Only clients this staff member treats now or has treated. */

@@ -26,6 +26,10 @@ project for the same owner, Aflah.
 - Roles: admin, manager, psychologist, BDE (sales), CCD. Permissions in `src/features/access/permissions.ts`,
   editable by the admin. Only CCD books for clients; psychologists see only their own clients, without
   contact details; managers see only *pending* case notes (a note is due 24 hours after the session).
+- Therapist views follow their permissions on every page and direct URL: own diaries, own client-session history
+  and own performance only by default. Never fetch/display firm totals or other staff filters without bookings.all.
+  Apply clients.contact to report pages, CSV and search matching, not just visible labels. Client credit controls
+  require packages.manage; shared-client access does not grant access to another therapist's sessions or Meet links.
 - Booking rules (live data, not code): psychologists 9:00 to 23:00, 30-minute gap after every session,
   at most 7 sessions per psychologist per day (Settings > Booking rules). Individual therapy 60 min,
   couple therapy 90 min.
