@@ -22,7 +22,7 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   concurrent requests/decisions/saves, rollback, role privacy and failed/incomplete follow-up attempts.
   Lint, TypeScript and production build pass locally. GitHub full test/build/audit and Docker checks passed
   on 6b3c7cc. PR #18 merged as b167e92. Main is queued for the normal CI-gated five-minute server deploy;
-  live UI revision is not yet verified. Public booking health check is OK. Local full-suite run is finishing.
+  live UI revision is not yet verified. Public booking health check is OK. All 554 local tests in 51 files passed.
 
 ## 2026-10-29 - Codex - Calendar paid-only for every role
 
