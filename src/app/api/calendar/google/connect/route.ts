@@ -1,6 +1,6 @@
 import { app } from "@/features/container";
 import { isDomainError } from "@/features/shared/errors";
-import { currentStaff, hasRole } from "@/lib/session";
+import { currentStaff, allowed } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +9,12 @@ function back(request: Request, staffId: string, key: "ok" | "error", message: s
   return Response.redirect(`${base.replace(/\/$/, "")}/admin/staff/${staffId}?${new URLSearchParams({ [key]: message })}`, 302);
 }
 
-/** Starts "Connect Google Calendar": sends the signed-in person (or a manager for them) to Google's consent screen. */
+/** Calendar connections can affect availability, so only staff managers may connect them. */
 export async function GET(request: Request) {
   const me = await currentStaff();
   if (!me) return Response.redirect(new URL("/login", request.url), 302);
   const staffId = new URL(request.url).searchParams.get("staff") || me.id;
-  if (staffId !== me.id && !hasRole(me, "manager")) return Response.redirect(new URL("/?error=forbidden", request.url), 302);
+  if (!allowed(me, "staff.manage")) return Response.redirect(new URL("/?error=forbidden", request.url), 302);
   try {
     return Response.redirect(app().calendar.connectUrl(staffId), 302);
   } catch (err) {

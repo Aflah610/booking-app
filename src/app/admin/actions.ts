@@ -12,14 +12,7 @@ import { parseQuestions } from "@/features/catalog/questions";
 import { parseDayRanges } from "@/lib/hours-form";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay } from "@/lib/format";
-import { allowed, requirePermission, requireStaff, hasRole } from "@/lib/session";
-
-/** Personal calendar connections are separate from manager/CCD-controlled availability. */
-async function requireSelfOrManager(staffId: string) {
-  const me = await requireStaff();
-  if (me.id !== staffId && !allowed(me, "staff.manage")) redirect("/?error=forbidden");
-  return me;
-}
+import { allowed, requirePermission, hasRole } from "@/lib/session";
 
 /** The chosen role; anything unexpected becomes the least powerful one that treats clients. */
 const accessRoleOf = (form: FormData): AccessRole => ACCESS_ROLES.find((r) => r === str(form, "accessRole")) ?? "psychologist";
@@ -312,18 +305,18 @@ export async function removeHolidayAction(id: string) {
 }
 
 export async function disconnectCalendarAction(staffId: string) {
-  await requireSelfOrManager(staffId);
+  await requirePermission("staff.manage");
   await act(`/admin/staff/${staffId}`, "Google Calendar disconnected", () => app().calendar.disconnect(staffId));
 }
 
 export async function calendarOptionsAction(staffId: string, form: FormData) {
-  await requireSelfOrManager(staffId);
+  await requirePermission("staff.manage");
   await act(`/admin/staff/${staffId}`, "Calendar settings saved", () =>
     app().calendar.setOptions(staffId, { pushBookings: form.get("pushBookings") === "on", blockBusy: form.get("blockBusy") === "on", inviteClients: form.get("inviteClients") === "on", createMeetLinks: form.get("createMeetLinks") === "on" }),
   );
 }
 
 export async function syncCalendarAction(staffId: string) {
-  await requireSelfOrManager(staffId);
+  await requirePermission("staff.manage");
   await act(`/admin/staff/${staffId}`, "Calendar synced", () => app().calendar.syncNow(staffId));
 }

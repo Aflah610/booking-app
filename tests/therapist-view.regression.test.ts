@@ -207,4 +207,41 @@ describe("therapist pages keep work and contacts scoped", () => {
     }
   });
 
+
+  it("blocks psychologists' and CCD's direct Google controls, including a valid consent callback, while keeping manager/admin control", async () => {
+    const { own } = await setup();
+    const actions = await import("@/app/admin/actions");
+    const connect = await import("@/app/api/calendar/google/connect/route");
+    const callback = await import("@/app/api/calendar/google/callback/route");
+    const connectUrl = vi.spyOn(c.calendar, "connectUrl").mockReturnValue("https://accounts.google.com/o/oauth2/v2/auth");
+    const stateOwner = vi.spyOn(c.calendar, "stateOwner").mockReturnValue(own.id);
+    const complete = vi.spyOn(c.calendar, "completeConnect").mockResolvedValue(own.id);
+    const options = vi.spyOn(c.calendar, "setOptions").mockResolvedValue(undefined);
+    const sync = vi.spyOn(c.calendar, "syncNow").mockResolvedValue(undefined);
+    const disconnect = vi.spyOn(c.calendar, "disconnect").mockResolvedValue(undefined);
+    for (const role of ["psychologist", "ccd", "manager", "admin"] as const) {
+      const member = role === "psychologist" ? own : await c.staff.create({}, { name: `Calendar ${role}`, email: `calendar-${role}@firm.test`, accessRole: role });
+      runtime.me = { ...member, permissions: await c.access.permissionsFor(role) };
+      vi.clearAllMocks();
+      const permitted = role === "manager" || role === "admin";
+      const response = await connect.GET(new Request(`https://example.test/api/calendar/google/connect?staff=${own.id}`));
+      const returned = await callback.GET(new Request("https://example.test/api/calendar/google/callback?state=valid-test-state&code=test-code"));
+      if (!permitted) {
+        expect(response.headers.get("location")).toContain("error=forbidden");
+        expect(returned.headers.get("location")).toContain("error=forbidden");
+        expect(connectUrl).not.toHaveBeenCalled();
+        expect(stateOwner).not.toHaveBeenCalled();
+        expect(complete).not.toHaveBeenCalled();
+      } else {
+        expect(response.headers.get("location")).toContain("https://accounts.google.com/");
+        expect(connectUrl).toHaveBeenCalledWith(own.id);
+        expect(complete).toHaveBeenCalledWith("test-code", "valid-test-state");
+      }
+      for (const action of [() => actions.calendarOptionsAction(own.id, new FormData()), () => actions.syncCalendarAction(own.id), () => actions.disconnectCalendarAction(own.id)]) {
+        await expect(action()).rejects.toThrow(permitted ? "ok=" : "redirect:forbidden");
+      }
+      for (const method of [options, sync, disconnect]) expect(method).toHaveBeenCalledTimes(permitted ? 1 : 0);
+    }
+  });
+
 });
