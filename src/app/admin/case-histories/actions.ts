@@ -52,7 +52,8 @@ export async function addAddendumAction(clientId: string, noteId: string, form: 
 export async function saveIntakeAction(clientId: string, step: number, form: FormData) {
   const me = await requireStaff();
   const input = Object.fromEntries([...form.entries()].filter(([k, v]) => !k.startsWith("$") && typeof v === "string"));
-  const next = step < 6 ? `${casePath(clientId)}/intake?step=${step + 1}` : casePath(clientId);
+  const steps = await app().caseHistory.intakeEditSteps(me, clientId);
+  const next = step < 6 && steps.includes(step + 1) ? `${casePath(clientId)}/intake?step=${step + 1}` : casePath(clientId);
   await act(`${casePath(clientId)}/intake?step=${step}`, "Saved", async () => {
     await app().caseHistory.saveIntake(me, clientId, step, input);
     if (step === 6 && form.get("intent") === "complete") await app().caseHistory.completeIntake(me, clientId);
@@ -75,4 +76,15 @@ export async function sendFollowUpAction(clientId: string, form: FormData) {
     const parts = (["whatsapp", "email"] as const).filter((ch) => r[ch] !== "not_chosen").map((ch) => `${ch === "whatsapp" ? "WhatsApp" : "Email"} ${DELIVERED[r[ch]]}`);
     return `${casePath(clientId)}?${new URLSearchParams({ ok: `Follow-up recorded. ${parts.join("; ")}.` })}`;
   });
+}
+
+export async function requestIntakeEditAction(clientId: string, form: FormData) {
+  const me = await requireStaff();
+  await act(casePath(clientId), "Edit request sent to the manager and visible to admins", () =>
+    app().caseHistory.requestIntakeEdit(me, clientId, { step: str(form, "step"), reason: str(form, "reason") }));
+}
+export async function reviewIntakeEditAction(id: string, form: FormData) {
+  const me = await requireStaff();
+  await act("/admin/case-edit-requests", "Decision recorded", () =>
+    app().caseHistory.reviewIntakeEdit(me, id, { decision: str(form, "decision"), reason: str(form, "reason") }));
 }

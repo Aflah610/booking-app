@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { can, type AccessHolder, type AccessRole } from "@/features/access/permissions";
 import { DomainError } from "@/features/shared/errors";
 import { PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
@@ -82,6 +83,15 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
     });
   }
 
+  const needsApproval = (reader: Reader) => reader.accessRole === "psychologist" && !reader.clinicalAdmin;
+  const reviewsEdits = (reader: Reader) => reader.accessRole === "manager" || reader.accessRole === "admin";
+  async function intakeEditSteps(reader: Reader, clientId: string, now = new Date()) {
+    if (!(await canWrite(reader, clientId))) return [];
+    const r = await caseRepo.intakeState(clientId);
+    if (!needsApproval(reader) || !r || (!r.intakeCompletedAt && r.status === "intake_pending")) return [1, 2, 3, 4, 5, 6];
+    return caseRepo.approvedEditSteps(r.id, reader.id, r.revision, now);
+  }
+
   return {
     /**
      * Pending case notes. Whoever may see pending notes (managers) gets everyone's; a psychologist only their own. No clinical
@@ -98,13 +108,38 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
 
     canRead,
     canWrite,
+    intakeEditSteps,
+    canReviewEdits: reviewsEdits,
+    pendingEditCount: (reader: Reader) => reviewsEdits(reader) ? caseRepo.pendingEditCount() : Promise.resolve(0),
+    async editRequests(reader: Reader, clientId?: string) {
+      if (!reviewsEdits(reader) && (reader.accessRole !== "psychologist" || !can(reader, "casenotes.write"))) throw new DomainError("forbidden", "Edit requests are for psychologists, managers and admins");
+      if (clientId && !isUuid(clientId)) throw new DomainError("invalid", "Invalid client");
+      return caseRepo.editRequests(reviewsEdits(reader) ? undefined : reader.id, clientId);
+    },
+    async requestIntakeEdit(reader: Reader, clientId: string, input: unknown, now = new Date()) {
+      if (!needsApproval(reader)) throw new DomainError("forbidden", "Only psychologists request these corrections");
+      const data = z.object({ step: z.coerce.number().int().min(2).max(6), reason: z.string().trim().min(10, "Explain why the correction is needed").max(1000) }).parse(input);
+      const r = await openForWriting(reader, clientId);
+      const id = await caseRepo.createEditRequest({ caseHistoryId: r.id, requesterId: reader.id, ...data, now }, audit(reader, "request_intake_edit", "case_edit_request", r.id, { step: data.step }));
+      if (!id) throw new DomainError("conflict", "A request is already open, the intake is unfinished, or the client has been reassigned");
+      return id;
+    },
+    async reviewIntakeEdit(reader: Reader, id: string, input: unknown, now = new Date()) {
+      if (!reviewsEdits(reader)) throw new DomainError("forbidden", "Only managers and admins review edit requests");
+      if (!isUuid(id)) throw new DomainError("not_found", "Edit request not found");
+      const data = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().trim().min(1, "Give a decision reason").max(1000) }).parse(input);
+      if (!(await caseRepo.reviewEditRequest(id, reader.id, data.decision === "approve", data.reason, now, audit(reader, "review_intake_edit", "case_edit_request", id, { decision: data.decision })))) throw new DomainError("conflict", "This request was already reviewed, is stale, belongs to you, or the client was reassigned");
+    },
     open,
 
     async saveIntake(reader: Reader, clientId: string, step: number, input: unknown) {
       if (!(step in intakeSteps)) throw new DomainError("invalid", `Intake step ${step} does not exist`);
       const data = intakeSteps[step as IntakeStep].parse(input);
       const record = await openForWriting(reader, clientId);
-      await caseRepo.updateIntake(record.id, { ...data, updatedBy: reader.id }, audit(reader, "update_intake", "case_history", record.id, { step, fields: Object.keys(data) }));
+      const completed = Boolean(record.intakeCompletedAt) || record.status !== "intake_pending";
+      if (completed && ((step === 2 && "presentingComplaints" in data && !data.presentingComplaints) || (step === 6 && "diagnosisLabel" in data && !data.diagnosisLabel))) throw new DomainError("invalid", "A completed intake must keep its complaints and primary diagnosis");
+      const saved = await caseRepo.updateIntake(record.id, { ...data, updatedBy: reader.id }, audit(reader, "update_intake", "case_history", record.id, { step, fields: Object.keys(data) }), { ownerId: needsApproval(reader) ? reader.id : null, step, now: new Date() });
+      if (!saved) throw new DomainError("forbidden", "A completed case history needs an unused manager approval for this section, or the client was reassigned");
     },
 
     async completeIntake(reader: Reader, clientId: string, now = new Date()) {
@@ -112,8 +147,9 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
       if (!record.presentingComplaints) throw new DomainError("invalid", `Write the presenting complaints for client ${clientId} before completing the intake`);
       // As in MCH: the chief complaints and a primary diagnosis are the two things a completed intake must have.
       if (!record.diagnosisLabel) throw new DomainError("invalid", `Write the primary diagnosis for client ${clientId} before completing the intake`);
-      await caseRepo.updateIntake(record.id, { status: "in_treatment", intakeCompletedAt: now, intakeCompletedBy: reader.id, updatedBy: reader.id },
-        audit(reader, "complete_intake", "case_history", record.id));
+      const completed = await caseRepo.updateIntake(record.id, { status: "in_treatment", intakeCompletedAt: now, intakeCompletedBy: reader.id, updatedBy: reader.id },
+        audit(reader, "complete_intake", "case_history", record.id), { ownerId: needsApproval(reader) ? reader.id : null, step: null, now });
+      if (!completed) throw new DomainError("forbidden", "This intake is already completed or the client was reassigned");
     },
 
     async addNote(reader: Reader, clientId: string, input: unknown): Promise<string> {

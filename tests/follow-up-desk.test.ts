@@ -1,8 +1,10 @@
+import { eq } from "drizzle-orm";
+import { booking, caseHistory, sessionNote } from "@/db/schema";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { BookingActor } from "@/features/bookings/bookings.service";
 import type { DeskViewer } from "@/features/follow-up-desk/follow-up-desk.dto";
 import { zonedToUtc } from "@/lib/time";
-import { c, reset } from "./helpers";
+import { c, db, reset } from "./helpers";
 
 beforeEach(reset);
 
@@ -23,8 +25,12 @@ async function setup() {
   }
   const book = (staffId: string, start: string, phone: string) =>
     c.bookings.create(desk, { serviceId: therapy.id, staffId, start: at(start), client: { name: "Ravi", phone }, useCredits: false }, { now: at("2026-09-01T08:00") }).then((r) => r.booking);
-  const ravi = (await book(asha.id, "2026-09-03T10:00", "98765 43210")).clientId;
-  const meena = (await book(dev.id, "2026-09-03T11:00", "98765 11111")).clientId;
+  const first = await book(asha.id, "2026-09-03T10:00", "98765 43210");
+  await c.bookings.markStatus(desk, first.id, "completed");
+  const ravi = first.clientId;
+  const second = await book(dev.id, "2026-09-03T11:00", "98765 11111");
+  await c.bookings.markStatus(desk, second.id, "completed");
+  const meena = second.clientId;
   const ask = (by: DeskViewer, clientId: string, message = "Next week, evenings please", psychologistId = by.id) =>
     c.followUps.request(by, { clientId, psychologistId, suggestedOn: "2026-09-10", partOfDay: "evening", message }, at("2026-09-03T12:00"));
   return { asha, dev, sana, bde, book, ravi, meena, ask };
@@ -57,6 +63,41 @@ describe("who a psychologist can ask about", () => {
     expect(mine).toContain(ravi);
     expect(mine).not.toContain(newcomer);
     await expect(ask(v(asha), newcomer)).rejects.toMatchObject({ code: "forbidden" });
+  });
+});
+
+describe("completed-session eligibility", () => {
+  it("rejects past but incomplete, failed, released, missed and cancelled attempts for psychologists and coordinators", async () => {
+    const { asha, sana, book, ravi, ask } = await setup();
+    for (const [i, patch] of [
+      { status: "upcoming" }, { status: "completed", paymentStatus: "failed" },
+      { status: "completed", slotReleased: true }, { status: "no_show" },
+      { status: "cancelled" }, { status: "completed", paymentStatus: "pending", source: "web" },
+    ].entries()) {
+      const b = await book(asha.id, `2026-09-${String(12+i).padStart(2, "0")}T10:00`, `987650000${i}`);
+      await db.update(booking).set(patch as Partial<typeof booking.$inferInsert>).where(eq(booking.id, b.id));
+      expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).not.toContain(b.clientId);
+      expect((await c.followUps.clientsOf()).map(c => c.id)).not.toContain(b.clientId);
+      await expect(ask(asha, b.clientId)).rejects.toMatchObject({ code: "forbidden" });
+      await expect(ask(sana, b.clientId, "Please arrange next session", asha.id)).rejects.toMatchObject({ code: "forbidden" });
+    }
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).toContain(ravi);
+  });
+
+  it("counts signed past legacy sessions, but not drafts, future notes or notes attached to failed attempts", async () => {
+    const { asha, book } = await setup();
+    const b = await book(asha.id, "2026-09-20T10:00", "9876500099");
+    const [h] = await db.insert(caseHistory).values({ clientId: b.clientId }).returning();
+    const [n] = await db.insert(sessionNote).values({ caseHistoryId: h.id, authorId: asha.id, number: 1, sessionAt: new Date("2026-09-20"), summary: "Synthetic legacy session" }).returning();
+    const eligible = async () => (await c.followUps.clientsOf(asha.id)).some(c => c.id === b.clientId);
+    expect(await eligible()).toBe(false);
+    await db.update(sessionNote).set({ signedAt: new Date() }).where(eq(sessionNote.id, n.id));
+    expect(await eligible()).toBe(true);
+    await db.update(sessionNote).set({ sessionAt: new Date(Date.now()+86400000) }).where(eq(sessionNote.id, n.id));
+    expect(await eligible()).toBe(false);
+    await db.update(booking).set({ paymentStatus: "failed" }).where(eq(booking.id, b.id));
+    await db.update(sessionNote).set({ bookingId: b.id, sessionAt: new Date("2026-09-20") }).where(eq(sessionNote.id, n.id));
+    expect(await eligible()).toBe(false);
   });
 });
 

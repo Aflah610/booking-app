@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbOrTx } from "@/db";
-import { booking, client, clientTherapist, creditPurchase, followUpRequest, staff } from "@/db/schema";
+import { booking, caseHistory, client, clientTherapist, creditPurchase, followUpRequest, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import { OPEN_REQUEST_STATUSES } from "@/features/follow-up-desk/follow-up-desk.dto";
@@ -254,6 +254,8 @@ export function createClientsRepository(db: Db) {
           .set({ endsAt: a.at })
           .where(and(eq(clientTherapist.clientId, clientId), isNull(clientTherapist.endsAt)));
         await tx.insert(clientTherapist).values({ clientId, staffId: a.staffId, startsAt: a.at, assignedBy: a.assignedBy, reason: a.reason });
+        // Invalidate old correction grants even if the client later returns to the former therapist.
+        await tx.update(caseHistory).set({ intakeRevision: sql`${caseHistory.intakeRevision} + 1` }).where(eq(caseHistory.clientId, clientId));
         // An open follow-up thread moves with the client, so the new psychologist picks up the conversation with the CCD.
         await tx
           .update(followUpRequest)

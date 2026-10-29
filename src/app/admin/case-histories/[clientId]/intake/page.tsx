@@ -71,9 +71,10 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
   const { clientId } = await params;
   const sp = await searchParams;
   const step = Math.min(6, Math.max(1, Number(sp.step) || 1));
+  const editableSteps = await app().caseHistory.intakeEditSteps(me, clientId);
   let r: CaseRecordDTO;
   try {
-    if (!(await app().caseHistory.canWrite(me, clientId))) redirect(`/admin/case-histories/${clientId}`);
+    if (!editableSteps.includes(step)) redirect(`/admin/case-histories/${clientId}?${new URLSearchParams({ error: "A completed case history needs an approved edit request for this section." })}`);
     r = await app().caseHistory.open(me, clientId);
   } catch (err) {
     if (isDomainError(err) && err.code === "not_found") notFound();
@@ -118,13 +119,13 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
       <Notice ok={sp.ok} error={sp.error} />
 
       <nav className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" aria-label="Case history steps">
-        {STEPS.map((label, i) => (
+        {STEPS.map((label, i) => editableSteps.includes(i + 1) ? (
           <Link key={label} href={`?step=${i + 1}`} aria-current={step === i + 1 ? "step" : undefined}
             className={`rounded-lg border px-3 py-2 text-sm ${step === i + 1 ? "border-black bg-black text-white" : "border-zinc-200 text-zinc-700 hover:border-zinc-400"}`}>
             <span className={`block text-[11px] uppercase tracking-wider ${step === i + 1 ? "text-zinc-300" : "text-zinc-500"}`}>Step {i + 1}</span>
             {label}
           </Link>
-        ))}
+        ) : <span key={label} className="rounded-lg border border-zinc-100 px-3 py-2 text-sm text-zinc-400">Step {i + 1}: {label}</span>)}
       </nav>
 
       {step === 1 ? (
@@ -224,9 +225,9 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button className="btn" type="submit" name="intent" value="save">{step < 6 ? "Save and continue" : "Save"}</button>
+            <button className="btn" type="submit" name="intent" value="save">{editableSteps.length === 1 ? "Save approved correction" : step < 6 ? "Save and continue" : "Save"}</button>
             {step === 6 && r.status === "intake_pending" && <button className="btn-ghost" type="submit" name="intent" value="complete">Save and mark complete</button>}
-            <Link className="btn-ghost" href={`?step=${step - 1}`}>Back</Link>
+            <Link className="btn-ghost" href={editableSteps.includes(step - 1) ? `?step=${step - 1}` : `/admin/case-histories/${clientId}`}>Back</Link>
           </div>
           {step === 6 && r.status === "intake_pending" && <p className="text-xs text-zinc-600"><span className="text-red-600">*</span> Presenting complaints (step 2) and the primary diagnosis are needed to mark it complete.</p>}
         </form>

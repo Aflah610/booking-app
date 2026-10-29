@@ -277,3 +277,40 @@ describe("therapist pages keep work and contacts scoped", () => {
   });
 
 });
+
+
+describe("case-history correction pages", () => {
+  it("locks completed intake links, exposes requests, and opens only an approved section", async () => {
+    const { own, mine } = await setup();
+    await c.caseHistory.saveIntake(own, mine.clientId, 2, { presentingComplaints: "Synthetic complaint" });
+    await c.caseHistory.saveIntake(own, mine.clientId, 6, { diagnosisLabel: "Synthetic diagnosis" });
+    await c.caseHistory.completeIntake(own, mine.clientId);
+    const { default: Case } = await import("@/app/admin/case-histories/[clientId]/page");
+    const { default: Intake } = await import("@/app/admin/case-histories/[clientId]/intake/page");
+    const props = { params: Promise.resolve({ clientId: mine.clientId }), searchParams: Promise.resolve({}) };
+    const locked = html(await Case(props));
+    expect(locked).toContain("Send edit request");
+    expect(locked).not.toContain("Edit case history</a>");
+    await expect(Intake({ ...props, searchParams: Promise.resolve({ step: "2" }) })).rejects.toThrow("redirect:");
+    const request = await c.caseHistory.requestIntakeEdit(own, mine.clientId, { step: 2, reason: "Correct a transcription error" });
+    const manager = await c.staff.create({}, { name: "Reviewer", email: "review@firm.test", role: "manager" });
+    await c.caseHistory.reviewIntakeEdit(manager, request, { decision: "approve", reason: "Approved correction" });
+    expect(html(await Intake({ ...props, searchParams: Promise.resolve({ step: "2" }) }))).toContain("Save approved correction");
+    await expect(Intake({ ...props, searchParams: Promise.resolve({ step: "6" }) })).rejects.toThrow("redirect:");
+    const { default: Queue } = await import("@/app/admin/case-edit-requests/page");
+    runtime.me = { ...manager, permissions: new Set(DEFAULT_PERMISSIONS.manager) };
+    const queue = html(await Queue({ searchParams: Promise.resolve({}) }));
+    expect(queue).toContain("Approved correction");
+    expect(queue).not.toContain("Synthetic complaint");
+    expect(queue).not.toContain("Synthetic diagnosis");
+  });
+
+  it("lists only completed-session clients in the follow-up page", async () => {
+    const { mine } = await setup();
+    const { default: New } = await import("@/app/admin/follow-ups/new/page");
+    const props = { searchParams: Promise.resolve({}) };
+    expect(html(await New(props))).not.toContain("Shared Client</option>");
+    await db.execute(sql`update booking set status = 'completed', starts_at = '2026-09-01', ends_at = '2026-09-01 01:00:00+00' where id = ${mine.id}`);
+    expect(html(await New(props))).toContain("Shared Client</option>");
+  });
+});

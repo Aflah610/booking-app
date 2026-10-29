@@ -14,10 +14,11 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
   // Each item appears only for roles allowed to use it (Settings > Roles & access); the pages check again on their own.
   const can = (p: Parameters<typeof allowed>[1]) => allowed(me, p);
   const manages = ["clients.view", "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage"] as const;
-  const [showLeads, followUpNews, pendingNotes] = await Promise.all([
+  const [showLeads, followUpNews, pendingNotes, editRequests] = await Promise.all([
     canUseLeads(me) && app().leads.hasSalesTeam(),
     canUseFollowUps(me) ? app().followUps.countUnread(me) : 0,
     can("casenotes.pending") ? app().caseHistory.countOverdueNotes() : 0,
+    app().caseHistory.pendingEditCount(me),
   ]);
   const newLeads = showLeads ? await app().leads.countNew(me) : 0;
   return (
@@ -49,6 +50,7 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
               {!can("clients.view") && can("clients.own") && <NavLink href="/admin/clients" icon="user">My clients</NavLink>}
               {canUseFollowUps(me) && <NavLink href="/admin/follow-ups" icon="chat" count={followUpNews}>Follow-ups</NavLink>}
               {(can("casenotes.write") || can("casenotes.read_all")) && <NavLink href="/admin/case-histories" icon="file" exact>Case histories</NavLink>}
+              {(app().caseHistory.canReviewEdits(me) || (me.accessRole === "psychologist" && can("casenotes.write"))) && <NavLink href="/admin/case-edit-requests" icon="file" count={editRequests}>{app().caseHistory.canReviewEdits(me) ? "Case edit requests" : "My edit requests"}</NavLink>}
               {can("casenotes.pending") && <NavLink href="/admin/case-histories/pending" icon="clock" count={pendingNotes}>Pending case notes</NavLink>}
               {manages.some(can) && <p className="nav-heading">Manage</p>}
               {can("clients.view") && <NavLink href="/admin/clients" icon="user">Clients</NavLink>}

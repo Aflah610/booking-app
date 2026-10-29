@@ -45,6 +45,14 @@ project for the same owner, Aflah.
 - Confirmed website bookings (paid/free), fully credit-covered bookings and recorded payments assign the booked
   therapist only when the client has no current assignment. Pending/failed checkouts do not assign anyone.
   Keep existing assignments; changing therapist remains an explicit coordinator action with a reason.
+- Completed case-history intakes are locked for ordinary psychologists. They request a section correction;
+  manager/admin approval grants one save within 24 hours, bound to requester, assignment and intake revision.
+  Managers see only request metadata, not clinical content. Admins see the request/decision history too.
+  Initial intake drafting, new session notes and signed-note addenda keep their existing rules; clinical-admin
+  oversight is retained. Previous corrected field values stay private in the approval record, never audit logs.
+- Follow-up client pickers and submissions require at least one completed, unreleased, non-failed session
+  with the selected psychologist; merely started/upcoming sessions do not qualify. Signed past legacy
+  session notes without a booking also count. This applies to coordinators and managers too.
 - Case history mirrors the old system MCH (6 steps). MCH data is copied with `scripts/import-mch.ts`
   (dry run by default). Never print or log clients' clinical text.
 - The website (`mindlap.in`, repo `mindlap-therapy`) talks to this app through its Cloudflare Worker.
