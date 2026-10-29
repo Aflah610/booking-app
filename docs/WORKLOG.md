@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 · Claude Code · Calendar picker lists psychologists only
+
+- Psychologists already see only their own diary (staffFilter = me.id, no picker). For admin/manager/CCD the
+  picker now lists current psychologists (roles with casenotes.write) plus anyone with a session that week;
+  "Everyone" renamed "All psychologists". No data change.
+
 ## 2026-10-29 · Claude Code · follow-ups only for clients the psychologist has actually seen
 
 - Aflah's therapist workflow: see the booking, take the session, write the case history, send CCD the follow-up.

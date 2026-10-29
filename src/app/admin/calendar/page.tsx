@@ -26,7 +26,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   // Managers see everyone; other staff only their own diary.
   const staffFilter = !isFrontDesk(me) ? me.id : sp.staff === "all" ? null : sp.staff || null;
-  const [rows, people] = await Promise.all([
+  const [rows, people, therapistRoles] = await Promise.all([
     bookings.list({
       view: "all",
       staffId: staffFilter,
@@ -36,7 +36,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       confirmedOnly: !isFrontDesk(me),
     }),
     isFrontDesk(me) ? staff.list() : Promise.resolve([me]),
+    app().access.rolesWith("casenotes.write"),
   ]);
+  // The picker lists current psychologists (and anyone else with a session this week), not the desk or admins.
+  const choices = people.filter((p) => p.active && (therapistRoles.includes(p.accessRole) || rows.some((b) => b.staffId === p.id)));
   // A booking whose payment ran out has given its time back, so it takes no space on the diary.
   const live = rows.filter((b) => b.status !== "cancelled" && !b.slotReleased);
   const minutesIntoDay = (d: Date) => {
@@ -55,8 +58,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             {isFrontDesk(me) && <form action="/admin/calendar" className="flex gap-2">
               <input type="hidden" name="week" value={monday} />
               <select className="input w-44" name="staff" defaultValue={staffFilter ?? "all"} aria-label="Staff member">
-                <option value="all">Everyone</option>
-                {people.filter((p) => p.active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <option value="all">All psychologists</option>
+                {choices.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               <button className="btn-ghost" type="submit">Show</button>
             </form>}
