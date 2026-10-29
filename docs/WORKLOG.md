@@ -15,7 +15,9 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   Kept configured role permissions and admins' wider access. No live account roles, clients, bookings or data changed.
 - Seven new real-PostgreSQL route/render regressions cover isolation, direct URLs/actions, hidden contacts and
   retained admin access. All 536 tests in 49 files pass; lint, typecheck and production build pass.
-  Publishing for CI and merge; not live yet. The wider website audit remains unfinished in the website repo.
+  PR #15 passed GitHub check and Docker CI and merged as b2ae184. Main is queued for the normal CI-gated
+  five-minute server deployment; exact live UI revision is not yet verified. The wider website audit remains
+  unfinished in the website repo.
 
 ## 2026-10-29 - Codex - Shared calendar warning on booking details
 
