@@ -10,7 +10,8 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   Meet creation. Missing/disabled/error warnings describe the effective calendar, not the therapist.
 - Released payment attempts say no meeting link is being prepared, rather than displaying a misleading
   calendar warning. No calendar settings, payments, bookings or client data changed.
-- Validation and publication are in progress; not live yet.
+- Lint, TypeScript and production build pass. All 529 tests in 48 files pass against isolated local
+  PostgreSQL. PR #14 is published; awaiting CI and merge, not live yet.
 
 ## 2026-10-28 - Codex - All nine booking checkup bugs fixed and merged
 
