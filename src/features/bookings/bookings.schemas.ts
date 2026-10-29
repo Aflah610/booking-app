@@ -9,6 +9,8 @@ export const createBookingInput = z.object({
   staffId: z.string().uuid().nullish(),
   start,
   client: clientContactInput,
+  /** A staff declaration; matching an established client also classifies a follow-up automatically. */
+  followUp: z.boolean().default(false),
   holdToken: z.string().min(10).max(200).nullish(),
   notes: z.string().trim().max(2000).nullish(),
   formAnswers: z.record(z.string(), z.unknown()).default({}),

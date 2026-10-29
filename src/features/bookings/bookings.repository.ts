@@ -4,7 +4,7 @@ import { booking, business, client, notification, payment, service, slotHold, st
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { ClientContact } from "@/features/clients/clients.dto";
-import { assignInitialTherapist, upsertClient } from "@/features/clients/clients.repository";
+import { assignInitialTherapist, registeredClientWhere, upsertClient } from "@/features/clients/clients.repository";
 import type { Allocation } from "@/features/packages/packages.dto";
 import { applyCredits, moveCredits, restoreReturnedCredits, returnCredits } from "@/features/packages/packages.repository";
 import { PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, pgError } from "@/features/shared/db-errors";
@@ -38,6 +38,8 @@ const columns = {
   meetingOverride: sql<"on" | "off" | null>`${booking.meetingOverride}`,
   noShowBy: booking.noShowBy,
   source: booking.source,
+  isFollowUp: booking.isFollowUp,
+  followUpSource: booking.followUpSource,
   notes: booking.notes,
   formAnswers: booking.formAnswers,
   cancellationReason: booking.cancellationReason,
@@ -54,6 +56,7 @@ export type NewBooking = {
   startsAt: Date;
   endsAt: Date;
   source: BookingSource;
+  followUp?: boolean;
   client: ClientContact | { id: string };
   idempotencyKey?: string | null;
   manageTokenHash?: string | null;
@@ -152,8 +155,11 @@ async function claimTime(tx: Tx, t: { staffId: string; startsAt: Date; endsAt: D
   return other ? ("held" as const) : null;
 }
 
-async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?: string; paymentStatus?: PaymentStatus; amountPaise?: number | null; pricePaise?: number | null } = {}) {
+async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?: string; paymentStatus?: PaymentStatus; amountPaise?: number | null; pricePaise?: number | null; followUpSource?: BookingDTO["followUpSource"] } = {}) {
   const clientId = "id" in b.client ? b.client.id : await upsertClient(tx, b.client);
+  // Upsert locks the unique phone row, so concurrent bookings reuse one client. Check registration before this visit exists.
+  const [existing] = await tx.select({ id: client.id }).from(client).where(and(eq(client.id, clientId), registeredClientWhere()));
+  const followUpSource = extra.rescheduledFromId ? extra.followUpSource ?? null : b.followUp ? "staff" : existing ? "existing_client" : null;
   const [row] = await tx
     .insert(booking)
     .values({
@@ -163,6 +169,8 @@ async function insertBooking(tx: Tx, b: NewBooking, extra: { rescheduledFromId?:
       startsAt: b.startsAt,
       endsAt: b.endsAt,
       source: b.source,
+      isFollowUp: followUpSource !== null,
+      followUpSource,
       idempotencyKey: b.idempotencyKey ?? null,
       manageTokenHash: b.manageTokenHash ?? null,
       notes: b.notes ?? null,
@@ -373,6 +381,8 @@ export function createBookingsRepository(db: Db) {
             staffId: booking.staffId,
             clientId: booking.clientId,
             source: booking.source,
+  isFollowUp: booking.isFollowUp,
+  followUpSource: booking.followUpSource,
             manageTokenHash: booking.manageTokenHash,
             formAnswers: booking.formAnswers,
             paymentStatus: booking.paymentStatus,
@@ -405,7 +415,7 @@ export function createBookingsRepository(db: Db) {
           // The client's answers and what they have paid belong to the visit, not to the time slot, so they move too.
           { ...next, client: { id: old.clientId }, source: old.source, manageTokenHash: old.manageTokenHash, formAnswers: old.formAnswers,
             payment: { status: old.paymentStatus, dueAt: old.paymentDueAt, resumeUntil: old.resumeUntil, amountPaise: old.amountPaise, slotReleased: old.slotReleased } },
-          { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise, pricePaise: old.pricePaise },
+          { rescheduledFromId: oldId, paymentStatus: old.paymentStatus, amountPaise: old.amountPaise, pricePaise: old.pricePaise, followUpSource: old.followUpSource },
         );
         await moveCredits(tx, oldId, id);
         // Receipts belong to the visit; move them with it so the active booking/export has one payment history.

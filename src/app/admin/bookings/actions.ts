@@ -52,6 +52,7 @@ export async function createBookingAction(form: FormData) {
         email: optional(form, "clientEmail"),
         whatsappOptIn: form.get("whatsappOptIn") === "on",
       },
+      followUp: form.get("followUp") === "on",
       notes: optional(form, "notes"),
       formAnswers: answersFromForm(form),
     });

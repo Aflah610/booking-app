@@ -105,3 +105,21 @@ priced service can't be booked here (403), exactly as on `/book`: it would expir
 
 Send only simple requests from the browser: GET with no custom headers, and the booking POST as `text/plain` with the
 key in the body. Catalyst's gateway answers CORS preflights itself without CORS headers, so a preflighted request fails.
+
+
+### CCD payment-only collection
+
+Authenticated staff create bookings without client OTP at `/admin/bookings/new`. A staff Follow-up tick
+or an established-client phone match classifies a new visit as a follow-up. This does not mark attendance
+or payment; reschedules preserve classification.
+
+`POST /api/v1/bookings/:id/collection` requires the website API key and `{ token }`. The token is issued
+only on a permitted staff booking page, bound to the current balance and an expiry. It grants no account,
+OTP session or booking-management access. The response is for the payment Worker only: booking reference,
+amount, payment status and the contact needed for internal reporting. Never expose that entire response
+to the browser. The public `/pay/:id?t=...` page sends payment commands through `/api/collect/:id`.
+
+Worker `/api/payment/ccd-order` validates the token with this endpoint before creating or reusing a
+Razorpay order. `/api/payment/ccd-verify` additionally binds the signed provider result to that same booking.
+The existing captured-payment webhook/ledger remains authoritative. Paid, cancelled, moved, expired or
+balance-changed links cannot start a new checkout. Clients receive no account or session-history access.

@@ -3,12 +3,24 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
-## 2026-10-29 - Codex - In progress: CCD no-OTP booking and payment QR
+## 2026-10-29 - Codex - CCD-assisted booking, follow-up classification and payment QR
 
-- Aflah confirmed either an existing-client phone match OR CCD ticking Follow-up is enough to classify a
-  booking as a follow-up. Extending the existing authenticated CCD no-OTP booking form, with a booking-specific
-  payment page/QR and automatic verified-payment reporting through the existing Worker/Razorpay integration.
-- Working on codex/ccd-payment-qr. Additive classification migration reserved first. Not live yet.
+- Aflah confirmed either condition is enough: matching an established client's normalised number OR CCD
+  ticking Follow-up. Extended the existing authenticated New booking form, without client OTP. One phone
+  reuses one client record; a failed-only web contact is not an established client. Migration 0043 adds
+  classification/provenance for new visits; rescheduling preserves it. Old visits are not reclassified.
+- The follow-up label does not mark paid/completed or loosen completed-session eligibility in Follow-ups.
+- Future pending staff bookings show a locally generated downloadable QR plus Copy link/Share only to
+  bookings.create users. /pay/<id> carries a payment-only token bound to booking, balance and expiry
+  (24 hours or session start). No phone/contact data in the URL, account login or manage capability.
+  Move/cancel/balance changes invalidate the old payment link. Paid/free/fully credited visits have no QR.
+- Public payment page matches the neutral booking journey. It proxies to the existing Worker/Razorpay;
+  signature/capture checks and webhook reporting update the booking automatically. The Worker validates
+  tokens server-to-server and reuses one stored Razorpay order per booking/balance across tabs/refreshes.
+  No new provider credentials or changes to public OTP. No live payments, messages or client records used.
+- Six real-Postgres classification/token tests and all 14 therapist/CCD route/render tests pass. Worker
+  compatibility/security suite passes all 22 tests. Lint/type checks passed; build/full suite finishing.
+  Not live yet. Worker support committed separately in mindlap-therapy as 6b0da7b; deploy in progress.
 
 ## 2026-10-29 - Codex - Completed intake approvals and completed-session follow-ups
 

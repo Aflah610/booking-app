@@ -1,3 +1,4 @@
+import { paymentToken, validPaymentToken } from "./payment-link";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Actor } from "@/features/audit/audit.types";
 import type { BookingMode } from "@/features/availability/availability.dto";
@@ -165,6 +166,7 @@ export function createBookingsService(deps: {
     async create(actor: BookingActor, input: unknown, opts: { idempotencyKey?: string | null; now?: Date } = {}) {
       const data = createBookingInput.parse(input);
       const now = opts.now ?? new Date();
+      if (data.followUp && actor.mode !== "staff") throw new DomainError("forbidden", "Only staff may declare a follow-up");
       const key = opts.idempotencyKey ? idempotencyKeySchema.parse(opts.idempotencyKey) : null;
       if (actor.mode === "client" && !key) {
         throw new DomainError("invalid", "The Idempotency-Key header is required when creating a booking");
@@ -221,6 +223,7 @@ export function createBookingsService(deps: {
           startsAt: data.start,
           endsAt: new Date(data.start.getTime() + picked.service.durationMin * MIN),
           source: actor.mode === "client" ? "web" : "staff",
+          followUp: data.followUp,
           client: { name: data.client.name, phoneE164: data.client.phone, email: data.client.email ?? null, whatsappOptIn: data.client.whatsappOptIn },
           idempotencyKey: key,
           manageTokenHash: manageToken ? sha256(manageToken) : null,
@@ -277,6 +280,22 @@ export function createBookingsService(deps: {
     },
 
     releaseHold: (token: string) => bookingsRepo.releaseHold(sha256(token)),
+
+    /** Issued only from an authorised staff screen; clients receive a payment-only URL. */
+    async paymentLink(id: string, now = new Date()) {
+      const b = await get(id);
+      if (!deps.manageSecret || b.source !== "staff" || b.status !== "upcoming" || b.slotReleased || b.paymentStatus !== "pending" || !(b.amountPaise! > 0) || b.startsAt <= now) return null;
+      const expiresAt = new Date(Math.min(now.getTime() + 24 * 3600000, b.startsAt.getTime()));
+      return { token: paymentToken(b.id, b.amountPaise!, expiresAt.getTime(), deps.manageSecret), expiresAt };
+    },
+    async paymentRequest(id: string, token: string, now = new Date()) {
+      const b = await get(id);
+      const amount = b.amountPaise ?? b.pricePaise ?? 0;
+      if (!deps.manageSecret || !validPaymentToken(id, amount, token, deps.manageSecret, now) || b.source !== "staff") throw new DomainError("not_found", "Payment link is invalid or expired");
+      if (b.status !== "upcoming" || b.slotReleased || b.startsAt <= now || b.movedToId) throw new DomainError("conflict", "This booking has changed. Ask the coordinator for a new payment link.");
+      if (b.paymentStatus !== "pending" && b.paymentStatus !== "paid") throw new DomainError("conflict", "This booking is not awaiting payment");
+      return b;
+    },
 
     /** The signed token for a client's manage link, or null when the app has no secret to sign with. */
     manageToken: (bookingId: string) => (deps.manageSecret ? manageToken(bookingId, deps.manageSecret) : null),

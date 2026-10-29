@@ -1,3 +1,5 @@
+import QRCode from "qrcode";
+import { PaymentQr } from "@/components/PaymentQr";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
@@ -47,6 +49,9 @@ export default async function BookingPage({
   const canBook = allowed(me, "bookings.create");
   // Rescheduling has its own permission, so managers can move sessions without taking bookings or payments.
   const canMove = allowed(me, "bookings.reschedule") && b.status === "upcoming" && !started;
+  const collection = canBook ? await bookings.paymentLink(b.id) : null;
+  const paymentUrl = collection ? `${(process.env.AUTH_URL ?? "https://book.mindlap.in").replace(/\/$/, "")}/pay/${b.id}?t=${collection.token}` : null;
+  const qr = paymentUrl ? await QRCode.toDataURL(paymentUrl, { width: 420, margin: 3, errorCorrectionLevel: "M" }) : null;
   const moving = canMove && sp.move === "1";
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDay(b.startsAt, tz);
 
@@ -69,10 +74,11 @@ export default async function BookingPage({
       <PageHeader
         title={`${b.serviceName} with ${b.clientName}`}
         subtitle={`${bookingReference(s.bookingPrefix, b.number)} · booked ${b.source === "web" ? "online" : "by staff"}`}
-        action={<span className="flex flex-wrap gap-1.5"><PaymentBadge status={b.paymentStatus} /><StatusBadge status={b.status} /></span>}
+        action={<span className="flex flex-wrap gap-1.5"><PaymentBadge status={b.paymentStatus} /><StatusBadge status={b.status} />{b.isFollowUp && <span className="badge">Follow-up</span>}</span>}
       />
       <Notice error={sp.error} ok={sp.ok} />
 
+      {paymentUrl && qr && collection && <PaymentQr url={paymentUrl} image={qr} reference={bookingReference(s.bookingPrefix, b.number)} expiry={collection.expiresAt.toLocaleString("en-GB", { timeZone: tz })} />}
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <section className="card divide-y divide-zinc-100">
           <dl className="grid gap-5 p-6 sm:grid-cols-2">

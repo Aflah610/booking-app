@@ -58,7 +58,7 @@ export default async function NewBookingPage({
 
   return (
     <>
-      <PageHeader title="New booking" subtitle={`Times are in ${tz}.`} />
+      <PageHeader title="New booking" subtitle={`Book for a client without OTP. Times are in ${tz}.`} />
       <Notice error={sp.error} />
       <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
         <AutoSubmitForm className="card grid content-start gap-4 p-5" action="/admin/bookings/new">
@@ -122,6 +122,8 @@ export default async function NewBookingPage({
               <input type="hidden" name="start" value={chosen.start.toISOString()} />
               <input type="hidden" name="date" value={date} />
               <ClientFields canSearch={isFrontDesk(me)} initial={client && { id: client.id, name: client.name, phone: client.phoneE164, email: client.email, whatsappOptIn: client.whatsappOptIn }} />
+              <label className="sm:col-span-2 flex items-center gap-3 text-sm"><input type="checkbox" name="followUp" className="toggle" /> Follow-up session</label>
+              <p className="sm:col-span-2 text-xs text-zinc-600">A matching existing-client number OR ticking Follow-up is enough. The same client record is reused. A payment QR is available after booking.</p>
               <QuestionFields questions={svc.questions} />
               <div className="sm:col-span-2"><label className="label" htmlFor="notes">Notes</label><textarea className="input" id="notes" name="notes" rows={2} placeholder="Only staff see these" /></div>
               <div className="sm:col-span-2"><button className="btn-success" type="submit">Confirm booking</button></div>
