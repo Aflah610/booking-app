@@ -124,3 +124,13 @@ describe("clients by role", () => {
     expect(DEFAULT_PERMISSIONS.ccd.has("clients.reassign")).toBe(false);
   });
 });
+
+describe("rescheduling by role", () => {
+  it("lets admins, managers and coordinators reschedule, but not psychologists or sales", () => {
+    expect(can({ accessRole: "admin" }, "bookings.reschedule")).toBe(true);
+    expect(DEFAULT_PERMISSIONS.manager.has("bookings.reschedule")).toBe(true);
+    expect(DEFAULT_PERMISSIONS.ccd.has("bookings.reschedule")).toBe(true);
+    expect(DEFAULT_PERMISSIONS.psychologist.has("bookings.reschedule")).toBe(false);
+    expect(DEFAULT_PERMISSIONS.bde.has("bookings.reschedule")).toBe(false);
+  });
+});

@@ -18,7 +18,43 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 - Added real-PostgreSQL route/action regressions covering therapist refusal and actual manager/CCD/admin
   schedule writes. All 538 tests in 49 files pass, including nine therapist-view regressions; lint, typecheck
   and production build pass for the availability-only revision. Added approved Google guards to PR #16;
-  validating the combined revision. Not live yet. No live schedules or client data changed.
+  validating the combined revision. Merged Claude's newer confirmed-session, follow-up, reschedule and
+  calendar-picker work from b0e5f07; both new permissions are retained. Not live yet. No live schedules or client data changed.
+
+## 2026-10-29 · Claude Code · "Change psychologist" button on the client page
+
+- The existing Reassign link (clients.reassign: admin + manager) was easy to miss: now a "Change psychologist"
+  button, with a note that already-booked sessions stay with the current psychologist (use Reschedule to move them).
+  Behaviour unchanged: reason required, history kept, open follow-ups move to the new psychologist.
+
+## 2026-10-29 · Claude Code · Calendar picker lists psychologists only
+
+- Psychologists already see only their own diary (staffFilter = me.id, no picker). For admin/manager/CCD the
+  picker now lists current psychologists (roles with casenotes.write) plus anyone with a session that week;
+  "Everyone" renamed "All psychologists". No data change.
+
+## 2026-10-29 · Claude Code · follow-ups only for clients the psychologist has actually seen
+
+- Aflah's therapist workflow: see the booking, take the session, write the case history, send CCD the follow-up.
+  follow-up-desk.repository `clientsOf` (the psychologist's client picker and the request permission check) now
+  means: a booking with them that has started, not cancelled/no-show/released/failed/unpaid-online, or a session
+  note they wrote (MCH history). Previously: any booking at all, or currently assigned. Coordinators unchanged.
+- Test in tests/follow-up-desk.test.ts.
+
+## 2026-10-29 · Claude Code · psychologists see only confirmed sessions
+
+- Aflah: therapists should only see paid bookings, never failed ones. bookings.list gets `confirmedOnly`
+  (rule in bookings.dto `isConfirmedSession`: not slot-released, not failed, and not pending unless the desk booked it).
+  Used for non-front-desk viewers on Today, Bookings, Calendar and the client page's booking history; the booking
+  detail page 404s for them on an unconfirmed booking. Desk bookings awaiting payment still show (real sessions).
+- Contact details: re-checked after Codex's #15 (withoutContact); psychologists see no client phone or email.
+- Test: tests/confirmed-sessions.test.ts.
+
+## 2026-10-29 · Claude Code · Reschedule for admin, manager and CCD
+
+- New permission `bookings.reschedule` ("Reschedule bookings"): admin, manager and CCD by default; psychologists
+  and BDE not. The booking page's Reschedule button and rescheduleBookingAction use it (was bookings.create, which
+  managers lack). Cancelling and payments still need bookings.create (CCD/admin). Test in tests/access.test.ts.
 
 ## 2026-10-29 - Codex - Therapist-only workspace privacy review
 

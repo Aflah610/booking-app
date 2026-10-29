@@ -65,6 +65,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     from,
     to,
     limit: 200,
+    // Psychologists see only sessions that are on, never unpaid or failed online attempts.
+    confirmedOnly: !manager,
   }));
   const columns = resolveColumns(savedColumns, "bookings");
   const active = [serviceId, payment, packageBalance, fromDay, toDay, staffFilter && manager ? staffFilter : undefined].filter(Boolean).length;

@@ -22,10 +22,12 @@ async function requireBookingAccess(id: string) {
  * Moving, cancelling and anything to do with money is booking work: only roles with "Book sessions for clients" (the CCD and
  * admins by default) may do it, on top of being able to see the booking. Seeing a diary is not enough.
  */
-async function requireBookingChange(id: string) {
+async function requireBookingChange(id: string, permission: "bookings.create" | "bookings.reschedule" = "bookings.create") {
   const me = await requireBookingAccess(id);
-  if (!allowed(me, "bookings.create")) {
-    const error = "Only the coordinators (CCD) can move, cancel or take payment for bookings. Ask them to do it.";
+  if (!allowed(me, permission)) {
+    const error = permission === "bookings.reschedule"
+      ? "Only admins, managers and the coordinators (CCD) can reschedule bookings."
+      : "Only the coordinators (CCD) can move, cancel or take payment for bookings. Ask them to do it.";
     redirect(`/admin/bookings/${id}?${new URLSearchParams({ error })}`);
   }
   return me;
@@ -58,7 +60,7 @@ export async function createBookingAction(form: FormData) {
 }
 
 export async function rescheduleBookingAction(id: string, start: string, staffId: string) {
-  const me = await requireBookingChange(id);
+  const me = await requireBookingChange(id, "bookings.reschedule");
   await act(`/admin/bookings/${id}`, "Booking moved", async () => {
     const moved = await app().bookings.reschedule(deskActor(me.id), id, { start, staffId });
     return `/admin/bookings/${moved.id}`;

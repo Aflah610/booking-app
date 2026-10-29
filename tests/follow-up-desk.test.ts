@@ -48,6 +48,18 @@ describe("asking the coordinators", () => {
   });
 });
 
+describe("who a psychologist can ask about", () => {
+  it("lists only clients they have had a session with, not someone who has just booked", async () => {
+    const { asha, ravi, ask } = await setup();
+    const later = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+    const newcomer = (await c.bookings.create(desk, { serviceId: (await c.catalog.list())[0].id, staffId: asha.id, start: at(`${later}T10:00`), client: { name: "Nila", phone: "98765 22222" }, useCredits: false })).booking.clientId;
+    const mine = (await c.followUps.clientsOf(asha.id)).map((r) => r.id);
+    expect(mine).toContain(ravi);
+    expect(mine).not.toContain(newcomer);
+    await expect(ask(v(asha), newcomer)).rejects.toMatchObject({ code: "forbidden" });
+  });
+});
+
 describe("moving a client to another psychologist", () => {
   it("takes the open follow-up thread to the new psychologist", async () => {
     const { asha, dev, ravi, ask } = await setup();

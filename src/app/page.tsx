@@ -2,7 +2,7 @@ import Link from "next/link";
 import { app } from "@/features/container";
 import { addDays } from "@/features/availability/slots";
 import { withoutContact } from "@/lib/contact";
-import { allowed, requireStaff } from "@/lib/session";
+import { allowed, requireStaff, isFrontDesk } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel } from "@/lib/format";
 import { BookingsTable } from "@/components/BookingsTable";
@@ -24,10 +24,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
   const from = zonedToUtc(`${today}T00:00`, tz);
   const to = zonedToUtc(`${addDays(today, 1)}T00:00`, tz);
   const [mineAll, everyone, nextAll, savedColumns] = await Promise.all([
-    bookings.list({ view: "all", staffId: me.id, from, to, limit: 100 }),
+    bookings.list({ view: "all", staffId: me.id, from, to, limit: 100, confirmedOnly: !isFrontDesk(me) }),
     allowed(me, "bookings.all") ? bookings.list({ view: "all", from, to, limit: 500 }) : Promise.resolve([]),
     // From tomorrow on: today's sessions are already shown under "My day".
-    bookings.list({ view: "upcoming", staffId: me.id, from: to, limit: 5 }),
+    bookings.list({ view: "upcoming", staffId: me.id, from: to, limit: 5, confirmedOnly: !isFrontDesk(me) }),
     preferences.get(me.id, columnPrefKey("today")),
   ]);
   // Psychologists don't see clients' phone or email (Settings > Roles & access).

@@ -44,5 +44,7 @@ export const bookingListQuery = z.object({
   from: z.coerce.date().nullish(),
   to: z.coerce.date().nullish(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
+  /** Only sessions that are really on: see `isConfirmedSession`. For the psychologists' own views. */
+  confirmedOnly: z.boolean().optional(),
 });
 export type BookingListQuery = z.input<typeof bookingListQuery>;
