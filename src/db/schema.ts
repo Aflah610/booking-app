@@ -595,6 +595,8 @@ export const booking = pgTable("booking", {
   /** Who missed a no-show appointment. Empty for older no-shows and for every other status. */
   noShowBy: noShowBy("no_show_by"),
   source: bookingSource("source").notNull(),
+  isFollowUp: boolean("is_follow_up").notNull().default(false),
+  followUpSource: text("follow_up_source").$type<"existing_client" | "staff" | null>(),
   manageTokenHash: text("manage_token_hash"),
   /** From the Idempotency-Key header, so a retried create never books twice. */
   idempotencyKey: text("idempotency_key").unique(),

@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - In progress: CCD no-OTP booking and payment QR
+
+- Aflah confirmed either an existing-client phone match OR CCD ticking Follow-up is enough to classify a
+  booking as a follow-up. Extending the existing authenticated CCD no-OTP booking form, with a booking-specific
+  payment page/QR and automatic verified-payment reporting through the existing Worker/Razorpay integration.
+- Working on codex/ccd-payment-qr. Additive classification migration reserved first. Not live yet.
+
 ## 2026-10-29 - Codex - Completed intake approvals and completed-session follow-ups
 
 - Aflah approved manager approval followed by correction by the psychologist. Completed intakes now lock
