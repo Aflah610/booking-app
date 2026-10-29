@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 - Codex - Calendar paid-only for every role
+
+- Aflah reported an unpaid attempt appearing on the calendar and requested paid clients only. Read-only live
+  check confirmed BK-00019 is payment-failed; by the time of inspection it had left the calendar after release.
+  Admin/manager/CCD calendar queries previously included unpaid holds while still occupying a slot.
+- Calendar now queries paymentStatus=paid before the 500-row limit for every role, keeps the existing own-diary
+  scope for psychologists, and excludes cancelled/released paid visits. Fully credit-covered sessions remain
+  because the booking engine marks those paid. No free/not_required or partly covered pending visits are shown.
+- No records deleted or payment states changed in production. Unpaid attempts remain in Bookings for recovery.
+  Added real-Postgres route/render coverage for all four diary roles and payment/cancellation/release cases.
+- All 11 workspace route/render tests pass, including paid-only checks for all four diary roles.
+  Lint and TypeScript pass. Full validation/publication in progress; not live yet.
+
 ## 2026-10-29 - Codex - Availability belongs to managers and CCD
 
 - Aflah changed the policy: psychologists no longer control availability, including their own. New

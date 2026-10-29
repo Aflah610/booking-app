@@ -26,6 +26,9 @@ project for the same owner, Aflah.
 - Roles: admin, manager, psychologist, BDE (sales), CCD. Permissions in `src/features/access/permissions.ts`,
   editable by the admin. Only CCD books for clients; psychologists see only their own clients, without
   contact details; managers see only *pending* case notes (a note is due 24 hours after the session).
+- Calendar is paid-only for every role: query paymentStatus=paid before limits and exclude cancelled/released
+  slots. Fully package/wallet-covered sessions are paid; pending, failed, partial-credit and free/not_required
+  attempts stay out of Calendar. Their records remain available in Bookings for recovery and audit.
 - Availability is controlled by managers, CCD and admins (availability.manage), never by psychologists
   by default, including their own hours, date overrides and time off. /admin/availability is the therapist
   picker; CCD availability access does not grant staff-profile, role, price or Google-connection management.

@@ -33,15 +33,16 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       from: zonedToUtc(`${monday}T00:00`, tz),
       to: zonedToUtc(`${addDays(monday, 7)}T00:00`, tz),
       limit: 500,
-      confirmedOnly: !isFrontDesk(me),
+      // Calendar is a paid-session diary for every role, including the front desk.
+      paymentStatus: "paid",
     }),
     isFrontDesk(me) ? staff.list() : Promise.resolve([me]),
     app().access.rolesWith("casenotes.write"),
   ]);
   // The picker lists current psychologists (and anyone else with a session this week), not the desk or admins.
   const choices = people.filter((p) => p.active && (therapistRoles.includes(p.accessRole) || rows.some((b) => b.staffId === p.id)));
-  // A booking whose payment ran out has given its time back, so it takes no space on the diary.
-  const live = rows.filter((b) => b.status !== "cancelled" && !b.slotReleased);
+  // Keep cancelled/released paid bookings off the diary too; recovery attempts stay in Bookings.
+  const live = rows.filter((b) => b.paymentStatus === "paid" && b.status !== "cancelled" && !b.slotReleased);
   const minutesIntoDay = (d: Date) => {
     const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d).split(":").map(Number);
     return h * 60 + m;
@@ -52,7 +53,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader
         title="Calendar"
-        subtitle={`Week of ${dayLabel(new Date(`${monday}T12:00:00Z`), "UTC")}`}
+        subtitle={`Week of ${dayLabel(new Date(`${monday}T12:00:00Z`), "UTC")} · Paid sessions only`}
         action={
           <div className="flex items-center gap-2">
             {isFrontDesk(me) && <form action="/admin/calendar" className="flex gap-2">
