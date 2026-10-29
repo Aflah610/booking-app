@@ -20,7 +20,9 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   roles, including managers/CCD. Existing historical follow-up threads are retained.
 - Focused real-Postgres service and route/render tests pass, including reuse, expiry, reassignment/back,
   concurrent requests/decisions/saves, rollback, role privacy and failed/incomplete follow-up attempts.
-  Lint and TypeScript pass. Full test suite and production build are running; not live yet.
+  Lint, TypeScript and production build pass locally. GitHub full test/build/audit and Docker checks passed
+  on 6b3c7cc. PR #18 merged as b167e92. Main is queued for the normal CI-gated five-minute server deploy;
+  live UI revision is not yet verified. Public booking health check is OK. Local full-suite run is finishing.
 
 ## 2026-10-29 - Codex - Calendar paid-only for every role
 
