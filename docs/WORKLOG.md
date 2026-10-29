@@ -14,7 +14,8 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 - No records deleted or payment states changed in production. Unpaid attempts remain in Bookings for recovery.
   Added real-Postgres route/render coverage for all four diary roles and payment/cancellation/release cases.
 - All 11 workspace route/render tests pass, including paid-only checks for all four diary roles.
-  Lint and TypeScript pass. Full validation/publication in progress; not live yet.
+  All 543 tests in 50 files pass; lint, TypeScript and production build pass. Publishing for CI and merge;
+  not live yet.
 
 ## 2026-10-29 - Codex - Availability belongs to managers and CCD
 
