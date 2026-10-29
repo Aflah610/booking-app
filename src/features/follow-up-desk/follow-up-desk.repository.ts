@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/db";
-import { booking, client, clientTherapist, followUpMessage, followUpRead, followUpRequest, staff } from "@/db/schema";
+import { booking, caseHistory, client, followUpMessage, followUpRead, followUpRequest, sessionNote, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { AccessRole } from "@/features/access/permissions";
@@ -149,13 +149,19 @@ export function createFollowUpDeskRepository(db: Db) {
     },
 
     /** The clients a psychologist can ask about: those assigned to them now, or who have booked with them. */
+    /**
+     * Clients this psychologist has actually seen: a session with them that has taken place (not cancelled, missed,
+     * unpaid or failed), or a session note they wrote (sessions copied from MCH). Someone who has only booked isn't one yet.
+     */
     clientsOf(staffId: string) {
       return db
         .selectDistinct({ id: client.id, name: client.name, phoneE164: client.phoneE164 })
         .from(client)
         .where(or(
-          sql`exists (select 1 from ${clientTherapist} ct where ct.client_id = ${client.id} and ct.staff_id = ${staffId} and ct.ends_at is null)`,
-          sql`exists (select 1 from ${booking} b where b.client_id = ${client.id} and b.staff_id = ${staffId})`,
+          sql`exists (select 1 from ${booking} b where b.client_id = ${client.id} and b.staff_id = ${staffId} and b.starts_at <= now()
+            and b.status in ('upcoming', 'completed') and not b.slot_released
+            and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff'))`,
+          sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id where h.client_id = ${client.id} and n.author_id = ${staffId})`,
         ))
         .orderBy(asc(client.name))
         .limit(1000);

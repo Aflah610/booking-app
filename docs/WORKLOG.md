@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-29 · Claude Code · follow-ups only for clients the psychologist has actually seen
+
+- Aflah's therapist workflow: see the booking, take the session, write the case history, send CCD the follow-up.
+  follow-up-desk.repository `clientsOf` (the psychologist's client picker and the request permission check) now
+  means: a booking with them that has started, not cancelled/no-show/released/failed/unpaid-online, or a session
+  note they wrote (MCH history). Previously: any booking at all, or currently assigned. Coordinators unchanged.
+- Test in tests/follow-up-desk.test.ts.
+
 ## 2026-10-29 · Claude Code · psychologists see only confirmed sessions
 
 - Aflah: therapists should only see paid bookings, never failed ones. bookings.list gets `confirmedOnly`
