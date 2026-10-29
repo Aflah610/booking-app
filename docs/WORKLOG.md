@@ -16,10 +16,12 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
   Google connect/callback/options/sync/disconnect now require staff.manage, including self-service URLs.
   Callback permission is rechecked before accepting a consent code. No stored Google connections are revoked.
 - Added real-PostgreSQL route/action regressions covering therapist refusal and actual manager/CCD/admin
-  schedule writes. All 538 tests in 49 files pass, including nine therapist-view regressions; lint, typecheck
-  and production build pass for the availability-only revision. Added approved Google guards to PR #16;
-  validating the combined revision. Merged Claude's newer confirmed-session, follow-up, reschedule and
-  calendar-picker work from b0e5f07; both new permissions are retained. Not live yet. No live schedules or client data changed.
+  schedule writes. Availability-only revision passed all 538 tests. Approved Google guards pass the focused
+  10-test workspace suite. Reconciled Claude's newer confirmed-session, follow-up, reschedule and calendar-picker
+  work from b0e5f07; both new permissions are retained. Fresh merged integration run: 28/28 tests passed.
+- Combined lint/type checks and GitHub full test/build plus Docker CI passed on 07387c5. PR #16 merged as
+  2c93661. Main is queued for the normal CI-gated five-minute server deployment; live UI revision is not yet
+  verified. No stored Google connections, live schedules, bookings or client data changed.
 
 ## 2026-10-29 · Claude Code · "Change psychologist" button on the client page
 
