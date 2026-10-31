@@ -94,6 +94,9 @@ solution for each problem.
 - **Portable by default.** No host-specific SDKs in features. Settings and secrets come from environment
   variables (document each in `.env.example`). Background jobs will use pg-boss in the same Postgres.
 
+- Table navigation uses normal anchors, never stretched absolute link pseudo-elements on table rows.
+  Older WebKit can position those overlays outside the row and intercept Search, filters and navigation.
+
 ## Time and scheduling
 
 - Store every timestamp as `timestamptz` in UTC. Convert to a time zone only at the edges.

@@ -119,7 +119,7 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
             {shown.map((r) => (
               <tr key={r.clientId} className="row-link">
                 <td>
-                  {/* The whole row opens the case, or the client profile for readers who may not see the record. */}
+                  {/* Use a normal link so it cannot cover Search or other controls in Safari. */}
                   <Link className="row-link-target font-medium" href={r.restricted ? `/admin/clients/${r.clientId}` : `/admin/case-histories/${r.clientId}`}>{r.clientName}</Link>
                   <p className="font-mono text-xs text-zinc-600">{clientReference(r.clientNumber)}</p>
                 </td>
@@ -146,7 +146,7 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
                   <p className="tabular-nums">{r.notes === 0 ? "No notes" : `${r.notes} session${r.notes === 1 ? "" : "s"}`}</p>
                   {r.lastNoteAt && <p className="text-xs text-zinc-600">{dateLabel(r.lastNoteAt, s.timezone)}{r.lastNoteAuthor ? ` · by ${r.lastNoteAuthor}` : ""}</p>}
                 </td>
-                <td className="text-right text-zinc-400" aria-hidden="true">›</td>
+                <td className="text-right"><Link className="row-link-target px-2 py-1 text-zinc-600" href={r.restricted ? `/admin/clients/${r.clientId}` : `/admin/case-histories/${r.clientId}`} aria-label={`Open ${r.clientName}`}><span aria-hidden="true">›</span></Link></td>
               </tr>
             ))}
           </tbody>
