@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · ₹1 test service switched off
+
+- Aflah: remove the test. "Test session (₹1)" set to not Bookable (kept, not deleted); gone from mindlap.in.
+  Still ticked on Rashin's services list (harmless while not bookable). Ameen Dev keeps his test hours.
+
 ## 2026-10-31 · Claude Code · ₹1 test service on the website (Aflah asked)
 
 - Service "Test session (₹1)" (15 min, online with Meet, ₹1) created live via the admin UI. Now offered by
