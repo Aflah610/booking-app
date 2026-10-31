@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { app } from "@/features/container";
+import { sendToLeadsSheet } from "@/features/leads/leads-sheet";
 import { incomingMessages, signatureValid } from "@/features/leads/whatsapp-webhook";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,12 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       // One bad message must not make Meta retry the whole batch; log and carry on.
       console.error("Could not record a WhatsApp lead", err instanceof Error ? err.message : err);
+    }
+    try {
+      // The sales team works from the Google Sheets lead files; the sheet skips anyone who already has an open lead.
+      await sendToLeadsSheet(message);
+    } catch (err) {
+      console.error("Could not send a WhatsApp lead to the lead sheets", err instanceof Error ? err.message : err);
     }
   }
   // Meta retries anything that isn't a quick 200.

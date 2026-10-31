@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · lead management moves to Google Sheets (Master + BDE 1 + BDE 2)
+
+- Aflah: 774 leads go to three Google Sheets files (owner aflahkt610@gmail.com): "Leads – Master" (all leads),
+  "Leads – BDE 1", "Leads – BDE 2", split 50/50 in turn. Zoho CRM's 774 WhatsApp link: Aflah disconnects it himself.
+- docs/leads-sheets.gs: Apps Script for the Master file (setup, doPost web app, installable onEdit triggers): assigns
+  Lead ID + next BDE, copies the row to that BDE file, syncs BDE Status/Last call/Next follow-up/Notes back to Master,
+  skips a phone with an open lead. Also handles leads typed into Master by hand.
+- Booking app: WhatsApp webhook also posts each incoming 774 message to the sheet (features/leads/leads-sheet.ts)
+  when LEADS_SHEET_URL + LEADS_SHEET_KEY are set (not set yet). incomingMessages now carries the message text.
+- Open: Aflah pastes the script and deploys the web app; set the two env vars on the server (SSH from Claude's
+  machine is blocked); 774 still needs Zoho to release it and Coexistence before any webhook arrives.
+
 ## 2026-10-31 · Claude Code · client page: psychologists see Upcoming bookings only
 
 - /admin/clients/[id] Bookings tab: non-front-desk viewers get only the Upcoming sub-tab (Past and Cancelled hidden,

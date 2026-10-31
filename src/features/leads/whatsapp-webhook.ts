@@ -10,18 +10,21 @@ export function signatureValid(rawBody: string, header: string | null, appSecret
 }
 
 type Referral = { source_type?: string; source_id?: string; source_url?: string; headline?: string };
-type Message = { from?: string; timestamp?: string; referral?: Referral };
+type Message = { from?: string; timestamp?: string; referral?: Referral; text?: { body?: string } };
 type Value = { metadata?: { phone_number_id?: string }; contacts?: { wa_id?: string; profile?: { name?: string } }[]; messages?: Message[] };
 type Payload = { object?: string; entry?: { changes?: { field?: string; value?: Value }[] }[] };
+
+/** A lead to capture, plus the message text (for the lead sheets only; the booking app doesn't store it). */
+export type IncomingMessage = CaptureInput & { text?: string };
 
 /**
  * The customer messages in a WhatsApp Cloud API webhook, as leads to capture. Delivery receipts, our own replies
  * echoed from the WhatsApp Business app (Coexistence) and messages to other numbers are skipped.
  */
-export function incomingMessages(payload: unknown, onlyPhoneNumberId?: string): CaptureInput[] {
+export function incomingMessages(payload: unknown, onlyPhoneNumberId?: string): IncomingMessage[] {
   const p = payload as Payload;
   if (p?.object !== "whatsapp_business_account") return [];
-  const out: CaptureInput[] = [];
+  const out: IncomingMessage[] = [];
   for (const entry of p.entry ?? []) {
     for (const change of entry.changes ?? []) {
       if (change.field !== "messages" || !change.value?.messages) continue;
@@ -40,6 +43,7 @@ export function incomingMessages(payload: unknown, onlyPhoneNumberId?: string): 
           adHeadline: ad?.headline ?? null,
           adUrl: ad?.source_url ?? null,
           at: Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : undefined,
+          text: m.text?.body?.slice(0, 1000),
         });
       }
     }
