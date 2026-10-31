@@ -151,7 +151,7 @@ export function createFollowUpDeskRepository(db: Db) {
     /** Completed sessions only, including signed past sessions imported without a booking from MCH. */
     clientsOf(staffId?: string) {
       return db
-        .selectDistinct({ id: client.id, name: client.name, phoneE164: client.phoneE164 })
+        .selectDistinct({ id: client.id, name: client.name, phoneE164: client.phoneE164, number: client.number })
         .from(client)
         .where(or(
           sql`exists (select 1 from ${booking} b where b.client_id = ${client.id}

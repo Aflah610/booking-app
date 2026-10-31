@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · search in the follow-up client picker
+
+- /admin/follow-ups/new: the Client dropdown is now `ClientPicker` (src/components/ClientPicker.tsx): a search box
+  (name or client ID, plus phone for roles with clients.contact) over a filtered list. clientsOf also returns `number`.
+  Same clients as before (Codex's completed-sessions rule); no server-side change to who is listed.
+
 ## 2026-10-31 · Claude Code · "Concluded" now reads "Termination"
 
 - Aflah: rename Concluded to Termination. Labels only (case histories tab, case status label, client status,

@@ -5,7 +5,9 @@ import { canUseFollowUps, seesAllFollowUps } from "@/features/follow-up-desk/fol
 import { isUuid } from "@/features/shared/validation";
 import { phoneLabel } from "@/lib/format";
 import { allowed, requireStaff } from "@/lib/session";
+import { ClientPicker } from "@/components/ClientPicker";
 import { Notice } from "@/components/Notice";
+import { clientReference } from "@/features/clients/clients.dto";
 import { PageHeader } from "@/components/Shell";
 import { requestFollowUpAction } from "../actions";
 
@@ -39,10 +41,11 @@ export default async function NewFollowUpPage({ searchParams }: { searchParams: 
         <form action={requestFollowUpAction} className="card grid max-w-2xl gap-4 p-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="label" htmlFor="clientId">Client</label>
-            <select className="input" id="clientId" name="clientId" required defaultValue={chosen}>
-              <option value="" disabled>Choose a client</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}{allowed(me, "clients.contact") ? ` · ${phoneLabel(c.phoneE164)}` : ""}</option>)}
-            </select>
+            <ClientPicker
+              name="clientId"
+              defaultValue={chosen}
+              options={clients.map((c) => ({ id: c.id, label: [c.name, clientReference(c.number), allowed(me, "clients.contact") ? phoneLabel(c.phoneE164) : null].filter(Boolean).join(" · ") }))}
+            />
           </div>
           {all && (
             <div className="sm:col-span-2">
