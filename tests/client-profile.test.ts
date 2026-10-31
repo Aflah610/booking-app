@@ -247,12 +247,17 @@ describe("deleting a client", () => {
     await c.clients.remove({}, ravi.id);
     await expect(c.clients.get(ravi.id)).rejects.toMatchObject({ code: "not_found" });
     const audit = (await db.execute(sql`select details from audit_log where entity = 'client' and action = 'delete'`)).rows as { details: unknown }[];
-    expect(audit).toEqual([{ details: { number: ravi.number } }]);
+    expect(audit).toEqual([{ details: { number: ravi.number, bookings: 0, payments: 0 } }]);
   });
 
-  it("keeps a client who has bookings", async () => {
+  it("refuses while a session is still to come, then deletes the client with their bookings", async () => {
     const { clientId } = await setup();
-    await expect(c.clients.remove({}, clientId)).rejects.toMatchObject({ code: "conflict" });
+    const before = at("2026-08-30T09:00");
+    await expect(c.clients.remove({}, clientId, before)).rejects.toMatchObject({ code: "conflict" });
     expect((await c.clients.get(clientId)).id).toBe(clientId);
+    await c.clients.remove({}, clientId, at("2026-09-02T09:00"));
+    await expect(c.clients.get(clientId)).rejects.toMatchObject({ code: "not_found" });
+    const left = (await db.execute(sql`select count(*)::int as n from booking where client_id = ${clientId}`)).rows as { n: number }[];
+    expect(left[0].n).toBe(0);
   });
 });

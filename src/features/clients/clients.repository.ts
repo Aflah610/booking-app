@@ -192,16 +192,30 @@ export function createClientsRepository(db: Db) {
       return Boolean((rows.rows[0] as { yes: boolean }).yes);
     },
 
-    /** Bookings and payments keep the client: they are the practice's money and session records. */
-    async bookingAndPaymentCounts(id: string): Promise<{ bookings: number; payments: number }> {
-      const [b] = await db.select({ n: sql<number>`count(*)::int` }).from(booking).where(eq(booking.clientId, id));
+    /** What deleting a client takes with them, and the sessions still to come (those must be cancelled first). */
+    async deletionCounts(id: string, now: Date): Promise<{ bookings: number; upcoming: number; payments: number }> {
+      const [b] = await db
+        .select({
+          n: sql<number>`count(*)::int`,
+          upcoming: sql<number>`(count(*) filter (where ${booking.status} = 'upcoming' and ${booking.startsAt} > ${now} and not ${booking.slotReleased}))::int`,
+        })
+        .from(booking)
+        .where(eq(booking.clientId, id));
       const [p] = await db.select({ n: sql<number>`count(*)::int` }).from(creditPurchase).where(eq(creditPurchase.clientId, id));
-      return { bookings: b.n, payments: p.n };
+      return { bookings: b.n, upcoming: b.upcoming, payments: p.n };
     },
 
-    /** Deletes the client; psychologist periods, case history, leads, credits and follow-ups go with them (cascade). */
+    /**
+     * Deletes the client and everything that is theirs: bookings (with their payments, credit uses, calendar and message
+     * records), package and wallet purchases, psychologist periods, case history and notes, leads and follow-ups.
+     */
     remove(id: string, audit: AuditEntry) {
       return db.transaction(async (tx) => {
+        // Credit drawn from this client's packages or wallet, then their bookings, then their purchases, then the client.
+        await tx.execute(sql`delete from credit_use where client_package_id in (select id from client_package where client_id = ${id})
+          or wallet_lot_id in (select id from wallet_lot where client_id = ${id})`);
+        await tx.delete(booking).where(eq(booking.clientId, id));
+        await tx.delete(creditPurchase).where(eq(creditPurchase.clientId, id));
         const gone = await tx.delete(client).where(eq(client.id, id)).returning({ id: client.id });
         if (gone.length) await writeAudit(tx, audit);
         return gone.length > 0;

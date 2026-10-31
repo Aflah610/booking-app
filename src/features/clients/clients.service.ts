@@ -64,16 +64,18 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     /** The full edit form: contact details plus every profile field. */
     updateProfile: async (actor: Actor, id: string, input: unknown) => save(actor, id, withRegistration(clientProfileInput.parse(input))),
 
-    /** For removing duplicates and test records. A client with bookings or payments stays, so the accounts add up. */
-    async remove(actor: Actor, id: string) {
+    /**
+     * Deletes a client with their bookings, payments and case history. Sessions still to come must be cancelled first,
+     * so their calendar events and the client's messages are dealt with the usual way.
+     */
+    async remove(actor: Actor, id: string, now = new Date()) {
       const c = await get(id);
-      const { bookings, payments } = await clientsRepo.bookingAndPaymentCounts(id);
-      if (bookings || payments) {
-        const what = [bookings && `${bookings} booking${bookings === 1 ? "" : "s"}`, payments && `${payments} payment${payments === 1 ? "" : "s"}`].filter(Boolean).join(" and ");
-        throw new DomainError("conflict", `${clientReference(c.number)} has ${what}, so it can't be deleted`);
+      const { bookings, upcoming, payments } = await clientsRepo.deletionCounts(id, now);
+      if (upcoming) {
+        throw new DomainError("conflict", `${clientReference(c.number)} has ${upcoming} upcoming session${upcoming === 1 ? "" : "s"}. Cancel ${upcoming === 1 ? "it" : "them"} first, then delete the client`);
       }
-      // Personal data: the audit row keeps the client number, not the name.
-      await clientsRepo.remove(id, { actor, action: "delete", entity: "client", entityId: id, details: { number: c.number } });
+      // Personal data: the audit row keeps the client number and what went with them, not the name.
+      await clientsRepo.remove(id, { actor, action: "delete", entity: "client", entityId: id, details: { number: c.number, bookings, payments } });
       return c;
     },
 

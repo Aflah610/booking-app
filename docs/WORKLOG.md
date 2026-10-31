@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · Delete client now includes bookings and payments
+
+- Aflah: admins and managers (clients.delete, unchanged) can delete a client even with bookings/payments.
+  clients.repository `remove` (one transaction): credit_use on the client's packages/wallet, then their bookings
+  (cascades payments, credit uses, calendar events/jobs, notifications, workflow runs; lead/note/follow-up links
+  set null), then credit_purchase, then the client (cascades packages, wallet, periods, case history, notes, leads,
+  follow-ups). Refused while any upcoming, unreleased session exists: cancel those first so calendar/messages are
+  handled. Audit details: client number + counts of bookings and payments. `deletionCounts` replaces
+  `bookingAndPaymentCounts`. Deleted payments vanish from reports.
+
 ## 2026-10-31 · Claude Code · ₹1 test service switched off
 
 - Aflah: remove the test. "Test session (₹1)" set to not Bookable (kept, not deleted); gone from mindlap.in.

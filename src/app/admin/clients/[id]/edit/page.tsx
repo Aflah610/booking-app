@@ -118,8 +118,8 @@ export default async function EditClientPage({
         <form action={deleteClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
           <h2 className="font-semibold text-red-700">Delete client</h2>
           <p className="text-sm text-zinc-600">
-            For duplicates and test records. This removes {c.name}, their case history and session notes for good; it can&apos;t be undone.
-            A client with bookings or payments can&apos;t be deleted.
+            This removes {c.name} with all their bookings, payments, credits, case history and session notes, for good. It can&apos;t be undone,
+            and their payments disappear from reports. Cancel any upcoming sessions first.
           </p>
           <div className="max-w-xs">
             <label className="label" htmlFor="confirm">Type {clientReference(c.number)} to confirm</label>

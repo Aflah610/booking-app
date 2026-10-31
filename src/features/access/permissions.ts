@@ -57,7 +57,7 @@ export const PERMISSION_GROUPS: { title: string; items: { key: Permission; label
       { key: "clients.own", label: "Own clients", hint: "See the clients they treat, read-only. For psychologists." },
       { key: "clients.contact", label: "See phone and email", hint: "Without this, contact details are hidden everywhere." },
       { key: "clients.reassign", label: "Assign and change a client’s psychologist", hint: "Admins and managers by default. A booking still records the psychologist it was booked with." },
-      { key: "clients.delete", label: "Delete clients", hint: "Removes the client and their case history for good. Not possible once they have bookings or payments." },
+      { key: "clients.delete", label: "Delete clients", hint: "Removes the client with their bookings, payments and case history for good. Upcoming sessions must be cancelled first." },
     ],
   },
   {
