@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · ₹1 test service on the website (Aflah asked)
+
+- Service "Test session (₹1)" (15 min, online with Meet, ₹1) created live via the admin UI and offered by
+  Ameen Dev only (test psychologist, given weekly hours 09:00-17:00 every day). It shows in the mindlap.in booking
+  flow; anyone could book it for ₹1. Untick Bookable on the service (or delete it) when testing is done.
+- 80fd204 (follow-up search) first failed CI on an old test expecting the bare name; fixed in b609c39, CI green.
+
 ## 2026-10-31 · Claude Code · search in the follow-up client picker
 
 - /admin/follow-ups/new: the Client dropdown is now `ClientPicker` (src/components/ClientPicker.tsx): a search box
