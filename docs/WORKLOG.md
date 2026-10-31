@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 - Codex - Safari table links intercepting Search and navigation
+
+- Aflah reports case-history Search and other clicks opening one client on his brother's MacBook while
+  Windows works. Found shared row-link-target::after absolute inset-0 overlays relying on relative tr.
+  Older WebKit skips tr as the containing block (WebKit bug 240961), allowing a row link to cover controls.
+  This matches the reported symptom; the affected Mac/browser version has not been inspected directly.
+- Removed stretched overlays from shared table CSS. Case histories, Clients, Leads and Staff now use
+  ordinary name anchors, with no whole-row cursor hint. Case-history chevrons are explicit accessible links.
+  Browser-native new-tab/keyboard navigation remains. Search/filter forms and record permissions unchanged.
+- No clinical records opened and no client data changed. All 34 existing page/clinical-access regressions,
+  lint and TypeScript pass. Production build is finishing; not live yet. Public CSS probe confirms the old
+  overlay is served. The earlier CCD public payment route now responds correctly (no real booking used).
+
 ## 2026-10-29 - Codex - CCD checkout consent and input validation
 
 - Preserved the normal checkout terms/privacy and therapy consent step on the new QR payment page.
