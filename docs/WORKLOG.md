@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · client page: psychologists see Upcoming bookings only
+
+- /admin/clients/[id] Bookings tab: non-front-desk viewers get only the Upcoming sub-tab (Past and Cancelled hidden,
+  ?bookings=past|cancelled falls back to upcoming). Front desk unchanged.
+
 ## 2026-10-31 · Claude Code · Delete client now includes bookings and payments
 
 - Aflah: admins and managers (clients.delete, unchanged) can delete a client even with bookings/payments.

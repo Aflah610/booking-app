@@ -36,7 +36,9 @@ export default async function ClientPage({
   const canCredits = allowed(me, "packages.manage");
   const sp = await searchParams;
   const tab = sp.tab && sp.tab in TABS && (sp.tab !== "credits" || canCredits) ? (sp.tab as keyof typeof TABS) : "case";
-  const view = sp.bookings && sp.bookings in BOOKING_VIEWS ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
+  // Psychologists only need the sessions still to come; past and cancelled ones are the desk's business.
+  const views = (isFrontDesk(me) ? Object.keys(BOOKING_VIEWS) : ["upcoming"]) as (keyof typeof BOOKING_VIEWS)[];
+  const view = sp.bookings && views.includes(sp.bookings as keyof typeof BOOKING_VIEWS) ? (sp.bookings as keyof typeof BOOKING_VIEWS) : "upcoming";
   const { clients, bookings, settings, staff } = app();
   const c = await clients.get(id).catch((err) => {
     if (isDomainError(err)) notFound();
@@ -121,7 +123,7 @@ export default async function ClientPage({
           {tab === "bookings" && (
             <>
               <nav className="mb-4 flex gap-6 border-b border-zinc-200 text-sm" aria-label="Which bookings">
-                {Object.entries(BOOKING_VIEWS).map(([key, label]) => (
+                {views.map((key) => [key, BOOKING_VIEWS[key]] as const).map(([key, label]) => (
                   <Link key={key} href={`?tab=bookings&bookings=${key}`} aria-current={view === key ? "page" : undefined}
                     className={`-mb-px border-b-2 pb-2.5 ${view === key ? "border-black font-medium text-black" : "border-transparent text-zinc-600 hover:text-black"}`}>
                     {label} <span className="tabular-nums text-zinc-500">{byView[key as keyof typeof byView].length}</span>
