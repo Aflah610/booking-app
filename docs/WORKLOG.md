@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · lead sheets script deployed
+
+- Apps Script "Mindlap lead files" set up (triggers on Master + both BDE files) and deployed as a web app
+  (execute as aflahkt610@gmail.com, access Anyone, key-protected): wrong key answers {"ok":false,"error":"forbidden"}.
+- Server still needs LEADS_SHEET_URL = https://script.google.com/macros/s/AKfycbz8tF5Q2ufQvnoUCzwnnNoyAqyiY3Hf1m1w6A9n7S83MXeYf_oMYh6supxncIxF7iq5bw/exec
+  and LEADS_SHEET_KEY = the KEY script property (Apps Script > Project Settings > Script properties; not in this repo),
+  in /opt/mindlap/app.env, then restart the app. Claude's SSH is blocked.
+
 ## 2026-10-31 · Claude Code · lead management moves to Google Sheets (Master + BDE 1 + BDE 2)
 
 - Aflah: 774 leads go to three Google Sheets files (owner aflahkt610@gmail.com): "Leads – Master" (all leads),
