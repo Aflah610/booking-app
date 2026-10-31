@@ -25,7 +25,7 @@ export function overallRisk(ratings: (Risk | null)[]): Risk | null {
 }
 
 export const LABEL: Record<string, string> = {
-  intake_pending: "Intake pending", in_treatment: "In treatment", concluded: "Concluded",
+  intake_pending: "Intake pending", in_treatment: "In treatment", concluded: "Termination",
   sudden: "Sudden", gradual: "Gradual", unknown: "Unknown",
   mild: "Mild", moderate: "Moderate", severe: "Severe",
   cooperative: "Cooperative", partially: "Partially cooperative", uncooperative: "Uncooperative",

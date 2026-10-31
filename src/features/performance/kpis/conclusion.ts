@@ -9,7 +9,7 @@ import type { Kpi } from "./kpi";
  */
 export const conclusionKpi: Kpi<ConclusionResult> = {
   id: "conclusion",
-  label: "Concluded",
+  label: "Termination",
   compute({ journeys, window, now, graceDays }) {
     let activeClients = 0;
     let concluded = 0;

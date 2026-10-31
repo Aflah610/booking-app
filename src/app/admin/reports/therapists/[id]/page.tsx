@@ -24,7 +24,7 @@ const CLIENT_STATUS: Record<ClientRow["status"], { label: string; tone: string }
   new: { label: "New", tone: "border-zinc-300 text-zinc-600" },
   ongoing: { label: "Ongoing", tone: "border-[var(--forest-line)] text-[var(--forest)]" },
   recent: { label: "Recent", tone: "border-zinc-300 text-zinc-700" },
-  concluded: { label: "Concluded", tone: "border-zinc-800 text-zinc-900" },
+  concluded: { label: "Termination", tone: "border-zinc-800 text-zinc-900" },
 };
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -77,7 +77,7 @@ export default async function TherapistPage({ params, searchParams }: { params: 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Sessions held" value={String(t.volume.sessions)} note={`${t.volume.clients} client${t.volume.clients === 1 ? "" : "s"}`} />
         <Stat label="Came back after 1st" value={first.rate === null ? "–" : pct(first.rate)} note={first.cohort === 0 ? "no first sessions" : `${first.returned} of ${first.returned + first.lost}${first.waiting ? ` · ${first.waiting} waiting` : ""}`} />
-        <Stat label="Concluded" value={t.conclusion.rate === null ? "–" : pct(t.conclusion.rate)} note={t.conclusion.activeClients === 0 ? "no clients" : `${t.conclusion.concluded} of ${t.conclusion.activeClients} clients`} />
+        <Stat label="Termination" value={t.conclusion.rate === null ? "–" : pct(t.conclusion.rate)} note={t.conclusion.activeClients === 0 ? "no clients" : `${t.conclusion.concluded} of ${t.conclusion.activeClients} clients`} />
         <Stat
           label="Punctuality"
           value={t.punctuality.status === "ok" ? `${pct(t.punctuality.onTimeRate)} on time` : "Not connected"}
@@ -145,7 +145,7 @@ export default async function TherapistPage({ params, searchParams }: { params: 
         </div>
         {d.sessions.length === 500 && <p className="mt-2 text-xs text-zinc-500">Showing the latest 500 sessions.</p>}
       </section>
-      <p className="text-xs text-zinc-400">Concluded means nothing is booked and the last session was more than {d.graceDays} days ago: a successful completion or an early exit. Prepared {dayLabel(new Date(), tz)}.</p>
+      <p className="text-xs text-zinc-400">Termination means nothing is booked and the last session was more than {d.graceDays} days ago: a successful completion or an early exit. Prepared {dayLabel(new Date(), tz)}.</p>
     </>
   );
 }

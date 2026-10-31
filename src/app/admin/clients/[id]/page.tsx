@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = { case: "Case history", bookings: "Bookings", credits: "Credits" } as const;
 const BOOKING_VIEWS = { upcoming: "Upcoming", past: "Past", cancelled: "Cancelled" } as const;
-const STATUS_LABEL: Record<ClientStatus, string> = { not_started: "Not started", in_therapy: "In therapy", concluded: "Concluded" };
+const STATUS_LABEL: Record<ClientStatus, string> = { not_started: "Not started", in_therapy: "In therapy", concluded: "Termination" };
 
 export default async function ClientPage({
   params,

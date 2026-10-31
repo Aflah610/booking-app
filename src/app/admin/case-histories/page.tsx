@@ -12,7 +12,7 @@ import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Case histories" };
 
-const CHIPS: [string, string][] = [["", "All"], ["intake_pending", "Intake pending"], ["in_treatment", "In treatment"], ["concluded", "Concluded"], ["high_risk", "High risk"]];
+const CHIPS: [string, string][] = [["", "All"], ["intake_pending", "Intake pending"], ["in_treatment", "In treatment"], ["concluded", "Termination"], ["high_risk", "High risk"]];
 
 export default async function CaseHistoriesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; therapist?: string; risk?: string; from?: string; to?: string }> }) {
   const me = await requireStaff();

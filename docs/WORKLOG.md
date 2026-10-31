@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · "Concluded" now reads "Termination"
+
+- Aflah: rename Concluded to Termination. Labels only (case histories tab, case status label, client status,
+  therapist report KPI and explanations). Stored value stays `concluded`; no migration.
+
 ## 2026-10-29 - Codex - CCD checkout consent and input validation
 
 - Preserved the normal checkout terms/privacy and therapy consent step on the new QR payment page.
