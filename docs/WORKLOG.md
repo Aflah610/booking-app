@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-10-31 · Claude Code · 774 removed from Zoho CRM; server lead-sheet settings half done
+
+- Aflah deleted +91 75940 00774 from Zoho CRM WhatsApp (Business Messaging > WhatsApp > MindLap); confirmed gone.
+  Zoho CRM no longer receives 774 chats. Old CRM leads untouched.
+- Server /opt/mindlap/app.env: LEADS_SHEET_URL added; LEADS_SHEET_KEY line is empty/missing (Aflah stopped), so
+  forwarding stays off. App not restarted for it. A stray container aws-app-1 (compose run from
+  src/deploy/aws without -p mindlap) was created and removed again. Restart command is
+  `cd /opt/mindlap/src/deploy/aws && sudo docker compose -p mindlap up -d --force-recreate app`.
+- Lightsail firewall: "Allow Lightsail browser SSH" ticked on the SSH rule.
+
 ## 2026-10-31 · Claude Code · lead sheets script deployed
 
 - Apps Script "Mindlap lead files" set up (triggers on Master + both BDE files) and deployed as a web app
