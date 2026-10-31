@@ -309,9 +309,10 @@ describe("case-history correction pages", () => {
     const { mine } = await setup();
     const { default: New } = await import("@/app/admin/follow-ups/new/page");
     const props = { searchParams: Promise.resolve({}) };
-    expect(html(await New(props))).not.toContain("Shared Client</option>");
+    expect(html(await New(props))).not.toMatch(/>Shared Client · ML-CL-\d+<\/option>/);
     await db.execute(sql`update booking set status = 'completed', starts_at = '2026-09-01', ends_at = '2026-09-01 01:00:00+00' where id = ${mine.id}`);
-    expect(html(await New(props))).toContain("Shared Client</option>");
+    // The picker labels each client with their ID so it can be searched.
+    expect(html(await New(props))).toMatch(/>Shared Client · ML-CL-\d+<\/option>/);
   });
 });
 
