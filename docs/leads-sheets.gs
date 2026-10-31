@@ -1,7 +1,8 @@
 /**
  * Mindlap lead files: "Leads – Master" (every lead) split 50/50 into "Leads – BDE 1" and "Leads – BDE 2".
  *
- * Install once, in the Master file: Extensions > Apps Script, paste this file over Code.gs, save, then
+ * Live copy: Apps Script project "Mindlap lead files" (script.google.com, owner aflahkt610@gmail.com). To set it up again,
+ * paste this file over Code.gs in a new project, save, then
  *   1. run `setup` (allow access when Google asks). It prints the key for the booking app.
  *   2. Deploy > New deployment > Web app: Execute as "Me", Who has access "Anyone". Copy the web app URL.
  *   3. On the booking app server set LEADS_SHEET_URL (that URL) and LEADS_SHEET_KEY (the key from step 1).
