@@ -233,6 +233,15 @@ export function createCaseHistoryRepository(db: Db) {
       });
     },
 
+    /** Deletes a client's whole case history: intake, session notes, addenda, edit requests and follow-ups (cascade). */
+    removeRecord(clientId: string, audit: AuditEntry) {
+      return db.transaction(async (tx) => {
+        const rows = await tx.delete(caseHistory).where(eq(caseHistory.clientId, clientId)).returning({ id: caseHistory.id });
+        if (rows.length) await writeAudit(tx, { ...audit, entityId: rows[0].id });
+        return rows.length > 0;
+      });
+    },
+
     deleteDraft(noteId: string, audit: AuditEntry) {
       return db.transaction(async (tx) => {
         const rows = await tx.delete(sessionNote).where(and(eq(sessionNote.id, noteId), isNull(sessionNote.signedAt))).returning({ id: sessionNote.id });

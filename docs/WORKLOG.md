@@ -3,6 +3,15 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · admin deletes case history; delete client past failed attempts; reschedule after start
+
+- New permission `casehistory.delete` (admin only by default): case history page has a red "Delete case history"
+  box (type the client ID). caseHistory.removeRecord deletes the case_history row (intake, notes, addenda, edit
+  requests, follow-ups cascade); client and bookings stay. Audit: entity case_history, client id only.
+- Delete client: unpaid/failed online attempts no longer block it; only confirmed upcoming sessions do.
+- Reschedule: staff can move a confirmed "upcoming" booking even after its start (missed session not yet marked);
+  clients still only before the start. Booking page shows Reschedule for any confirmed upcoming booking.
+
 ## 2026-10-31 · Claude Code · 774 removed from Zoho CRM; server lead-sheet settings half done
 
 - Aflah deleted +91 75940 00774 from Zoho CRM WhatsApp (Business Messaging > WhatsApp > MindLap); confirmed gone.

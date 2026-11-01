@@ -1,6 +1,8 @@
 "use server";
 
 import { app } from "@/features/container";
+import { clientReference } from "@/features/clients/clients.dto";
+import { DomainError } from "@/features/shared/errors";
 import { act, str } from "@/lib/form-actions";
 import { requireStaff } from "@/lib/session";
 
@@ -41,6 +43,17 @@ export async function updateDraftAction(clientId: string, noteId: string, form: 
 export async function deleteDraftAction(clientId: string, noteId: string) {
   const me = await requireStaff();
   await act(casePath(clientId), "Draft deleted", () => app().caseHistory.deleteDraft(me, noteId));
+}
+
+export async function deleteCaseHistoryAction(clientId: string, form: FormData) {
+  const me = await requireStaff();
+  await act(casePath(clientId), "Case history deleted", async () => {
+    const c = await app().clients.get(clientId);
+    // Typing the client ID stops a slip of the mouse wiping someone's notes.
+    if (str(form, "confirm").toUpperCase() !== clientReference(c.number)) throw new DomainError("invalid", `Type ${clientReference(c.number)} to confirm`);
+    await app().caseHistory.removeRecord(me, clientId);
+    return `/admin/clients/${clientId}`;
+  });
 }
 
 export async function addAddendumAction(clientId: string, noteId: string, form: FormData) {

@@ -48,7 +48,7 @@ export default async function BookingPage({
   // Moving, cancelling and payments are the coordinators' work (bookings.create); others only see the booking.
   const canBook = allowed(me, "bookings.create");
   // Rescheduling has its own permission, so managers can move sessions without taking bookings or payments.
-  const canMove = allowed(me, "bookings.reschedule") && b.status === "upcoming" && !started;
+  const canMove = allowed(me, "bookings.reschedule") && b.status === "upcoming" && isConfirmedSession(b);
   const collection = canBook ? await bookings.paymentLink(b.id) : null;
   const paymentUrl = collection ? `${(process.env.AUTH_URL ?? "https://book.mindlap.in").replace(/\/$/, "")}/pay/${b.id}?t=${collection.token}` : null;
   const qr = paymentUrl ? await QRCode.toDataURL(paymentUrl, { width: 420, margin: 3, errorCorrectionLevel: "M" }) : null;

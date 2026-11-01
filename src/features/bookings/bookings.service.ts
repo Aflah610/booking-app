@@ -316,7 +316,8 @@ export function createBookingsService(deps: {
       const now = opts.now ?? new Date();
       const old = await get(id);
       if (old.status !== "upcoming") throw new DomainError("conflict", `Booking ${id} is ${old.status} and can't be moved`, { reason: "not_upcoming" });
-      if (old.startsAt <= now) throw new DomainError("invalid", "A booking that has already started can't be moved");
+      // Staff may move a session after its start (a missed one not yet marked); clients only before it.
+      if (old.startsAt <= now && actor.mode === "client") throw new DomainError("invalid", "A booking that has already started can't be moved");
       if (actor.mode === "client" && old.resumeUntil && old.paymentStatus !== "paid") {
         throw new DomainError("conflict", "Finish payment first, or resume the booking to choose a new time", { reason: "payment_pending" });
       }

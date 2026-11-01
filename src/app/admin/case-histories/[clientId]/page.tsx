@@ -6,11 +6,11 @@ import { LABEL, PART_OF_DAY } from "@/features/case-history/choices";
 import { clientReference } from "@/features/clients/clients.dto";
 import { isDomainError } from "@/features/shared/errors";
 import { dateLabel, dayLabel, isoDay, timeLabel } from "@/lib/format";
-import { requireStaff } from "@/lib/session";
+import { allowed, requireStaff } from "@/lib/session";
 import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
 import { Notice } from "@/components/Notice";
 import { NoteFields, SessionNoteCard } from "@/components/SessionNote";
-import { addNoteAction, sendFollowUpAction, requestIntakeEditAction } from "../actions";
+import { addNoteAction, deleteCaseHistoryAction, sendFollowUpAction, requestIntakeEditAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Case history" };
@@ -202,6 +202,20 @@ export default async function CasePage({ params, searchParams }: { params: Promi
         <ol className="grid gap-4">
           {r.notes.map((n) => <SessionNoteCard key={n.id} n={n} clientId={clientId} tz={tz} meId={me.id} writable={writable} />)}
         </ol>
+      )}
+
+      {allowed(me, "casehistory.delete") && (
+        <form action={deleteCaseHistoryAction.bind(null, clientId)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
+          <h2 className="font-semibold text-red-700">Delete case history</h2>
+          <p className="text-sm text-zinc-600">
+            Removes the intake and all {r.notes.length} session note{r.notes.length === 1 ? "" : "s"} for good. The client and their bookings stay. It can&apos;t be undone.
+          </p>
+          <div className="max-w-xs">
+            <label className="label" htmlFor="confirm">Type {clientReference(c.number)} to confirm</label>
+            <input className="input" id="confirm" name="confirm" autoComplete="off" required />
+          </div>
+          <div><button className="btn-ghost text-red-700" type="submit">Delete case history</button></div>
+        </form>
       )}
     </>
   );

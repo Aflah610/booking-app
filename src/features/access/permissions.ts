@@ -30,6 +30,7 @@ export const PERMISSIONS = [
   "casenotes.write",
   "casenotes.pending",
   "casenotes.read_all",
+  "casehistory.delete",
   "packages.manage",
   "services.manage",
   "staff.manage",
@@ -80,6 +81,7 @@ export const PERMISSION_GROUPS: { title: string; items: { key: Permission; label
       { key: "casenotes.write", label: "Write case history for own clients", hint: "Intake and session notes for the clients they treat." },
       { key: "casenotes.pending", label: "See pending case notes", hint: "Which sessions still have no note 24 hours later. Not the notes themselves." },
       { key: "casenotes.read_all", label: "Read every client's case history", hint: "Clinical notes of all clients. Give this rarely." },
+      { key: "casehistory.delete", label: "Delete case histories", hint: "Removes a client's intake and every session note for good. Admins only by default." },
     ],
   },
   {

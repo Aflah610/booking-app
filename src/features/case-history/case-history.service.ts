@@ -198,6 +198,15 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
       }
     },
 
+    /** For records opened by mistake or test data. Admins only by default ("casehistory.delete"). */
+    async removeRecord(reader: Reader, clientId: string) {
+      if (!can(reader, "casehistory.delete")) throw new DomainError("forbidden", "Only admins can delete a case history");
+      if (!isUuid(clientId)) throw new DomainError("not_found", `Client ${clientId} not found`);
+      // The audit row says whose record went, by client id only.
+      const gone = await caseRepo.removeRecord(clientId, { actor: { staffId: reader.id }, action: "delete", entity: "case_history", entityId: clientId, details: { clientId } });
+      if (!gone) throw new DomainError("not_found", "This client has no case history to delete");
+    },
+
     async deleteDraft(reader: Reader, noteId: string) {
       const n = await note(reader, noteId);
       ownDraft(reader, n);

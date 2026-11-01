@@ -181,6 +181,15 @@ describe("rescheduling and cancelling", () => {
     await expect(c.bookings.reschedule(desk, old.id, { start: at("2026-10-19T12:00") }, { now })).rejects.toMatchObject({ code: "conflict" });
   });
 
+  it("lets staff move a session after its start (a missed one), but not the client", async () => {
+    const { svc } = await setup();
+    const { booking: old } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-10-19T10:00"), client: asha }, { now });
+    const during = at("2026-10-19T10:30");
+    await expect(c.bookings.reschedule({ mode: "client" }, old.id, { start: at("2026-10-20T10:00") }, { now: during })).rejects.toMatchObject({ code: "invalid" });
+    const moved = await c.bookings.reschedule(desk, old.id, { start: at("2026-10-20T10:00") }, { now: during });
+    expect(moved.startsAt).toEqual(at("2026-10-20T10:00"));
+  });
+
   it("keeps a moved booking and tells it apart from a cancelled one: it points to its replacement, which points back", async () => {
     const { svc } = await setup();
     const { booking: first } = await c.bookings.create(desk, { serviceId: svc.id, start: at("2026-12-01T10:00"), client: asha }, { now });

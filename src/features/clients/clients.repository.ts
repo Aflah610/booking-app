@@ -197,7 +197,9 @@ export function createClientsRepository(db: Db) {
       const [b] = await db
         .select({
           n: sql<number>`count(*)::int`,
-          upcoming: sql<number>`(count(*) filter (where ${booking.status} = 'upcoming' and ${booking.startsAt} > ${now} and not ${booking.slotReleased}))::int`,
+          // Unpaid or failed online attempts don't count: only sessions that are really on (see isConfirmedSession).
+          upcoming: sql<number>`(count(*) filter (where ${booking.status} = 'upcoming' and ${booking.startsAt} > ${now} and not ${booking.slotReleased}
+            and ${booking.paymentStatus} <> 'failed' and (${booking.paymentStatus} <> 'pending' or ${booking.source} = 'staff')))::int`,
         })
         .from(booking)
         .where(eq(booking.clientId, id));

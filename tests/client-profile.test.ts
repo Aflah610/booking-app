@@ -239,6 +239,21 @@ describe("registered clients versus failed online attempts", () => {
   });
 });
 
+describe("deleting a case history", () => {
+  it("lets an admin delete a client's case history and keeps the client; others may not", async () => {
+    const ravi = await c.clients.create({}, { name: "Ravi", phone: "98765 43210" });
+    await db.execute(sql`insert into case_history (client_id) values (${ravi.id})`);
+    const admin = await c.staff.create({}, { name: "Ada", email: "ada@firm.test", accessRole: "admin" });
+    const manager = await c.staff.create({}, { name: "Mo", email: "mo@firm.test", accessRole: "manager" });
+    await expect(c.caseHistory.removeRecord(manager, ravi.id)).rejects.toMatchObject({ code: "forbidden" });
+    await c.caseHistory.removeRecord(admin, ravi.id);
+    const left = (await db.execute(sql`select count(*)::int as n from case_history where client_id = ${ravi.id}`)).rows as { n: number }[];
+    expect(left[0].n).toBe(0);
+    expect((await c.clients.get(ravi.id)).id).toBe(ravi.id);
+    await expect(c.caseHistory.removeRecord(admin, ravi.id)).rejects.toMatchObject({ code: "not_found" });
+  });
+});
+
 describe("deleting a client", () => {
   it("removes a client without bookings, with their psychologist history, and audits the number only", async () => {
     const asha = await c.staff.create({}, { name: "Asha", email: "asha@firm.test", designation: "Psychologist" });
@@ -259,5 +274,12 @@ describe("deleting a client", () => {
     await expect(c.clients.get(clientId)).rejects.toMatchObject({ code: "not_found" });
     const left = (await db.execute(sql`select count(*)::int as n from booking where client_id = ${clientId}`)).rows as { n: number }[];
     expect(left[0].n).toBe(0);
+  });
+
+  it("ignores unpaid or failed online attempts still to come", async () => {
+    const { clientId } = await setup();
+    await db.execute(sql`update booking set source = 'web', payment_status = 'failed' where client_id = ${clientId}`);
+    await c.clients.remove({}, clientId, at("2026-08-30T09:00"));
+    await expect(c.clients.get(clientId)).rejects.toMatchObject({ code: "not_found" });
   });
 });
