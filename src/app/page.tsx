@@ -48,11 +48,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         subtitle={longDayLabel(new Date(), tz)}
         action={allowed(me, "bookings.create") ? <Link href="/admin/bookings/new" className="btn"><Icon name="plus" /> New booking</Link> : undefined}
       />
-      <div className="mb-10 grid gap-3 sm:grid-cols-3">
+      <div className="mb-10 grid grid-cols-3 gap-2 sm:gap-3">
         {stats.map((x) => (
-          <div key={x.label} className="card p-5">
-            <p className="text-sm text-zinc-600">{x.label}</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight">{x.value}</p>
+          <div key={x.label} className="card p-3 sm:p-5">
+            <p className="text-xs text-zinc-600 sm:text-sm">{x.label}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight sm:mt-2 sm:text-3xl">{x.value}</p>
           </div>
         ))}
       </div>

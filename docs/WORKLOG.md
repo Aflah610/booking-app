@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · phone layout for the psychologist's pages
+
+- Aflah: one psychologist works only from a phone. Under md (768px):
+  - Shell: the sideways-scrolling nav strip is gone; a "☰ Menu" button (MobileMenu, closes on navigation, shows the
+    unread total) opens every page as a list. Desktop sidebar unchanged (same `links` list).
+  - `.table-stack` (globals.css): under 640px rows become cards with labelled cells (data-label). Used by
+    BookingsTable (Today, Bookings, client page), Clients/My clients and Case histories lists. `.tabs` scroll sideways.
+  - Today: the three counters sit in one compact row. Calendar: phones get the week as a day-by-day list.
+- Checked with a 390px preview frame (page HTML in a srcdoc iframe; the app sends X-Frame-Options).
+
 ## 2026-11-01 · Claude Code · "Complete intake" on the case page
 
 - Rashin reported a filled case history still showing Intake pending. Cause: completion only happened from the intake

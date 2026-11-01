@@ -44,7 +44,7 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
   const joins = rows.some((b) => b.status === "upcoming" && b.meetingUrl);
   return (
     <div className="card overflow-x-auto">
-      <table className="table min-w-full">
+      <table className="table table-stack min-w-full">
         <thead>
           <tr>
             {columns.map((id) => {
@@ -64,7 +64,7 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
           {rows.map((b) => (
             <tr key={b.id} className={`relative transition-colors hover:bg-zinc-50 ${b.status === "cancelled" ? (b.movedToId ? "bg-amber-50/50 text-zinc-400" : "text-zinc-400") : ""}`}>
               {columns.map((id) => (
-                <td key={id} className="p-0">
+                <td key={id} className="p-0" data-label={id === columns[0] ? "" : HEADS.get(id)!.label}>
                   <Link href={`/admin/bookings/${b.id}`} className="block whitespace-nowrap px-4 py-2.5">
                     {CELLS[id](b, ctx)}
                     {/* Without the Status column a cancelled booking would look like any other, so say it once beside the first cell: red for a cancellation, soft yellow for a booking that was moved. */}
@@ -79,7 +79,7 @@ export function BookingsTable({ rows, columns, tz, prefix, empty }: { rows: Book
                 </td>
               ))}
               {joins && (
-                <td className="sticky right-0 whitespace-nowrap bg-white px-4 py-2 text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">
+                <td data-label="" className="sticky right-0 whitespace-nowrap bg-white px-4 py-2 text-right shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">
                   {b.status === "upcoming" && b.meetingUrl && <a className="btn-join" href={b.meetingUrl} target="_blank" rel="noreferrer">Join now</a>}
                 </td>
               )}

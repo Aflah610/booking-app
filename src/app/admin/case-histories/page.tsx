@@ -110,7 +110,7 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="table min-w-[56rem]">
+        <table className="table table-stack min-w-[56rem]">
           <thead>
             <tr><th>Client</th><th>Status</th><th>Primary diagnosis</th><th>Risk</th><th>Therapist</th><th>Last session note</th><th><span className="sr-only">Open</span></th></tr>
           </thead>
@@ -118,13 +118,13 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
             {shown.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-zinc-600">No clients match.</td></tr>}
             {shown.map((r) => (
               <tr key={r.clientId} className="row-link">
-                <td>
+                <td data-label="">
                   {/* The whole row opens the case, or the client profile for readers who may not see the record. */}
                   <Link className="row-link-target font-medium" href={r.restricted ? `/admin/clients/${r.clientId}` : `/admin/case-histories/${r.clientId}`}>{r.clientName}</Link>
                   <p className="font-mono text-xs text-zinc-600">{clientReference(r.clientNumber)}</p>
                 </td>
-                <td><StatusBadge status={r.status} /></td>
-                <td>
+                <td data-label="Status"><StatusBadge status={r.status} /></td>
+                <td data-label="Primary diagnosis">
                   {r.restricted ? <span className="text-zinc-500">Restricted</span> : r.diagnosisLabel ? (
                     <>
                       <p>{r.diagnosisLabel}</p>
@@ -132,8 +132,8 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
                     </>
                   ) : <span className="text-zinc-500">Not yet assessed</span>}
                 </td>
-                <td><RiskBadge risk={r.risk} /></td>
-                <td>
+                <td data-label="Risk"><RiskBadge risk={r.risk} /></td>
+                <td data-label="Therapist">
                   {r.therapistName ? (
                     <span className="flex items-center gap-2">
                       <Initials name={r.therapistName} muted={!r.therapistActive} />
@@ -142,11 +142,11 @@ export default async function CaseHistoriesPage({ searchParams }: { searchParams
                     </span>
                   ) : <span className="text-zinc-500">Unassigned</span>}
                 </td>
-                <td>
+                <td data-label="Last session note">
                   <p className="tabular-nums">{r.notes === 0 ? "No notes" : `${r.notes} session${r.notes === 1 ? "" : "s"}`}</p>
                   {r.lastNoteAt && <p className="text-xs text-zinc-600">{dateLabel(r.lastNoteAt, s.timezone)}{r.lastNoteAuthor ? ` · by ${r.lastNoteAuthor}` : ""}</p>}
                 </td>
-                <td className="text-right text-zinc-400" aria-hidden="true">›</td>
+                <td className="hidden text-right text-zinc-400 sm:table-cell" aria-hidden="true">›</td>
               </tr>
             ))}
           </tbody>

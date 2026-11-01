@@ -6,6 +6,7 @@ import { canUseFollowUps } from "@/features/follow-up-desk/follow-up-desk.servic
 import { canUseLeads } from "@/features/leads/leads.service";
 import { allowed, type Me } from "@/lib/session";
 import { Icon } from "./icons";
+import { MobileMenu } from "./MobileMenu";
 import { NavLink } from "./NavLink";
 import { SidebarFrame } from "./SidebarFrame";
 
@@ -21,27 +22,9 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
     app().caseHistory.pendingEditCount(me),
   ]);
   const newLeads = showLeads ? await app().leads.countNew(me) : 0;
-  return (
-    <SidebarFrame
-      sidebar={
-        <>
-            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-1 md:pb-6">
-              <Image src="/brand/mindlap-logo.png" alt="Mindlap" width={630} height={173} unoptimized priority className="h-7 w-auto" />
-              {/* Phones: the same profile menu, as a small badge beside the logo (the sidebar one is desktop only). */}
-              <details className="group relative md:hidden">
-                <summary className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full bg-zinc-200 text-xs font-medium text-black [&::-webkit-details-marker]:hidden" aria-label="Your account">
-                  {me.name.slice(0, 1).toUpperCase()}
-                </summary>
-                <div className="absolute right-0 top-full z-30 mt-2 w-56 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg">
-                  <p className="px-3 pb-1 pt-2">
-                    <span className="block truncate text-sm text-black">{me.name}</span>
-                    <span className="block truncate text-xs text-zinc-600">{ACCESS_ROLE_LABEL[me.accessRole]}</span>
-                  </p>
-                  <SignOut />
-                </div>
-              </details>
-            </div>
-            <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible" aria-label="Main">
+  const unread = followUpNews + pendingNotes + editRequests + newLeads;
+  const links = (
+    <>
               <NavLink href="/" icon="home" exact>Today</NavLink>
               <NavLink href="/admin/bookings" icon="list">Bookings</NavLink>
               <NavLink href="/admin/calendar" icon="calendar">Calendar</NavLink>
@@ -62,7 +45,37 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
               {can("settings.manage") && <NavLink href="/admin/otp" icon="shield">OTP Authentication</NavLink>}
               {can("settings.manage") && <NavLink href="/admin/settings" icon="settings" exact>Settings</NavLink>}
               {me.accessRole === "admin" && <NavLink href="/admin/settings/access" icon="key">Roles &amp; access</NavLink>}
-            </nav>
+    </>
+  );
+  return (
+    <SidebarFrame
+      sidebar={
+        <>
+            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-1 md:pb-6">
+              <Image src="/brand/mindlap-logo.png" alt="Mindlap" width={630} height={173} unoptimized priority className="h-7 w-auto" />
+              {/* Phones: every page behind one Menu button, so nothing hides off-screen. */}
+              <MobileMenu summary={
+                <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium [&::-webkit-details-marker]:hidden" aria-label="Menu">
+                  <span aria-hidden="true">☰</span> Menu
+                  {unread > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[11px] font-semibold leading-5 text-white">{unread > 99 ? "99+" : unread}</span>}
+                </summary>}>
+                <nav className="absolute right-0 top-full z-30 mt-2 grid max-h-[75vh] w-64 gap-0.5 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-2 shadow-lg" aria-label="Main">{links}</nav>
+              </MobileMenu>
+              {/* Phones: the same profile menu, as a small badge beside the logo (the sidebar one is desktop only). */}
+              <details className="group relative md:hidden">
+                <summary className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full bg-zinc-200 text-xs font-medium text-black [&::-webkit-details-marker]:hidden" aria-label="Your account">
+                  {me.name.slice(0, 1).toUpperCase()}
+                </summary>
+                <div className="absolute right-0 top-full z-30 mt-2 w-56 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg">
+                  <p className="px-3 pb-1 pt-2">
+                    <span className="block truncate text-sm text-black">{me.name}</span>
+                    <span className="block truncate text-xs text-zinc-600">{ACCESS_ROLE_LABEL[me.accessRole]}</span>
+                  </p>
+                  <SignOut />
+                </div>
+              </details>
+            </div>
+            <nav className="hidden gap-1 md:flex md:flex-col" aria-label="Main">{links}</nav>
             {/* Closed by default: Sign out only appears after clicking the profile. Plain <details>, no script needed. */}
             <details className="group relative mt-auto hidden border-t border-zinc-200 pt-4 md:block">
               <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-3 py-2 hover:bg-zinc-200 [&::-webkit-details-marker]:hidden">

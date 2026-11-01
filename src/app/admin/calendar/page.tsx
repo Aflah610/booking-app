@@ -70,7 +70,37 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           </div>
         }
       />
-      <div className="card overflow-x-auto">
+      {/* Phones: the week as a list, day by day; the hour grid needs a wide screen. */}
+      <div className="grid gap-3 md:hidden">
+        {days.map((d) => {
+          const dayRows = live.filter((b) => isoDay(b.startsAt, tz) === d).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+          return (
+            <section key={d} className="card overflow-hidden">
+              <h2 className={`border-b border-zinc-100 px-4 py-2.5 text-sm font-medium ${d === today ? "bg-zinc-50 text-black" : "text-zinc-600"}`}>
+                {dayLabel(new Date(`${d}T12:00:00Z`), "UTC")}{d === today && " · Today"}
+              </h2>
+              {dayRows.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-zinc-500">Nothing booked</p>
+              ) : (
+                <ul className="divide-y divide-zinc-100">
+                  {dayRows.map((b) => (
+                    <li key={b.id}>
+                      <Link href={`/admin/bookings/${b.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50">
+                        <span className="w-16 shrink-0 text-sm font-medium tabular-nums">{timeLabel(b.startsAt, tz)}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{b.clientName}</span>
+                          <span className="block truncate text-xs text-zinc-600">{b.serviceName}{!staffFilter && ` · ${b.staffName}`}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })}
+      </div>
+      <div className="card hidden overflow-x-auto md:block">
         <div className="grid min-w-[56rem] grid-cols-[3.5rem_repeat(7,1fr)]">
           <div className="border-b border-zinc-200" />
           {days.map((d) => (

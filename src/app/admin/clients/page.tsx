@@ -81,7 +81,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         )}
       </div>
       <div className="card overflow-x-auto">
-        <table className="table min-w-[64rem]">
+        <table className="table table-stack min-w-[64rem]">
           <thead>
             <tr>
               <th>Client ID</th>
@@ -103,30 +103,30 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
               const age = clientAge(c, today);
               return (
                 <tr key={c.id} className="row-link">
-                  <td className="whitespace-nowrap font-mono text-xs text-zinc-600">{clientReference(c.number)}</td>
-                  <td>
+                  <td data-label="Client ID" className="whitespace-nowrap font-mono text-xs text-zinc-600">{clientReference(c.number)}</td>
+                  <td data-label="">
                     <Link className="row-link-target font-medium" href={`/admin/clients/${c.id}`}>{c.name}</Link>
                     <p className="text-xs text-zinc-600">{[age !== null ? `${age} yrs` : null, c.gender].filter(Boolean).join(" · ") || "—"}</p>
                   </td>
-                  <td>
+                  <td data-label="Occupation · location">
                     <p>{c.occupation ?? "—"}</p>
                     <p className="text-xs text-zinc-600">{c.location ?? "—"}</p>
                   </td>
-                  <td>
+                  <td data-label="Education · marital">
                     <p>{c.education ?? "—"}</p>
                     <p className="text-xs text-zinc-600">{c.maritalStatus ?? "—"}</p>
                   </td>
-                  <td className="whitespace-nowrap">
+                  <td data-label="Registered" className="whitespace-nowrap">
                     <p className="tabular-nums">{dateLabel(c.createdAt, tz)}</p>
                     <p className="text-xs text-zinc-600">{c.registeredByName ? `by ${c.registeredByName}` : "Booked online"}</p>
                   </td>
                   {contact && (
-                    <td className="whitespace-nowrap">
+                    <td data-label="Phone · email" className="whitespace-nowrap">
                       <p className="tabular-nums">{c.phoneAsEntered ?? phoneLabel(c.phoneE164)}</p>
                       <p className="text-xs text-zinc-600">{c.email ?? "—"}</p>
                     </td>
                   )}
-                  <td className="whitespace-nowrap">
+                  <td data-label="Psychologist" className="whitespace-nowrap">
                     {c.therapistName ? (
                       <>
                         <p>{c.therapistName}{!c.therapistActive && <span className="badge ml-1.5 border-red-300 text-red-700">Past</span>}</p>
@@ -134,8 +134,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                       </>
                     ) : <span className="text-zinc-500">Unassigned</span>}
                   </td>
-                  {caseStatus && <td>{c.caseStatus ? <StatusBadge status={c.caseStatus} /> : <span className="badge border-dashed border-zinc-300 text-zinc-500">Not started</span>}</td>}
-                  <td className="text-right tabular-nums">{c.bookings}</td>
+                  {caseStatus && <td data-label="Case history">{c.caseStatus ? <StatusBadge status={c.caseStatus} /> : <span className="badge border-dashed border-zinc-300 text-zinc-500">Not started</span>}</td>}
+                  <td data-label="Bookings" className="text-right tabular-nums">{c.bookings}</td>
                 </tr>
               );
             })}
