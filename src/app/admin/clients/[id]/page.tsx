@@ -155,7 +155,10 @@ export default async function ClientPage({
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">General info</h2>
-              {manages && <Link href={`/admin/clients/${id}/edit`} className="text-sm text-black underline-offset-4 hover:underline">Edit</Link>}
+              {manages && <span className="flex gap-3">
+                <Link href={`/admin/clients/${id}/edit`} className="text-sm text-black underline-offset-4 hover:underline">Edit</Link>
+                {allowed(me, "clients.delete") && <Link href={`/admin/clients/${id}/edit#delete`} className="text-sm text-red-700 underline-offset-4 hover:underline">Delete</Link>}
+              </span>}
             </div>
             <InfoRows rows={keyRows} />
             <details className="group mt-3">

@@ -3,6 +3,10 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · "Delete" link on the client page
+
+- Client page: next to Edit, a red "Delete" link (clients.delete) jumps to the Delete client box (#delete) on the edit page.
+
 ## 2026-11-01 · Claude Code · admin deletes case history; delete client past failed attempts; reschedule after start
 
 - New permission `casehistory.delete` (admin only by default): case history page has a red "Delete case history"

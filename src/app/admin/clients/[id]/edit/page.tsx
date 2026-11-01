@@ -115,7 +115,7 @@ export default async function EditClientPage({
         </div>
       </form>
       {allowed(me, "clients.delete") && (
-        <form action={deleteClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
+        <form id="delete" action={deleteClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
           <h2 className="font-semibold text-red-700">Delete client</h2>
           <p className="text-sm text-zinc-600">
             This removes {c.name} with all their bookings, payments, credits, case history and session notes, for good. It can&apos;t be undone,
