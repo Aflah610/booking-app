@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · reschedule: pick any date
+
+- Booking page move panel: a date field (AutoSubmitForm, min today) above the times, next to the day arrows.
+  Reschedule on a session that has already started opens on today instead of the past day.
+
 ## 2026-11-01 · Claude Code · client Bin (30-day restore) and edit requests drop off after 30 days
 
 - Migration 0044: client.deleted_at, client.deleted_by. "Delete client" now moves the client to the Bin

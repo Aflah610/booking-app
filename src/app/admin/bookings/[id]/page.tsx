@@ -10,6 +10,7 @@ import { isOnlineSession } from "@/features/bookings/meeting";
 import { allowed, isFrontDesk, requireStaff } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, NO_SHOW_BY_LABEL, PAYMENT_LABEL, timeLabel } from "@/lib/format";
+import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { PaymentBadge, StatusBadge } from "@/components/StatusBadge";
@@ -235,7 +236,7 @@ export default async function BookingPage({
         </section>
 
         <aside className="grid content-start gap-4">
-          {canMove && !moving && <Link className="btn justify-center" href={moveHref(date)}>Reschedule</Link>}
+          {canMove && !moving && <Link className="btn justify-center" href={moveHref(started ? isoDay(now, tz) : date)}>Reschedule</Link>}
           {started && b.status !== "cancelled" && (
             <div className="card grid gap-2 p-4">
               <p className="mb-1 text-sm text-zinc-600">What happened?</p>
@@ -278,6 +279,14 @@ export default async function BookingPage({
             <h2 className="text-center font-medium">Move to {longDayLabel(new Date(`${date}T12:00:00Z`), "UTC")}</h2>
             <Link className="icon-btn" href={moveHref(addDays(date, 1))} aria-label="Next day">›</Link>
           </div>
+          <AutoSubmitForm action={`/admin/bookings/${b.id}`} className="mb-4 flex flex-wrap items-end gap-3">
+            <input type="hidden" name="move" value="1" />
+            <div>
+              <label className="label" htmlFor="moveDate">Date</label>
+              <input className="input w-auto" id="moveDate" name="date" type="date" defaultValue={date} min={isoDay(now, tz)} required />
+            </div>
+            <p className="pb-2 text-sm text-zinc-600">Pick a date, then a time below.</p>
+          </AutoSubmitForm>
           <p className="mb-4 text-sm text-zinc-600">Free times for {b.staffName}. The old time is released when you pick a new one.</p>
           {slots.length === 0 && <p className="text-sm text-zinc-600">No free times this day.</p>}
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-8">
