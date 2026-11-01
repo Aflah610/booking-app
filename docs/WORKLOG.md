@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · CCD payment QR opens Razorpay straight away
+
+- Aflah chose "paying = agreeing": /pay/<id> (CollectPayment) no longer has the consent tick box. The Razorpay checkout
+  opens by itself once checkout.js loads (once per visit); the Pay button stays for a retry. Above it:
+  "By paying, you agree to the Terms & Conditions and Privacy Policy, and consent to therapy" with links.
+  This replaces Codex's 2026-10-29 tick-box step on purpose (Aflah's decision); don't restore it.
+
 ## 2026-11-01 · Claude Code · staff WhatsApp number; WhatsApp workflows can go to the psychologist
 
 - Migration 0045: staff.phone_e164. Staff profile (managers) has a "WhatsApp number" field (PhoneField, blank = none).
