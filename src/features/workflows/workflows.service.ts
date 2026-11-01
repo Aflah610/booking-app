@@ -199,11 +199,15 @@ export function createWorkflowsService(deps: {
     }
     if (w.channel === "whatsapp") {
       const c = w.config as WhatsappConfig;
-      if (!ctx.whatsappOptIn) return { skip: "The client has not agreed to WhatsApp messages" };
+      const toStaff = c.recipient === "staff";
+      if (toStaff && !isConfirmedSession(ctx)) return { skip: "Not a confirmed session" };
+      if (toStaff && !ctx.staffPhone) return { skip: "The staff member has no WhatsApp number" };
+      if (!toStaff && !ctx.whatsappOptIn) return { skip: "The client has not agreed to WhatsApp messages" };
+      const to = toStaff ? ctx.staffPhone! : ctx.clientPhone;
       const params = c.params.map((p) => render(p, v));
       return {
-        msg: { channel: "whatsapp", to: ctx.clientPhone, templateName: c.templateName, language: c.language, params },
-        to: ctx.clientPhone,
+        msg: { channel: "whatsapp", to, templateName: c.templateName, language: c.language, params },
+        to,
         summary: `Template ${c.templateName} (${c.language}): ${params.join(" | ")}`,
       };
     }

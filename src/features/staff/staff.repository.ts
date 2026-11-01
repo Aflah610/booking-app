@@ -16,6 +16,7 @@ const columns = {
   timezone: staff.timezone,
   active: staff.active,
   clinicalAdmin: staff.clinicalAdmin,
+  phoneE164: staff.phoneE164,
 };
 
 export function createStaffRepository(db: Db) {

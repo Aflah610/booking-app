@@ -22,6 +22,7 @@ const whatsapp = z.object({
   templateName: z.string().trim().regex(/^[a-z0-9_]{1,512}$/, "Use the approved template name, e.g. booking_reminder"),
   language: z.string().trim().regex(/^[a-z]{2}(_[A-Z]{2})?$/, "Use a code like en or en_US").default("en"),
   params: z.array(text(500)).max(10).default([]),
+  recipient: z.enum(["client", "staff"]).default("client"),
 });
 const webhook = z.object({
   channel: z.literal("webhook"),

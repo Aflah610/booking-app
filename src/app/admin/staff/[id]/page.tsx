@@ -11,6 +11,7 @@ import { HoursEditor } from "@/components/HoursEditor";
 import { Notice } from "@/components/Notice";
 import Link from "next/link";
 import { PageHeader } from "@/components/Shell";
+import { PhoneField } from "@/components/PhoneField";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
 import {
   addTimeOffAction,
@@ -194,6 +195,10 @@ export default async function StaffDetail({
               </select>
             </div>
             <div><label className="label" htmlFor="timezone">Time zone</label><TimezoneSelect value={member.timezone} /></div>
+            <div>
+              <PhoneField id="phone" name="phone" label="WhatsApp number" defaultValue={member.phoneE164} />
+              <p className="mt-1 text-xs text-zinc-600">For session notices and reminders on WhatsApp. Leave blank for email only.</p>
+            </div>
             <label className="flex items-start gap-3 text-sm sm:col-span-2">
               <input type="checkbox" className="toggle mt-0.5" name="active" defaultChecked={member.active} />
               <span>Current staff <span className="block text-xs text-zinc-600">Can sign in and be booked. Switch off when someone leaves: they move to Past staff and their history stays.</span></span>

@@ -18,6 +18,8 @@ export type StaffDTO = {
   active: boolean;
   /** May read and write every client's clinical record. */
   clinicalAdmin: boolean;
+  /** WhatsApp number for staff notices and reminders; null = email only. */
+  phoneE164: string | null;
 };
 
 /** What the website may see about a staff member. */

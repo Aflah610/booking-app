@@ -107,6 +107,8 @@ export const staff = pgTable("staff", {
   active: boolean("active").notNull().default(true),
   /** May read and write every client's clinical record, not only the clients they treat. */
   clinicalAdmin: boolean("clinical_admin").notNull().default(false),
+  /** Their WhatsApp number, for session notices and reminders sent to staff; null = email only. */
+  phoneE164: text("phone_e164"),
   /** Sales executives switch this off when they stop taking leads (break, end of shift); new leads skip them. */
   leadsOnline: boolean("leads_online").notNull().default(true),
   leadsOnlineChangedAt: timestamp("leads_online_changed_at", { withTimezone: true }),

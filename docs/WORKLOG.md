@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · staff WhatsApp number; WhatsApp workflows can go to the psychologist
+
+- Migration 0045: staff.phone_e164. Staff profile (managers) has a "WhatsApp number" field (PhoneField, blank = none).
+- WhatsApp workflow config gains `recipient` ("client" default | "staff"); form shows "Send to" for WhatsApp too.
+  Staff sends need a confirmed session and a staff number; client sends still need the client's WhatsApp opt-in.
+- Still to do before it sends: Meta utility templates for staff (new booking / reminders / moved / cancelled) on the
+  OTP WABA, then WhatsApp workflows with recipient "staff" using them.
+
 ## 2026-11-01 · Claude Code · psychologist emails: new booking, reminders, moved, cancelled
 
 - Aflah: psychologists should get a notice when booked plus the same reminders as clients. Created live in Workflows

@@ -40,7 +40,7 @@ export function WorkflowForm({
   const [serviceIds, setServiceIds] = useState<string[]>(initial.serviceIds ?? []);
   const [channel, setChannel] = useState(initial.action.channel);
   const a = initial.action;
-  const [recipient, setRecipient] = useState<"client" | "staff">(a.channel === "email" ? a.recipient ?? "client" : "client");
+  const [recipient, setRecipient] = useState<"client" | "staff">(a.channel === "email" || a.channel === "whatsapp" ? a.recipient ?? "client" : "client");
   const [subject, setSubject] = useState(a.channel === "email" ? a.subject : "");
   const [body, setBody] = useState(a.channel === "email" ? a.body : "");
   const [attachInvite, setAttachInvite] = useState(a.channel === "email" ? Boolean(a.attachInvite) : false);
@@ -87,7 +87,7 @@ export function WorkflowForm({
       channel === "email"
         ? { channel, recipient, subject, body, attachInvite }
         : channel === "whatsapp"
-          ? { channel, templateName, language, params: params.split("\n").map((p) => p.trim()).filter(Boolean) }
+          ? { channel, templateName, language, recipient, params: params.split("\n").map((p) => p.trim()).filter(Boolean) }
           : { channel, url },
   };
 
@@ -212,6 +212,13 @@ export function WorkflowForm({
         {channel === "whatsapp" && (
           <>
             <p className="text-sm text-zinc-600">WhatsApp only lets a business start a chat with a template Meta has approved. Use its exact name (see docs/whatsapp-templates.md).</p>
+            <div>
+              <label className="label" htmlFor="waRecipient">Send to</label>
+              <select className="input" id="waRecipient" value={recipient} onChange={(e) => setRecipient(e.target.value as typeof recipient)}>
+                <option value="client">The client</option>
+                <option value="staff">The staff member booked (their WhatsApp number on the Staff page)</option>
+              </select>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div><label className="label" htmlFor="templateName">Template name</label><input className="input" id="templateName" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="booking_reminder" /></div>
               <div><label className="label" htmlFor="language">Language code</label><input className="input" id="language" value={language} onChange={(e) => setLanguage(e.target.value)} /></div>

@@ -149,6 +149,7 @@ export function createWorkflowsRepository(db: Db) {
           location: service.location,
           staffName: staff.name,
           staffEmail: staff.email,
+          staffPhone: staff.phoneE164,
           clientName: client.name,
           clientPhone: client.phoneE164,
           clientEmail: client.email,

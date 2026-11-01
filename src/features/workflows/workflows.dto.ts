@@ -39,7 +39,7 @@ export type EmailConfig = {
   /** Attach a calendar invite so Gmail, Outlook and Apple Mail offer to add (or remove) the appointment. */
   attachInvite?: boolean;
 };
-export type WhatsappConfig = { templateName: string; language: string; params: string[] };
+export type WhatsappConfig = { templateName: string; language: string; params: string[]; recipient?: "client" | "staff" };
 export type WebhookConfig = { url: string };
 export type WorkflowConfig = EmailConfig | WhatsappConfig | WebhookConfig;
 
@@ -84,6 +84,7 @@ export type BookingContextDTO = {
   location: string | null;
   staffName: string;
   staffEmail: string;
+  staffPhone: string | null;
   clientName: string;
   clientPhone: string;
   clientEmail: string | null;
