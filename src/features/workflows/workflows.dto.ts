@@ -75,6 +75,10 @@ export type BookingContextDTO = {
   bookingId: string;
   number: number;
   status: "upcoming" | "completed" | "cancelled" | "no_show";
+  /** For telling a real session from an unpaid online attempt (see isConfirmedSession). */
+  paymentStatus: "pending" | "paid" | "failed" | "not_required";
+  source: "web" | "staff";
+  slotReleased: boolean;
   serviceId: string;
   serviceName: string;
   location: string | null;

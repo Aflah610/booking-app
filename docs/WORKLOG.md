@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · psychologist emails: new booking, reminders, moved, cancelled
+
+- Aflah: psychologists should get a notice when booked plus the same reminders as clients. Created live in Workflows
+  (recipient "The staff member booked", email; staff have no phone, so no WhatsApp): "Psychologist: new booking",
+  reminders 24 h / 3 h (join link) / 30 min (join link), "session moved", "session cancelled". No client phone in them.
+  (A first attempt briefly saved the client "Booking confirmation" preset for ~2 min; it was edited into the
+  psychologist version.)
+- Code: workflows compose() skips staff-recipient emails when the booking is not a confirmed session
+  (isConfirmedSession), so the automatic cancel of an unpaid online attempt doesn't email the psychologist.
+  BookingContextDTO gains paymentStatus, source, slotReleased.
+
 ## 2026-11-01 · Claude Code · phone layout for the psychologist's pages
 
 - Aflah: one psychologist works only from a phone. Under md (768px):

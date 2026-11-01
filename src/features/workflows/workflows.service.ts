@@ -1,4 +1,5 @@
 import type { Actor } from "@/features/audit/audit.types";
+import { isConfirmedSession } from "@/features/bookings/bookings.dto";
 import type { CatalogRepository } from "@/features/catalog/catalog.repository";
 import type { SettingsRepository } from "@/features/settings/settings.repository";
 import { DomainError } from "@/features/shared/errors";
@@ -163,6 +164,8 @@ export function createWorkflowsService(deps: {
     const v = vars(ctx, firm);
     if (w.channel === "email") {
       const c = w.config as EmailConfig;
+      // Psychologists hear only about sessions that are on, never about unpaid or failed online attempts.
+      if (c.recipient === "staff" && !isConfirmedSession(ctx)) return { skip: "Not a confirmed session" };
       const to = c.recipient === "staff" ? ctx.staffEmail : ctx.clientEmail;
       if (!to) return { skip: "The client has no email address" };
       const subject = render(c.subject, v);
