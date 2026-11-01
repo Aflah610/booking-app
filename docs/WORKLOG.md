@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · "Complete intake" on the case page
+
+- Rashin reported a filled case history still showing Intake pending. Cause: completion only happened from the intake
+  wizard's step 6 ("intent=complete"); psychologists who edit section by section never see that button.
+  Case page now shows an amber box while the intake is pending (for anyone who can write it): what is missing
+  (complaints / primary diagnosis) or a "Complete intake" button (completeIntakeAction -> caseHistory.completeIntake).
+  No data changed; e.g. ML-CL-00304 has complaints and diagnosis text "pending", so Rashin can complete it himself.
+
 ## 2026-11-01 · Claude Code · reschedule: pick any date
 
 - Booking page move panel: a date field (AutoSubmitForm, min today) above the times, next to the day arrows.

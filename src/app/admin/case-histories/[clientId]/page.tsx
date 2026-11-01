@@ -10,7 +10,7 @@ import { allowed, requireStaff } from "@/lib/session";
 import { Initials, RiskBadge, StatusBadge } from "@/components/CaseBadges";
 import { Notice } from "@/components/Notice";
 import { NoteFields, SessionNoteCard } from "@/components/SessionNote";
-import { addNoteAction, deleteCaseHistoryAction, sendFollowUpAction, requestIntakeEditAction } from "../actions";
+import { addNoteAction, completeIntakeAction, deleteCaseHistoryAction, sendFollowUpAction, requestIntakeEditAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Case history" };
@@ -67,6 +67,23 @@ export default async function CasePage({ params, searchParams }: { params: Promi
           {requestable && <Link href="/admin/case-edit-requests" className="btn-ghost">My edit requests</Link>}
         </div>
       </header>
+
+      {r.status === "intake_pending" && writable && (
+        // Intakes filled in section by section never reach the last step's button, so the case page offers it too.
+        <section className="card mb-6 flex flex-wrap items-center justify-between gap-4 border-amber-300 bg-amber-50 p-5">
+          <div>
+            <p className="font-medium">The intake isn&apos;t marked complete yet</p>
+            <p className="text-sm text-zinc-700">
+              {!r.presentingComplaints || !r.diagnosisLabel
+                ? `To complete it, add ${[!r.presentingComplaints && "the presenting complaints", !r.diagnosisLabel && "a primary diagnosis"].filter(Boolean).join(" and ")}.`
+                : "Complaints and a primary diagnosis are in. Complete it to move this client to In treatment."}
+            </p>
+          </div>
+          {r.presentingComplaints && r.diagnosisLabel && (
+            <form action={completeIntakeAction.bind(null, clientId)}><button className="btn" type="submit">Complete intake</button></form>
+          )}
+        </section>
+      )}
 
       {requestable && editSteps.length === 0 && <details className="card mb-6 p-5">
         <summary className="cursor-pointer font-medium">Request an edit to this completed case history</summary>

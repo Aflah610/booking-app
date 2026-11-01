@@ -74,6 +74,12 @@ export async function saveIntakeAction(clientId: string, step: number, form: For
   });
 }
 
+/** Completes the intake from the case page, for intakes filled in section by section rather than through the last step. */
+export async function completeIntakeAction(clientId: string) {
+  const me = await requireStaff();
+  await act(casePath(clientId), "Intake completed", () => app().caseHistory.completeIntake(me, clientId));
+}
+
 const DELIVERED: Record<string, string> = { sent: "sent", not_set_up: "isn't set up yet", no_contact: "has no address for this client", failed: "failed" };
 
 export async function sendFollowUpAction(clientId: string, form: FormData) {
