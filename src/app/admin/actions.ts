@@ -254,13 +254,26 @@ export async function createClientAction(form: FormData) {
 
 export async function deleteClientAction(clientId: string, form: FormData) {
   const me = await requirePermission("clients.delete");
-  await act(`/admin/clients/${clientId}/edit`, "Client deleted", async () => {
+  await act(`/admin/clients/${clientId}/edit`, "Moved to the Bin. You can restore them for 30 days.", async () => {
     const c = await app().clients.get(clientId);
     // Typing the client ID stops a slip of the mouse deleting someone.
     if (str(form, "confirm").toUpperCase() !== clientReference(c.number)) throw new DomainError("invalid", `Type ${clientReference(c.number)} to confirm`);
     await app().clients.remove({ staffId: me.id }, clientId);
     return "/admin/clients";
   });
+}
+
+export async function restoreClientAction(clientId: string) {
+  const me = await requirePermission("clients.delete");
+  await act("/admin/clients/bin", "Client restored", async () => {
+    await app().clients.restore({ staffId: me.id }, clientId);
+    return `/admin/clients/${clientId}`;
+  });
+}
+
+export async function purgeClientAction(clientId: string) {
+  const me = await requirePermission("clients.delete");
+  await act("/admin/clients/bin", "Client deleted for good", () => app().clients.purge({ staffId: me.id }, clientId));
 }
 
 export async function assignTherapistAction(clientId: string, form: FormData) {

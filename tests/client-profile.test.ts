@@ -255,23 +255,27 @@ describe("deleting a case history", () => {
 });
 
 describe("deleting a client", () => {
-  it("removes a client without bookings, with their psychologist history, and audits the number only", async () => {
+  it("moves a client to the Bin, hidden everywhere, and audits the number only; restore brings them back", async () => {
     const asha = await c.staff.create({}, { name: "Asha", email: "asha@firm.test", designation: "Psychologist" });
     const ravi = await c.clients.create({}, { name: "Ravi", phone: "98765 43210" });
     await c.clients.assignTherapist({}, ravi.id, { staffId: asha.id });
     await c.clients.remove({}, ravi.id);
     await expect(c.clients.get(ravi.id)).rejects.toMatchObject({ code: "not_found" });
-    const audit = (await db.execute(sql`select details from audit_log where entity = 'client' and action = 'delete'`)).rows as { details: unknown }[];
-    expect(audit).toEqual([{ details: { number: ravi.number, bookings: 0, payments: 0 } }]);
+    expect((await c.clients.directory({})).map((r) => r.id)).not.toContain(ravi.id);
+    expect((await c.clients.bin()).map((r) => r.id)).toEqual([ravi.id]);
+    const audit = (await db.execute(sql`select details from audit_log where entity = 'client' and action = 'bin'`)).rows as { details: unknown }[];
+    expect(audit).toEqual([{ details: { number: ravi.number } }]);
+    await c.clients.restore({}, ravi.id);
+    expect((await c.clients.get(ravi.id)).id).toBe(ravi.id);
+    expect(await c.clients.bin()).toEqual([]);
   });
 
-  it("refuses while a session is still to come, then deletes the client with their bookings", async () => {
+  it("refuses while a session is still to come; deleting for good removes their bookings", async () => {
     const { clientId } = await setup();
-    const before = at("2026-08-30T09:00");
-    await expect(c.clients.remove({}, clientId, before)).rejects.toMatchObject({ code: "conflict" });
-    expect((await c.clients.get(clientId)).id).toBe(clientId);
+    await expect(c.clients.remove({}, clientId, at("2026-08-30T09:00"))).rejects.toMatchObject({ code: "conflict" });
     await c.clients.remove({}, clientId, at("2026-09-02T09:00"));
-    await expect(c.clients.get(clientId)).rejects.toMatchObject({ code: "not_found" });
+    expect((await c.bookings.list({ view: "all", limit: 50 })).filter((b) => b.clientId === clientId)).toEqual([]);
+    await c.clients.purge({}, clientId);
     const left = (await db.execute(sql`select count(*)::int as n from booking where client_id = ${clientId}`)).rows as { n: number }[];
     expect(left[0].n).toBe(0);
   });
@@ -281,5 +285,22 @@ describe("deleting a client", () => {
     await db.execute(sql`update booking set source = 'web', payment_status = 'failed' where client_id = ${clientId}`);
     await c.clients.remove({}, clientId, at("2026-08-30T09:00"));
     await expect(c.clients.get(clientId)).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("deletes Bin entries for good after 30 days, not before", async () => {
+    const ravi = await c.clients.create({}, { name: "Ravi", phone: "98765 43210" });
+    const binnedAt = at("2026-09-01T09:00");
+    await c.clients.remove({}, ravi.id, binnedAt);
+    expect(await c.clients.emptyBin(at("2026-09-30T09:00"))).toBe(0);
+    expect(await c.clients.emptyBin(at("2026-10-02T09:00"))).toBe(1);
+    expect(await c.clients.bin()).toEqual([]);
+  });
+
+  it("brings a binned client back when they book again with the same phone", async () => {
+    const { clientId, book, asha } = await setup();
+    await c.clients.remove({}, clientId, at("2026-09-02T09:00"));
+    const again = await book(asha.id, "2026-09-10T10:00", at("2026-09-02T10:00"));
+    expect(again.clientId).toBe(clientId);
+    expect((await c.clients.get(clientId)).id).toBe(clientId);
   });
 });

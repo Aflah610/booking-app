@@ -287,6 +287,10 @@ export const client = pgTable("client", {
   consentSignedAt: timestamp("consent_signed_at", { withTimezone: true }),
   /** The staff member who added this client; null for clients who booked online. */
   registeredBy: uuid("registered_by").references(() => staff.id, { onDelete: "set null" }),
+  /** Set when the client is moved to the Bin: hidden everywhere, restorable for 30 days, then deleted for good. */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  /** Who moved them to the Bin (no foreign key, so removing staff never touches it). */
+  deletedBy: uuid("deleted_by"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [check("client_phone_e164", sql`${t.phoneE164} ~ '^\\+[1-9][0-9]{6,14}$'`)]);

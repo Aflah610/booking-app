@@ -175,7 +175,9 @@ export function createCaseHistoryRepository(db: Db) {
         revision: caseEditRequest.revision, currentRevision: caseHistory.intakeRevision,
       }).from(caseEditRequest).innerJoin(caseHistory, eq(caseHistory.id, caseEditRequest.caseHistoryId)).innerJoin(client, eq(client.id, caseHistory.clientId))
         .innerJoin(requester, eq(requester.id, caseEditRequest.requesterId)).leftJoin(reviewer, eq(reviewer.id, caseEditRequest.reviewerId))
-        .where(and(requesterId ? eq(caseEditRequest.requesterId, requesterId) : undefined, clientId ? eq(client.id, clientId) : undefined)).orderBy(sql`case when ${caseEditRequest.status} = 'pending' then 0 when ${caseEditRequest.status} = 'approved' then 1 else 2 end`, desc(caseEditRequest.createdAt)).limit(200);
+        // Decided requests drop off the list 30 days after the decision (the rows stay, as the record of clinical changes).
+        .where(and(requesterId ? eq(caseEditRequest.requesterId, requesterId) : undefined, clientId ? eq(client.id, clientId) : undefined,
+          sql`(${caseEditRequest.status} = 'pending' or coalesce(${caseEditRequest.usedAt}, ${caseEditRequest.reviewedAt}, ${caseEditRequest.createdAt}) > ${new Date(now.getTime() - 30 * 86_400_000)})`)).orderBy(sql`case when ${caseEditRequest.status} = 'pending' then 0 when ${caseEditRequest.status} = 'approved' then 1 else 2 end`, desc(caseEditRequest.createdAt)).limit(200);
       return rows.map(({ revision, currentRevision, ...r }) => ({ ...r, status: ["pending", "approved"].includes(r.status) && (revision !== currentRevision || Boolean(r.expiresAt && r.expiresAt <= now)) ? "expired" : r.status }));
     },
     async pendingEditCount() {
@@ -290,6 +292,7 @@ export function createCaseHistoryRepository(db: Db) {
         .leftJoin(sessionNote, eq(sessionNote.bookingId, booking.id))
         .where(and(
           isNull(sessionNote.id),
+          isNull(client.deletedAt),
           eq(booking.slotReleased, false),
           sql`(${booking.paymentStatus} in ('paid', 'not_required') or ${booking.paymentDueAt} is null)`,
           inArray(booking.status, ["upcoming", "completed"]),
@@ -322,7 +325,7 @@ export function createCaseHistoryRepository(db: Db) {
           from session_note sn where sn.case_history_id = ch.id
         ) n on true
         left join staff la on la.id = n.last_author
-        where ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} ${digits.length >= 3 ? sql`or c.phone_e164 like ${`%${digits}%`} or c.number::text = ${digits}` : sql``})` : sql`true`}
+        where c.deleted_at is null and ${like ? sql`(c.name ilike ${like} or c.phone_e164 ilike ${like} ${digits.length >= 3 ? sql`or c.phone_e164 like ${`%${digits}%`} or c.number::text = ${digits}` : sql``})` : sql`true`}
           -- Only people in treatment: a confirmed or paid session, a psychologist, or clinical writing. Someone who only started
           -- a website booking and never paid stays in Bookings; sales-only contacts stay in Leads.
           and (

@@ -30,6 +30,6 @@ export default async function EditRequestsPage({ searchParams }: { searchParams:
         {!review && r.status === "approved" && <Link className="btn-ghost justify-self-start" href={`/admin/case-histories/${r.clientId}/intake?step=${r.step}`}>Make approved correction</Link>}
       </section>)}
     </div>
-    <p className="mt-4 text-xs text-zinc-500">Pending requests appear first. Up to 200 requests are shown. Clinical records and previous clinical values are kept out of this queue.</p>
+    <p className="mt-4 text-xs text-zinc-500">Pending requests appear first. Approved and rejected requests drop off this list 30 days after the decision. Clinical records and previous clinical values are kept out of this queue.</p>
   </>;
 }

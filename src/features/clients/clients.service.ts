@@ -5,6 +5,9 @@ import { clientReference, type ClientDirectoryFilters, type ClientDTO } from "./
 import type { ClientsRepository } from "./clients.repository";
 import { assignTherapistInput, clientCreateInput, clientProfileInput, clientUpdateInput } from "./clients.schemas";
 
+/** How long a deleted client can be restored before they are deleted for good. */
+export const BIN_DAYS = 30;
+
 export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepository }) {
   async function get(id: string): Promise<ClientDTO> {
     const row = isUuid(id) ? await clientsRepo.findById(id) : null;
@@ -65,18 +68,46 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
     updateProfile: async (actor: Actor, id: string, input: unknown) => save(actor, id, withRegistration(clientProfileInput.parse(input))),
 
     /**
-     * Deletes a client with their bookings, payments and case history. Sessions still to come must be cancelled first,
-     * so their calendar events and the client's messages are dealt with the usual way.
+     * Moves a client to the Bin: gone from every list at once, restorable for BIN_DAYS, then deleted for good with their
+     * bookings, payments and case history. Sessions still to come must be cancelled first, so their calendar events
+     * and the client's messages are dealt with the usual way.
      */
     async remove(actor: Actor, id: string, now = new Date()) {
       const c = await get(id);
-      const { bookings, upcoming, payments } = await clientsRepo.deletionCounts(id, now);
+      const { upcoming } = await clientsRepo.deletionCounts(id, now);
       if (upcoming) {
         throw new DomainError("conflict", `${clientReference(c.number)} has ${upcoming} upcoming session${upcoming === 1 ? "" : "s"}. Cancel ${upcoming === 1 ? "it" : "them"} first, then delete the client`);
       }
-      // Personal data: the audit row keeps the client number and what went with them, not the name.
-      await clientsRepo.remove(id, { actor, action: "delete", entity: "client", entityId: id, details: { number: c.number, bookings, payments } });
+      // Personal data: the audit row keeps the client number, not the name.
+      await clientsRepo.bin(id, actor.staffId ?? null, now, { actor, action: "bin", entity: "client", entityId: id, details: { number: c.number } });
       return c;
+    },
+
+    bin: () => clientsRepo.binned(),
+
+    async restore(actor: Actor, id: string) {
+      const c = isUuid(id) ? await clientsRepo.findBinned(id) : null;
+      if (!c) throw new DomainError("not_found", "That client is not in the Bin");
+      await clientsRepo.restore(id, { actor, action: "restore", entity: "client", entityId: id, details: { number: c.number } });
+      return c;
+    },
+
+    /** Deletes a client in the Bin for good, with everything that is theirs. */
+    async purge(actor: Actor, id: string, now = new Date()) {
+      const c = isUuid(id) ? await clientsRepo.findBinned(id) : null;
+      if (!c) throw new DomainError("not_found", "That client is not in the Bin");
+      const { bookings, payments } = await clientsRepo.deletionCounts(id, now);
+      await clientsRepo.remove(id, { actor, action: "delete", entity: "client", entityId: id, details: { number: c.number, bookings, payments } });
+    },
+
+    /** Run by the background worker: deletes Bin entries older than BIN_DAYS for good. */
+    async emptyBin(now = new Date()) {
+      const due = await clientsRepo.binnedBefore(new Date(now.getTime() - BIN_DAYS * 86_400_000));
+      for (const c of due) {
+        const { bookings, payments } = await clientsRepo.deletionCounts(c.id, now);
+        await clientsRepo.remove(c.id, { actor: {}, action: "delete", entity: "client", entityId: c.id, details: { number: c.number, bookings, payments, after: `${BIN_DAYS} days in the Bin` } });
+      }
+      return due.length;
     },
 
     async assignTherapist(actor: Actor, clientId: string, input: unknown, now = new Date()) {

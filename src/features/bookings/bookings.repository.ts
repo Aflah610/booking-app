@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import type { Db, Tx } from "@/db";
 import { booking, business, client, notification, payment, service, slotHold, staff, staffService } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
@@ -321,6 +321,8 @@ export function createBookingsRepository(db: Db) {
         q.phoneE164 ? eq(client.phoneE164, q.phoneE164) : undefined,
         q.from ? gte(booking.endsAt, q.from) : undefined,
         q.to ? lte(booking.startsAt, q.to) : undefined,
+        // A client in the Bin is gone from every list.
+        isNull(client.deletedAt),
         // Same rule as isConfirmedSession.
         q.confirmedOnly
           ? sql`not ${booking.slotReleased} and ${booking.paymentStatus} <> 'failed' and (${booking.paymentStatus} <> 'pending' or ${booking.source} = 'staff')`

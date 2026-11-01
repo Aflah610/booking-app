@@ -153,7 +153,7 @@ export function createFollowUpDeskRepository(db: Db) {
       return db
         .selectDistinct({ id: client.id, name: client.name, phoneE164: client.phoneE164, number: client.number })
         .from(client)
-        .where(or(
+        .where(and(isNull(client.deletedAt), or(
           sql`exists (select 1 from ${booking} b where b.client_id = ${client.id}
             ${staffId ? sql`and b.staff_id = ${staffId}` : sql``}
             and b.starts_at <= now() and b.status = 'completed' and not b.slot_released
@@ -161,7 +161,7 @@ export function createFollowUpDeskRepository(db: Db) {
           sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
             where h.client_id = ${client.id} ${staffId ? sql`and n.author_id = ${staffId}` : sql``}
             and n.booking_id is null and n.signed_at is not null and n.session_at <= now())`,
-        ))
+        )))
         .orderBy(asc(client.name))
         .limit(1000);
     },

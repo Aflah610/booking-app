@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db, DbOrTx } from "@/db";
 import { booking, caseHistory, client, clientTherapist, creditPurchase, followUpRequest, staff } from "@/db/schema";
@@ -54,6 +54,9 @@ export async function upsertClient(tx: DbOrTx, c: ClientContact): Promise<string
         name: c.name,
         email: sql`coalesce(excluded.email, ${client.email})`,
         whatsappOptIn: sql`${client.whatsappOptIn} or excluded.whatsapp_opt_in`,
+        // Someone in the Bin who books again comes back.
+        deletedAt: null,
+        deletedBy: null,
       },
     })
     .returning({ id: client.id });
@@ -63,7 +66,8 @@ export async function upsertClient(tx: DbOrTx, c: ClientContact): Promise<string
 /** Contact rows also support abandoned checkouts and leads; only established registrations belong in Clients. */
 export function registeredClientWhere(alias: "client" | "c" = "client") {
   const c = sql.identifier(alias);
-  return sql`(
+  // Clients in the Bin count as gone everywhere.
+  return sql`${c}.deleted_at is null and (
     ${c}.registered_by is not null or ${c}.mch_code is not null or ${c}.mch_id is not null
     or exists (select 1 from booking b where b.client_id = ${c}.id and (
       b.payment_status = 'paid' or b.source = 'staff'
@@ -99,7 +103,7 @@ export async function assignInitialTherapist(
 export function createClientsRepository(db: Db) {
   return {
     async findById(id: string): Promise<ClientDTO | null> {
-      const [row] = await db.select(clientColumns).from(client).where(eq(client.id, id));
+      const [row] = await db.select(clientColumns).from(client).where(and(eq(client.id, id), isNull(client.deletedAt)));
       return row ?? null;
     },
 
@@ -122,6 +126,7 @@ export function createClientsRepository(db: Db) {
         })
         .from(client)
         .where(and(
+          isNull(client.deletedAt),
           pattern ? or(ilike(client.name, pattern), ilike(client.phoneE164, pattern), ilike(client.phoneAsEntered, pattern), ilike(client.email, pattern), digits.length >= 3 ? ilike(client.phoneE164, like(digits)) : undefined) : undefined,
           from ? gte(client.createdAt, from) : undefined,
           to ? lt(client.createdAt, to) : undefined,
@@ -211,6 +216,45 @@ export function createClientsRepository(db: Db) {
      * Deletes the client and everything that is theirs: bookings (with their payments, credit uses, calendar and message
      * records), package and wallet purchases, psychologist periods, case history and notes, leads and follow-ups.
      */
+    /** Moves the client to the Bin. */
+    bin(id: string, by: string | null, at: Date, audit: AuditEntry) {
+      return db.transaction(async (tx) => {
+        const rows = await tx.update(client).set({ deletedAt: at, deletedBy: by }).where(and(eq(client.id, id), isNull(client.deletedAt))).returning({ id: client.id });
+        if (rows.length) await writeAudit(tx, audit);
+        return rows.length > 0;
+      });
+    },
+
+    restore(id: string, audit: AuditEntry) {
+      return db.transaction(async (tx) => {
+        const rows = await tx.update(client).set({ deletedAt: null, deletedBy: null }).where(and(eq(client.id, id), isNotNull(client.deletedAt))).returning({ id: client.id });
+        if (rows.length) await writeAudit(tx, audit);
+        return rows.length > 0;
+      });
+    },
+
+    /** The Bin, most recently deleted first. */
+    binned() {
+      const by = alias(staff, "deleted_by_staff");
+      return db
+        .select({ id: client.id, name: client.name, number: client.number, deletedAt: client.deletedAt, deletedByName: by.name })
+        .from(client)
+        .leftJoin(by, eq(by.id, client.deletedBy))
+        .where(isNotNull(client.deletedAt))
+        .orderBy(desc(client.deletedAt));
+    },
+
+    /** Clients in the Bin since before `before`, due to be deleted for good. */
+    binnedBefore(before: Date): Promise<{ id: string; number: number }[]> {
+      return db.select({ id: client.id, number: client.number }).from(client).where(and(isNotNull(client.deletedAt), lt(client.deletedAt, before)));
+    },
+
+    /** One client in the Bin, for restoring or deleting for good. */
+    async findBinned(id: string): Promise<ClientDTO | null> {
+      const [row] = await db.select(clientColumns).from(client).where(and(eq(client.id, id), isNotNull(client.deletedAt)));
+      return row ?? null;
+    },
+
     remove(id: string, audit: AuditEntry) {
       return db.transaction(async (tx) => {
         // Credit drawn from this client's packages or wallet, then their bookings, then their purchases, then the client.

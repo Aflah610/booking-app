@@ -309,6 +309,13 @@
       "when": 1793294384977,
       "tag": "0043_ccd_followup_classification",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793537781943,
+      "tag": "0044_client_bin",
+      "breakpoints": true
     }
   ]
 }

@@ -118,8 +118,8 @@ export default async function EditClientPage({
         <form id="delete" action={deleteClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
           <h2 className="font-semibold text-red-700">Delete client</h2>
           <p className="text-sm text-zinc-600">
-            This removes {c.name} with all their bookings, payments, credits, case history and session notes, for good. It can&apos;t be undone,
-            and their payments disappear from reports. Cancel any upcoming sessions first.
+            {c.name} moves to the <Link href="/admin/clients/bin" className="underline">Bin</Link> and disappears from every list. You can restore them for 30 days;
+            after that they are deleted for good with their bookings, payments, credits, case history and session notes. Cancel any upcoming sessions first.
           </p>
           <div className="max-w-xs">
             <label className="label" htmlFor="confirm">Type {clientReference(c.number)} to confirm</label>

@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-01 · Claude Code · client Bin (30-day restore) and edit requests drop off after 30 days
+
+- Migration 0044: client.deleted_at, client.deleted_by. "Delete client" now moves the client to the Bin
+  (clients.service remove -> repo.bin): hidden from findById, Clients list/directory (registeredClientWhere),
+  bookings list, case history list, pending case notes and follow-up client picker. Upcoming confirmed sessions
+  still block it. /admin/clients/bin (clients.delete) lists the Bin with Restore and Delete for good (purge = the old
+  hard delete). The background worker runs clients.emptyBin() every tick: Bin entries older than 30 days are
+  deleted for good. A binned client who books again with the same phone comes back (upsertClient clears deleted_at).
+  Bookings get() and reports still include binned clients' bookings until they are deleted for good.
+- Case edit requests page: approved/rejected/used/expired requests older than 30 days after the decision are hidden
+  (rows kept). Pending ones always show.
+
 ## 2026-11-01 · Claude Code · "Delete" link on the client page
 
 - Client page: next to Edit, a red "Delete" link (clients.delete) jumps to the Delete client box (#delete) on the edit page.

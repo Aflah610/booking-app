@@ -15,12 +15,14 @@ export function startWorkflowWorker() {
     running = true;
     try {
       const { app } = await import("@/features/container");
-      const { workflows, payments, calendar } = app();
+      const { workflows, payments, calendar, clients } = app();
       // Payments first, so a booking that just failed gets its "complete your payment" message this round.
       await payments.expire();
       await workflows.processDue();
       await calendar.processDue();
       await calendar.syncBusy();
+      // Clients 30 days in the Bin are deleted for good.
+      await clients.emptyBin();
     } catch (err) {
       console.error("Workflow worker failed", err);
     } finally {

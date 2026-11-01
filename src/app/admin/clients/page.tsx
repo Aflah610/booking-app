@@ -39,7 +39,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         subtitle={everyone
           ? "Registered clients and their psychologists. Unpaid online booking attempts are kept in Bookings."
           : "The clients you treat or have treated. Contact details are kept with the front desk."}
-        action={everyone && <Link href="/admin/clients/new" className="btn">Register new client</Link>}
+        action={everyone && <div className="flex gap-2">
+          {allowed(me, "clients.delete") && <Link href="/admin/clients/bin" className="btn-ghost">Bin</Link>}
+          <Link href="/admin/clients/new" className="btn">Register new client</Link>
+        </div>}
       />
       <Notice error={sp.error} />
       <div className="mb-6 flex flex-wrap items-start gap-2">
