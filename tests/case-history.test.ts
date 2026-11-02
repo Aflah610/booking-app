@@ -26,7 +26,7 @@ async function setup() {
     c.bookings.create(desk, { serviceId: therapy.id, staffId, start: at(start), client: { name: "Ravi", phone }, useCredits: false }, { now: at("2026-09-01T08:00") }).then((r) => r.booking);
   const first = await book(asha.id, "2026-09-03T10:00");
   const clientId = first.clientId;
-  // The desk booking already made Asha the client's psychologist.
+  await c.clients.assignTherapist({}, clientId, { staffId: asha.id });
   return { asha, dev, manager, lead, book, clientId, first };
 }
 

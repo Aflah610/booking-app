@@ -236,9 +236,7 @@ export function createBookingsService(deps: {
         {
           holdTokenHash,
           now,
-          // Online: once nothing is owed (paid later assigns then). Desk bookings: straight away, as the coordinator chose
-          // the psychologist with the client.
-          assignTherapist: actor.mode === "client" ? !owes : true,
+          assignTherapist: actor.mode === "client" && !owes,
           audit: {
             actor,
             action: "create",
