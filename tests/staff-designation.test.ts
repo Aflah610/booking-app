@@ -27,3 +27,22 @@ describe("staff designation", () => {
     expect((await c.staff.update({}, asha.id, { name: "Asha K" })).designation).toBe("Nutritionist");
   });
 });
+
+describe("deleting staff", () => {
+  it("deletes someone with no history, but refuses anyone a client is assigned to", async () => {
+    const test = await c.staff.create({}, { name: "Test", email: "test@firm.test" });
+    await c.staff.remove({}, test.id);
+    await expect(c.staff.get(test.id)).rejects.toMatchObject({ code: "not_found" });
+
+    const asha = await c.staff.create({}, { name: "Asha", email: "asha@firm.test" });
+    const client = await c.clients.create({}, { name: "Ravi", phone: "98765 43210" });
+    await c.clients.assignTherapist({}, client.id, { staffId: asha.id });
+    await expect(c.staff.remove({}, asha.id)).rejects.toMatchObject({ code: "conflict" });
+    expect((await c.staff.get(asha.id)).name).toBe("Asha");
+  });
+
+  it("won't let you delete yourself", async () => {
+    const me = await c.staff.create({}, { name: "Me", email: "me@firm.test" });
+    await expect(c.staff.remove({ staffId: me.id }, me.id)).rejects.toMatchObject({ code: "invalid" });
+  });
+});

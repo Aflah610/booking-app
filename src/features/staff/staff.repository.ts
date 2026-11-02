@@ -3,6 +3,8 @@ import type { Db } from "@/db";
 import { service, staff, staffService } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
+import { DomainError } from "@/features/shared/errors";
+import { PG_FOREIGN_KEY_VIOLATION, pgError } from "@/features/shared/db-errors";
 import type { PublicStaffDTO, StaffDTO } from "./staff.dto";
 import type { StaffData } from "./staff.schemas";
 
@@ -88,6 +90,25 @@ export function createStaffRepository(db: Db) {
         await writeAudit(tx, { ...audit, entityId: row.id });
         return row;
       });
+    },
+
+    /**
+     * Deletes a staff member with their set-up (hours, services, calendar link). Anything that is history (bookings,
+     * assignments, notes, follow-ups) has no cascade, so the database refuses and real records are never lost.
+     */
+    async remove(id: string, audit: AuditEntry): Promise<boolean> {
+      try {
+        return await db.transaction(async (tx) => {
+          const rows = await tx.delete(staff).where(eq(staff.id, id)).returning({ id: staff.id });
+          if (rows.length) await writeAudit(tx, audit);
+          return rows.length > 0;
+        });
+      } catch (err) {
+        if (pgError(err).code === PG_FOREIGN_KEY_VIOLATION) {
+          throw new DomainError("conflict", "They have bookings, clients or notes, so they can't be deleted. Switch off Current staff instead to move them to Past staff");
+        }
+        throw err;
+      }
     },
 
     update(id: string, data: Partial<StaffData>, audit: AuditEntry): Promise<StaffDTO | null> {

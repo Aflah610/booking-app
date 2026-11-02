@@ -76,6 +76,14 @@ export function createStaffService({
     create,
     update,
     list: () => staffRepo.list(),
+
+    /** Deletes a staff member who has no history, such as a test account. */
+    async remove(actor: Actor, id: string) {
+      const member = await get(id);
+      if (actor.staffId === id) throw new DomainError("invalid", "You can't delete yourself");
+      await staffRepo.remove(id, { actor, action: "delete", entity: "staff", entityId: id, details: { email: member.email } });
+      return member;
+    },
     serviceIds: (staffId: string) => staffRepo.serviceIds(staffId),
     listBookableForService: (serviceId: string) => staffRepo.listBookableForService(serviceId),
 

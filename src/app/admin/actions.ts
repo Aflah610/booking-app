@@ -253,6 +253,19 @@ export async function createClientAction(form: FormData) {
   });
 }
 
+/** Admins delete a staff member with no history (a test account); anyone with history moves to Past staff instead. */
+export async function deleteStaffAction(staffId: string, form: FormData) {
+  const me = await requirePermission("staff.manage");
+  await act(`/admin/staff/${staffId}`, "Staff member deleted", async () => {
+    if (!hasRole(me, "admin")) throw new DomainError("forbidden", "Only admins can delete staff");
+    const target = await app().staff.get(staffId);
+    // Typing the email stops a slip of the mouse deleting someone.
+    if (str(form, "confirm").toLowerCase() !== target.email.toLowerCase()) throw new DomainError("invalid", `Type ${target.email} to confirm`);
+    await app().staff.remove({ staffId: me.id }, staffId);
+    return "/admin/staff";
+  });
+}
+
 export async function deleteClientAction(clientId: string, form: FormData) {
   const me = await requirePermission("clients.delete");
   await act(`/admin/clients/${clientId}/edit`, "Moved to the Bin. You can restore them for 30 days.", async () => {

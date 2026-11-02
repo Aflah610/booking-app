@@ -16,6 +16,7 @@ import { TimezoneSelect } from "@/components/TimezoneSelect";
 import {
   addTimeOffAction,
   calendarOptionsAction,
+  deleteStaffAction,
   disconnectCalendarAction,
   removeDateOverrideAction,
   removeTimeOffAction,
@@ -236,6 +237,19 @@ export default async function StaffDetail({
               </div>
             </fieldset>
             <div className="sm:col-span-2"><button className="btn" type="submit">Save profile</button></div>
+          </form>
+        </section>
+      )}
+      {hasRole(me, "admin") && member.id !== me.id && (
+        <section className="mt-10">
+          <form action={deleteStaffAction.bind(null, id)} className="card grid max-w-3xl gap-3 border-red-200 p-6">
+            <h2 className="font-semibold text-red-700">Delete staff member</h2>
+            <p className="text-sm text-zinc-600">
+              Only for someone with no bookings, clients or notes, such as a test account. Anyone with history can&apos;t be deleted:
+              switch off Current staff instead. Type <span className="font-mono">{member.email}</span> to confirm.
+            </p>
+            <input className="input max-w-sm" name="confirm" aria-label="Type their email to confirm" autoComplete="off" required />
+            <div><button className="btn-ghost text-red-700" type="submit">Delete staff member</button></div>
           </form>
         </section>
       )}

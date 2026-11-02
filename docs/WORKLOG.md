@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · Admins can delete a staff member with no history
+
+- Aflah: "Ameen Dev" was only a test psychologist; wanted it gone, not Past.
+- Staff profile (admins only, not yourself): "Delete staff member", type their email to confirm. staff.remove deletes
+  the row; set-up tables cascade (hours, services, calendar), but every history table (bookings, assignments, notes,
+  follow-ups) has no cascade, so Postgres refuses (23503) and the app says to switch off Current staff instead.
+  Audited (delete/staff with email). Tests in tests/staff-designation.test.ts.
+
 ## 2026-11-02 · Claude Code · Psychologist WhatsApp reminders live
 
 - Aflah sent the psychologists' WhatsApp numbers; saved on the Staff profiles of Rashin, Christine, Fathima, Jasmin,
