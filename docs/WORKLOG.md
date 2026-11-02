@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · Psychologist WhatsApp reminders live
+
+- Aflah sent the psychologists' WhatsApp numbers; saved on the Staff profiles of Rashin, Christine, Fathima, Jasmin,
+  Theresa and Ansha (numbers live only in the app, not here).
+- Three new active workflows, recipient "staff", all services, reusing the APPROVED templates with the names swapped
+  so it reads "Hi <psychologist>, your session with <client>…": "Psychologist: WhatsApp reminder 24 hours before"
+  (session_reminder_day: staff, client_name, date, time, booking_id) and "… 3 hours / 30 minutes before (join link)"
+  (session_reminder_join: staff, client_name, time, meeting_link, booking_id). Staff sends only for confirmed sessions.
+- New-booking / moved / cancelled notices to psychologists stay email only: no approved template fits yet.
+- Only bookings confirmed from now get them; reminders already queued before today are not back-filled.
+
 ## 2026-11-02 · Claude Code · Remove a staff double entry on a paid booking
 
 - CCD sent a payment QR, the client paid through Razorpay, then CCD (page not refreshed) also clicked "Mark as paid".
