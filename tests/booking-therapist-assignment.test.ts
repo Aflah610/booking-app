@@ -54,14 +54,14 @@ describe("initial therapist from a confirmed booking", () => {
     expect(await history(b.clientId)).toMatchObject([{ staffId: other.id, endsAt: null }]);
   });
 
-  it("assigns a confirmed free website booking, but not an unpaid staff booking", async () => {
+  it("assigns a confirmed free website booking, and a staff booking straight away even before payment", async () => {
     const { jasmin, book, svc } = await setup("Free");
     const b = await book();
     expect(b.paymentStatus).toBe("not_required");
     expect(await history(b.clientId)).toMatchObject([{ staffId: jasmin.id, startsAt: now }]);
     const desk = await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: jasmin.id,
       start: new Date("2026-12-04T04:30:00Z"), client: { name: "Desk client", phone: "98000 00902" }, useCredits: false }, { now });
-    expect(await history(desk.booking.clientId)).toEqual([]);
+    expect(await history(desk.booking.clientId)).toMatchObject([{ staffId: jasmin.id, endsAt: null }]);
   });
 
   it("assigns bookings covered by existing wallet credit at creation", async () => {

@@ -71,7 +71,7 @@ export default async function NewClientPage({ searchParams }: { searchParams: Pr
           <legend className="sr-only">Registration</legend>
           <h2 className="font-semibold sm:col-span-2">Registration</h2>
           {field("registeredOn", "Registration date", { type: "date", max: today, defaultValue: today })}
-          {allowed(me, "clients.reassign") && <div>
+          {allowed(me, "clients.view") && <div>
             <label className="label" htmlFor="staffId">Psychologist</label>
             <select className="input" id="staffId" name="staffId" defaultValue="">
               <option value="">Assign later</option>

@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · CCD bookings set the psychologist at once; CCD may pick the first one
+
+- Aflah: CCD booked a client and the profile said "No psychologist assigned" with no way for CCD to set it.
+  bookings.service: desk (staff) bookings now assign the booked psychologist at creation (assignInitialTherapist,
+  no-op when one exists); online bookings still assign only once nothing is owed. Test updated
+  (booking-therapist-assignment "staff booking straight away").
+- Narrowed my 2026-10-28 change: choosing the FIRST psychologist is open to clients.view (CCD) again, on the client
+  page and the Register form; CHANGING one still needs clients.reassign (admin + manager). Label now
+  "Change a client's psychologist".
+
 ## 2026-11-02 · Claude Code · CCD payment QR opens Razorpay straight away
 
 - Aflah chose "paying = agreeing": /pay/<id> (CollectPayment) no longer has the consent tick box. The Razorpay checkout
