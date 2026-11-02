@@ -135,6 +135,18 @@ describe("reporting a payment", () => {
     const dup = await c.payments.report({}, b.id, paid(), plus(t0, 3));
     expect(dup).toMatchObject({ warning: "duplicate_payment", payment: { needsRefund: true } });
   });
+
+  it("lets a staff double entry on a paid booking be removed, but never a real payment", async () => {
+    const { svc } = await setup();
+    const b = await book(svc.id, "2026-10-19T10:00");
+    const real = await c.payments.report({}, b.id, paid(), plus(t0, 2));
+    const extra = await c.payments.recordManual({}, b.id, { status: "paid", amountPaise: 150000, method: "UPI" }, plus(t0, 3));
+    expect(extra.payment).toMatchObject({ source: "staff", needsRefund: true });
+    await expect(c.payments.removeStaffDuplicate({}, real.payment.id)).rejects.toMatchObject({ code: "not_found" });
+    await c.payments.removeStaffDuplicate({}, extra.payment.id);
+    expect(await c.payments.forBooking(b.id)).toEqual([expect.objectContaining({ id: real.payment.id })]);
+    expect(await c.bookings.get(b.id)).toMatchObject({ paymentStatus: "paid" });
+  });
 });
 
 describe("the 10 minutes and the 24 hours", () => {

@@ -102,6 +102,14 @@ export function createPaymentsService(deps: {
     expire,
     forBooking: (bookingId: string) => paymentsRepo.forBooking(bookingId),
 
+    /** Removes a staff entry that recorded an already paid booking a second time (no money changed hands). */
+    async removeStaffDuplicate(actor: Actor, paymentId: string) {
+      const p = isUuid(paymentId) ? await paymentsRepo.find(paymentId) : null;
+      if (!p || p.source !== "staff" || !p.needsRefund) throw new DomainError("not_found", "Only a payment entered twice by staff can be removed");
+      await paymentsRepo.removeStaffDuplicate(paymentId, { actor, action: "delete", entity: "payment", entityId: paymentId, details: { bookingId: p.bookingId, amountPaise: p.amountPaise, reason: "double entry by staff" } });
+      return p;
+    },
+
     /** The website reports what Razorpay Checkout said. */
     report: (actor: Actor, bookingId: string, input: unknown, now = new Date()) => record(actor, bookingId, input, "website", now),
 

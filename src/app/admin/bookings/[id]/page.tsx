@@ -14,7 +14,7 @@ import { AutoSubmitForm } from "@/components/AutoSubmitForm";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { PaymentBadge, StatusBadge } from "@/components/StatusBadge";
-import { cancelBookingAction, markBookingAction, recordPaymentAction, manualMeetingAction, meetingAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction, useCreditAction } from "../actions";
+import { cancelBookingAction, markBookingAction, recordPaymentAction, removeDuplicatePaymentAction, manualMeetingAction, meetingAction, rescheduleBookingAction, setPaymentAction, updateBookingNotesAction, useCreditAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -202,7 +202,17 @@ export default async function BookingPage({
                         <td className="whitespace-nowrap text-zinc-600">{longDayLabel(p.paidAt, tz)}<br />{timeLabel(p.paidAt, tz)}</td>
                         <td>
                           <span className={`badge ${p.status === "paid" ? "border-green-600/40 text-green-700" : "border-red-600/40 text-red-700"}`}>{p.status === "paid" ? "Paid" : p.status === "failed" ? "Failed" : "Refunded"}</span>
-                          {p.needsRefund && <p className="mt-1 text-xs font-medium text-red-700">Refund this in Razorpay</p>}
+                          {p.needsRefund && p.source !== "staff" && <p className="mt-1 text-xs font-medium text-red-700">Refund this in Razorpay</p>}
+                          {p.needsRefund && p.source === "staff" && (
+                            <div className="mt-1 max-w-56 text-xs text-red-700">
+                              <p className="font-medium">Entered after the booking was already paid. Unless the client really paid twice, it&apos;s a double entry.</p>
+                              {allowed(me, "clients.delete") && (
+                                <form action={removeDuplicatePaymentAction.bind(null, b.id, p.id)} className="mt-1">
+                                  <button className="underline" type="submit">Remove this entry</button>
+                                </form>
+                              )}
+                            </div>
+                          )}
                           {p.errorDescription && <p className="mt-1 max-w-48 text-xs text-red-700">{p.errorDescription}</p>}
                         </td>
                         <td>{rupees(p.amountPaise)}</td>

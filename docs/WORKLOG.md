@@ -3,6 +3,15 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · Remove a staff double entry on a paid booking
+
+- CCD sent a payment QR, the client paid through Razorpay, then CCD (page not refreshed) also clicked "Mark as paid".
+  That saved a second staff payment, flagged needsRefund ("Refund this in Razorpay"), although no extra money moved.
+- New: a flagged payment with source=staff now reads "Entered after the booking was already paid… double entry", and
+  admins/managers (clients.delete) get "Remove this entry" (payments.removeStaffDuplicate, audited). Razorpay or
+  website payments can never be removed this way; the booking stays paid. Test in tests/payments.test.ts.
+- Aflah will brief CCD: after a QR/link payment the booking turns Paid by itself; Mark as paid is only for cash/transfer.
+
 ## 2026-11-02 · Claude Code · CCD may pick a client's first psychologist again
 
 - Aflah: CCD booked a client and the profile said "No psychologist assigned" with no way for CCD to set it.

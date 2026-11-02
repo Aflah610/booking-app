@@ -109,6 +109,12 @@ export async function updateBookingNotesAction(id: string, form: FormData) {
   await act(`/admin/bookings/${id}`, "Notes saved", () => app().bookings.updateNotes({ staffId: me.id }, id, optional(form, "notes")));
 }
 
+/** Admins and managers remove a payment staff typed in after the client had already paid. */
+export async function removeDuplicatePaymentAction(id: string, paymentId: string) {
+  const me = await requirePermission("clients.delete");
+  await act(`/admin/bookings/${id}`, "Double entry removed", () => app().payments.removeStaffDuplicate({ staffId: me.id }, paymentId));
+}
+
 /** Staff type in a payment (cash, a transfer, or one the website couldn't report). Amount is entered in rupees. */
 export async function recordPaymentAction(id: string, form: FormData) {
   const me = await requireBookingChange(id);

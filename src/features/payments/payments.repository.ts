@@ -1,6 +1,7 @@
-import { desc, eq, inArray, sql, type SQLWrapper } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, type SQLWrapper } from "drizzle-orm";
 import type { Db } from "@/db";
 import { booking } from "@/db/schema";
+import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import { lockBookingTime, markBookingPaid } from "@/features/bookings/bookings.repository";
 import { DomainError } from "@/features/shared/errors";
@@ -123,6 +124,22 @@ export function createPaymentsRepository(db: Db) {
 
     async flagRefund(id: string) {
       await db.update(payment).set({ needsRefund: true }).where(eq(payment.id, id));
+    },
+
+    async find(id: string): Promise<PaymentDTO | null> {
+      const [row] = await db.select(columns).from(payment).where(eq(payment.id, id));
+      return row ? toDto(row) : null;
+    },
+
+    /** Deletes a payment staff typed in twice by mistake. Only a flagged staff entry qualifies; the booking stays paid by the first one. */
+    removeStaffDuplicate(id: string, audit: AuditEntry) {
+      return db.transaction(async (tx) => {
+        const rows = await tx.delete(payment)
+          .where(and(eq(payment.id, id), eq(payment.source, "staff"), eq(payment.needsRefund, true)))
+          .returning({ id: payment.id });
+        if (rows.length) await writeAudit(tx, audit);
+        return rows.length > 0;
+      });
     },
   };
 }
