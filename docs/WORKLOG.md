@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · Loophole review; client CSV export closed to CCD and sales
+
+- /admin/export/clients needed only clients.contact, so CCD and BDE could download every client's phone and email
+  by typing the URL (the button sits on Reports). Now also needs reports.view (admin, manager).
+- Other findings reported to Aflah, not changed: CCD "Mark as paid" needs no proof; one OTP-verified number can start
+  unlimited unpaid checkouts that each hold a slot for 10 minutes; OTP sends have no bot check (cost); mindlap.in sends
+  no security headers; LEADS_SHEET_KEY still unset; Razorpay key secret should be regenerated (it was pasted in chat).
+
 ## 2026-11-02 · Claude Code · Admins can delete a staff member with no history
 
 - Aflah: "Ameen Dev" was only a test psychologist; wanted it gone, not Past.
