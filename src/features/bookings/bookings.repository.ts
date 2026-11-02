@@ -275,6 +275,22 @@ export function createBookingsRepository(db: Db) {
   return {
     findById,
 
+    /** Website checkouts by this phone still holding a time while they wait for payment. */
+    async unpaidHolds(phoneE164: string, now: Date): Promise<number> {
+      const [row] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(booking)
+        .innerJoin(client, eq(client.id, booking.clientId))
+        .where(and(
+          eq(client.phoneE164, phoneE164),
+          eq(booking.status, "upcoming"),
+          eq(booking.paymentStatus, "pending"),
+          eq(booking.slotReleased, false),
+          gt(booking.paymentDueAt, now),
+        ));
+      return row?.n ?? 0;
+    },
+
     async findByIdempotencyKey(key: string): Promise<BookingDTO | null> {
       const [row] = await base().where(eq(booking.idempotencyKey, key));
       return row ?? null;

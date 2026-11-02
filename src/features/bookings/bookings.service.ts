@@ -55,6 +55,9 @@ function fail(result: Exclude<WriteResult<unknown>, { ok: true }>): never {
  * Booking rules: re-check availability at write time (the slot list may be stale), let Postgres have
  * the last word on overlaps, make retries safe, and refuse cancels or moves that make no sense.
  */
+/** How many unpaid website checkouts one phone number may have holding a time at once. */
+export const MAX_UNPAID_HOLDS = 2;
+
 export function createBookingsService(deps: {
   bookingsRepo: BookingsRepository;
   availability: AvailabilityService;
@@ -215,6 +218,10 @@ export function createBookingsService(deps: {
             amountPaise: pricePaise,
           }
         : { status: owes ? ("pending" as const) : ("not_required" as const), dueAt: null, resumeUntil: null, amountPaise: pricePaise };
+      // Each unpaid checkout holds a time for 10 minutes; a cap stops one number blocking a whole diary.
+      if (online && (await bookingsRepo.unpaidHolds(data.client.phone, now)) >= MAX_UNPAID_HOLDS) {
+        throw new DomainError("conflict", "You already have bookings waiting for payment. Finish one, or try again in 10 minutes", { reason: "too_many_unpaid" });
+      }
       const manageToken = actor.mode === "client" ? newToken() : null;
       const result = await bookingsRepo.create(
         {

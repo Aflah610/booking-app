@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-02 · Claude Code · At most 2 unpaid website checkouts per phone
+
+- bookings.create (client mode, online payment): if the phone already has MAX_UNPAID_HOLDS (2) upcoming bookings
+  with payment pending, slot not released and paymentDueAt still ahead, it throws conflict reason too_many_unpaid
+  ("You already have bookings waiting for payment…"). Stops one OTP-verified number blocking a diary. Staff and
+  paid/credit bookings unaffected. Worker conflict() treats too_many_unpaid as its own message, not "time taken".
+- Correction to the review entry below: mindlap.in already sends HSTS/frame/nosniff headers (build_dist.py _headers).
+
 ## 2026-11-02 · Claude Code · Loophole review; client CSV export closed to CCD and sales
 
 - /admin/export/clients needed only clients.contact, so CCD and BDE could download every client's phone and email

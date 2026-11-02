@@ -150,6 +150,19 @@ describe("reporting a payment", () => {
 });
 
 describe("the 10 minutes and the 24 hours", () => {
+  it("lets one number hold at most two unpaid times; a third waits until one is paid or expires", async () => {
+    const { svc } = await setup();
+    const first = await book(svc.id, "2026-10-19T10:00");
+    await book(svc.id, "2026-10-19T11:00");
+    await expect(book(svc.id, "2026-10-19T12:00")).rejects.toMatchObject({ code: "conflict", details: { reason: "too_many_unpaid" } });
+    // Someone else is not affected.
+    await book(svc.id, "2026-10-19T12:00", meena);
+    await c.payments.report({}, first.id, paid(), plus(t0, 2));
+    await book(svc.id, "2026-10-19T13:00", ravi, plus(t0, 3));
+    // Ten minutes later the unpaid ones no longer hold anything.
+    await book(svc.id, "2026-10-19T14:00", ravi, plus(t0, 20));
+  });
+
   it("fails an unpaid booking after 10 minutes, gives its time back and asks the client to pay", async () => {
     const { svc } = await setup();
     const b = await book(svc.id, "2026-10-19T10:00");
