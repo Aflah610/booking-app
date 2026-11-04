@@ -154,3 +154,20 @@ describe("staff login lockout", () => {
     expect(loginFailures.locked(key, 5, t)).toBe(false);
   });
 });
+
+describe("toE164 country codes", () => {
+  it("accepts Indian mobiles in the usual ways and real foreign numbers", async () => {
+    const { toE164 } = await import("@/features/shared/phone");
+    for (const raw of ["98765 43210", "098765-43210", "+91 98765 43210", "919876543210"]) expect(toE164(raw)).toBe("+919876543210");
+    expect(toE164("+971 50 123 4567")).toBe("+971501234567");
+    expect(toE164("00447911123456")).toBe("+447911123456");
+  });
+
+  it("refuses a digit short or extra instead of guessing another country", async () => {
+    const { toE164 } = await import("@/features/shared/phone");
+    expect(toE164("79947 1234")).toBeNull(); // nine digits used to become +7 (Russia)
+    expect(toE164("+91 97451 234567")).toBeNull(); // eleven digits after +91
+    expect(toE164("+91 0501234567")).toBeNull(); // a UAE number typed with India's code
+    expect(toE164("+91 24912 34516")).toBeNull(); // a landline-style number, not a mobile
+  });
+});

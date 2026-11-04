@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-04 · Claude Code · Phone numbers: no more guessed country codes
+
+- Aflah asked if client country codes were right. Live check of 317 clients: 17 are the deliberate +9100… MCH
+  no-phone placeholders (fine); 34 others look wrong: +91 numbers with 11 digits, a leading 0 or a non-mobile start
+  (several look like UAE 05… numbers saved under +91), and short "+7…", "+55…", "+56…" numbers that are Indian
+  numbers a digit short. Cause: toE164 turned any unrecognised digit string into "+<digits>", and accepted any +91.
+- toE164 now returns null for bare digits that are not 10 / 0+10 / 91+10, and for +91 that is not ten digits
+  starting 6-9 (except the +9100 placeholder). Existing bad records are NOT changed; the list (client IDs only) was
+  given to Aflah for CCD to correct by hand. Tests in tests/lib.test.ts.
+- Also found: no client booking confirmation exists (email or WhatsApp); only reminders. Offered to Aflah.
+
 ## 2026-11-02 · Claude Code · At most 2 unpaid website checkouts per phone
 
 - bookings.create (client mode, online payment): if the phone already has MAX_UNPAID_HOLDS (2) upcoming bookings
