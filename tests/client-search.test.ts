@@ -28,7 +28,7 @@ describe("finding an existing client", () => {
   });
 
   it("gives at most the number asked for, and counts each client's bookings", async () => {
-    for (let i = 0; i < 10; i++) await add(`Client ${i}`, `9000000000${i}`);
+    for (let i = 0; i < 10; i++) await add(`Client ${i}`, `900000000${i}`);
     expect((await c.clients.list({ q: "Client", limit: 8 })).length).toBe(8);
     expect((await c.clients.list({ q: "Client 3", limit: 8 }))[0]).toMatchObject({ name: "Client 3", bookings: 0 });
   });
