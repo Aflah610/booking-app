@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/db";
-import { booking, caseHistory, client, followUpMessage, followUpRead, followUpRequest, sessionNote, staff } from "@/db/schema";
+import { booking, caseHistory, client, clientTherapist, followUpMessage, followUpRead, followUpRequest, sessionNote, staff } from "@/db/schema";
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { AccessRole } from "@/features/access/permissions";
@@ -162,6 +162,13 @@ export function createFollowUpDeskRepository(db: Db) {
           sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
             where h.client_id = ${client.id} ${staffId ? sql`and n.author_id = ${staffId}` : sql``}
             and n.booking_id is null and n.signed_at is not null and n.session_at <= now())`,
+          // Their own client now (e.g. brought over from MCH or moved from a colleague) who has had therapy with anyone.
+          staffId ? sql`exists (select 1 from ${clientTherapist} ct where ct.client_id = ${client.id} and ct.staff_id = ${staffId} and ct.ends_at is null)
+            and (exists (select 1 from ${booking} b where b.client_id = ${client.id}
+              and (b.status = 'completed' or (b.status = 'upcoming' and b.ends_at <= now())) and not b.slot_released
+              and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff'))
+            or exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
+              where h.client_id = ${client.id} and n.signed_at is not null and n.session_at <= now()))` : undefined,
         )))
         .orderBy(asc(client.name))
         .limit(1000);

@@ -84,6 +84,18 @@ describe("completed-session eligibility", () => {
     expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).toContain(ravi);
   });
 
+  it("counts their current client who had sessions with a colleague, but not a new client with none", async () => {
+    const { asha, dev, book } = await setup();
+    const b = await book(dev.id, "2026-09-26T10:00", "9876500066");
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).not.toContain(b.clientId);
+    await c.clients.assignTherapist({}, b.clientId, { staffId: asha.id });
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).toContain(b.clientId);
+    const later = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+    const fresh = (await c.bookings.create(desk, { serviceId: (await c.catalog.list())[0].id, staffId: dev.id, start: at(`${later}T10:00`), client: { name: "Nila", phone: "98765 55555" }, useCredits: false })).booking.clientId;
+    await c.clients.assignTherapist({}, fresh, { staffId: asha.id });
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).not.toContain(fresh);
+  });
+
   it("counts a confirmed session that is over even if nobody pressed Completed", async () => {
     const { asha, book } = await setup();
     const b = await book(asha.id, "2026-09-25T10:00", "9876500077");
