@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-05 · Claude Code · Akhila is a manager; managers may book
+
+- Live data at Aflah's request: Akhila moved from CCD to Manager. Roles & access: Manager now also has
+  bookings.create ("Book sessions for clients"), so Akhila (and Liba) can book, take payment and move sessions.
+
 ## 2026-11-05 · Claude Code · Psychologist WhatsApp on booking and on move
 
 - Aflah: some psychologists say they get no WhatsApp reminder. Checked the run logs: every paid booking, web or CCD
