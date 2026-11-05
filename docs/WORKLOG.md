@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-05 · Claude Code · Psychologist WhatsApp on booking and on move
+
+- Aflah: some psychologists say they get no WhatsApp reminder. Checked the run logs: every paid booking, web or CCD
+  (e.g. BK-00030, BK-00035), queues client and psychologist reminders; due ones are Sent (Meta: 11 join messages
+  delivered in 7 days, 82% read). Gaps were timing: most sessions are booked less than 24 h (often less than 3 h)
+  ahead, so only the later reminders apply, and there was no WhatsApp at booking time (email only).
+- Added live workflows (recipient staff, all services): "Psychologist: WhatsApp new booking" (trigger booked) and
+  "Psychologist: WhatsApp session moved" (trigger rescheduled), both template session_reminder_day with
+  staff, client_name, date, time, booking_id. Staff sends still need a confirmed session.
+
 ## 2026-11-05 · Claude Code · Follow-ups: a session that is over counts as seen
 
 - Jasmin (and others) got an empty "New follow-up" client list: clientsOf required booking.status = 'completed', but
