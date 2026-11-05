@@ -98,6 +98,20 @@ describe("invite attached to workflow emails", () => {
     expect(body).toContain(`https://book.example.com/manage/${b.id}/calendar.ics?t=`);
   });
 
+  it("tells the psychologist about a desk booking only once it is paid", async () => {
+    const svc = await c.catalog.create({}, { name: "Therapy", durationMin: 60, priceDisplay: "1000" });
+    const staff = await c.staff.create({}, { name: "Asha", email: "asha@firm.test" });
+    await c.staff.setServices({}, staff.id, [svc.id]);
+    await c.schedules.setWeeklyHours({}, staff.id, [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startTime: "09:00", endTime: "17:00" })));
+    await c.workflows.create({}, { name: "Psychologist: new booking", trigger: "booked", action: { channel: "email", recipient: "staff", subject: "New session", body: "x" } });
+    const b = await book(svc.id, "2026-10-19T10:00");
+    await c.workflows.processDue({ now: t0 });
+    expect(emails().filter((m) => m.to === "asha@firm.test")).toHaveLength(0);
+    await c.payments.recordManual({}, b.id, { status: "paid", amountPaise: 100000, method: "UPI" }, t0);
+    await c.workflows.processDue({ now: new Date(t0.getTime() + 60_000) });
+    expect(emails().filter((m) => m.to === "asha@firm.test")).toHaveLength(1);
+  });
+
   it("never attaches an invite to a message for staff", async () => {
     const { svc } = await setup(false);
     await c.workflows.create({}, { name: "staff", trigger: "booked", action: { channel: "email", recipient: "staff", subject: "New", body: "x", attachInvite: true } });

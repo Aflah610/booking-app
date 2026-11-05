@@ -1,5 +1,5 @@
 import type { Actor } from "@/features/audit/audit.types";
-import { isConfirmedSession } from "@/features/bookings/bookings.dto";
+import type { BookingDTO } from "@/features/bookings/bookings.dto";
 import type { CatalogRepository } from "@/features/catalog/catalog.repository";
 import type { SettingsRepository } from "@/features/settings/settings.repository";
 import { DomainError } from "@/features/shared/errors";
@@ -46,6 +46,13 @@ type Firm = { name: string; timezone: string; bookingPrefix: string; resumeUrl: 
  */
 /** Events whose email carries a calendar entry: the appointment appears, moves or disappears with these. */
 const INVITE_TRIGGERS: WorkflowTrigger[] = ["booked", "rescheduled", "cancelled", "payment_success"];
+
+/** Psychologists hear about a session only once it is paid (or nothing is due), never about an unpaid attempt. */
+export function paidSession(b: Pick<BookingDTO, "paymentStatus" | "slotReleased">): boolean {
+  return !b.slotReleased && (b.paymentStatus === "paid" || b.paymentStatus === "not_required");
+}
+
+const toStaffMember = (w: WorkflowDTO) => (w.channel === "email" || w.channel === "whatsapp") && (w.config as { recipient?: string }).recipient === "staff";
 
 export function createWorkflowsService(deps: {
   workflowsRepo: WorkflowsRepository;
@@ -97,8 +104,12 @@ export function createWorkflowsService(deps: {
     const ctx = await workflowsRepo.context(event.bookingId);
     if (!ctx) return;
     const fires: WorkflowTrigger[] = [event.type, ...(FIRES_WITH_BOOKING.includes(event.type) ? TIME_BASED : [])];
+    // A desk booking is announced when it is made, before it is paid; the psychologist hears of it once the payment
+    // arrives, so their "booked" messages go out then.
+    const staffBookedNow = event.type === "payment_success" && ctx.source === "staff";
     const runs = (await workflowsRepo.list())
-      .filter((w) => w.active && fires.includes(w.trigger) && (!w.serviceIds.length || w.serviceIds.includes(ctx.serviceId)))
+      .filter((w) => w.active && (fires.includes(w.trigger) || (staffBookedNow && w.trigger === "booked" && toStaffMember(w)))
+        && (!w.serviceIds.length || w.serviceIds.includes(ctx.serviceId)))
       .flatMap((w) => {
         const at = when(w, ctx, now);
         return at ? [{ workflowId: w.id, bookingId: ctx.bookingId, scheduledFor: at }] : [];
@@ -165,7 +176,7 @@ export function createWorkflowsService(deps: {
     if (w.channel === "email") {
       const c = w.config as EmailConfig;
       // Psychologists hear only about sessions that are on, never about unpaid or failed online attempts.
-      if (c.recipient === "staff" && !isConfirmedSession(ctx)) return { skip: "Not a confirmed session" };
+      if (c.recipient === "staff" && !paidSession(ctx)) return { skip: "Not paid yet" };
       const to = c.recipient === "staff" ? ctx.staffEmail : ctx.clientEmail;
       if (!to) return { skip: "The client has no email address" };
       const subject = render(c.subject, v);
@@ -200,7 +211,7 @@ export function createWorkflowsService(deps: {
     if (w.channel === "whatsapp") {
       const c = w.config as WhatsappConfig;
       const toStaff = c.recipient === "staff";
-      if (toStaff && !isConfirmedSession(ctx)) return { skip: "Not a confirmed session" };
+      if (toStaff && !paidSession(ctx)) return { skip: "Not paid yet" };
       if (toStaff && !ctx.staffPhone) return { skip: "The staff member has no WhatsApp number" };
       if (!toStaff && !ctx.whatsappOptIn) return { skip: "The client has not agreed to WhatsApp messages" };
       const to = toStaff ? ctx.staffPhone! : ctx.clientPhone;

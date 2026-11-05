@@ -3,6 +3,15 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-05 · Claude Code · Psychologists are told only about paid sessions
+
+- Aflah: a psychologist should be notified only after the booking is paid. Staff-recipient messages (email and
+  WhatsApp, every trigger incl. reminders, moved, cancelled) now need paidSession(): payment paid or not_required and
+  slot not released. Before, isConfirmedSession let unpaid CCD desk bookings through (e.g. BK-00039 awaiting QR).
+- A desk booking fires "booked" at creation (client side); when its payment arrives (payment_success, source staff)
+  the staff-recipient "booked" workflows are queued then. Reminders queued earlier send if paid by their time.
+  Test in tests/invites.test.ts.
+
 ## 2026-11-05 · Claude Code · Akhila is a manager; managers may book
 
 - Live data at Aflah's request: Akhila moved from CCD to Manager. Roles & access: Manager now also has
