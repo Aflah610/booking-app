@@ -309,6 +309,8 @@ describe("case-history correction pages", () => {
     const { mine } = await setup();
     const { default: New } = await import("@/app/admin/follow-ups/new/page");
     const props = { searchParams: Promise.resolve({}) };
+    // A session still to come doesn't count yet.
+    await db.execute(sql`update booking set starts_at = now() + interval '1 day', ends_at = now() + interval '1 day 1 hour' where id = ${mine.id}`);
     expect(html(await New(props))).not.toMatch(/>Shared Client · ML-CL-\d+<\/option>/);
     await db.execute(sql`update booking set status = 'completed', starts_at = '2026-09-01', ends_at = '2026-09-01 01:00:00+00' where id = ${mine.id}`);
     // The picker labels each client with their ID so it can be searched.

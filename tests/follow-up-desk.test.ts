@@ -93,6 +93,8 @@ describe("completed-session eligibility", () => {
   it("counts signed past legacy sessions, but not drafts, future notes or notes attached to failed attempts", async () => {
     const { asha, book } = await setup();
     const b = await book(asha.id, "2026-09-20T10:00", "9876500099");
+    // Only the note should make them eligible here, not the booking itself.
+    await db.update(booking).set({ status: "cancelled" }).where(eq(booking.id, b.id));
     const [h] = await db.insert(caseHistory).values({ clientId: b.clientId }).returning();
     const [n] = await db.insert(sessionNote).values({ caseHistoryId: h.id, authorId: asha.id, number: 1, sessionAt: new Date("2026-09-20"), summary: "Synthetic legacy session" }).returning();
     const eligible = async () => (await c.followUps.clientsOf(asha.id)).some(c => c.id === b.clientId);
