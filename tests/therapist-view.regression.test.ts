@@ -306,11 +306,13 @@ describe("case-history correction pages", () => {
   });
 
   it("lists only completed-session clients in the follow-up page", async () => {
-    const { mine } = await setup();
+    const { mine, sharedOther } = await setup();
     const { default: New } = await import("@/app/admin/follow-ups/new/page");
     const props = { searchParams: Promise.resolve({}) };
     // A session still to come doesn't count yet.
     await db.execute(sql`update booking set starts_at = now() + interval '1 day', ends_at = now() + interval '1 day 1 hour' where id = ${mine.id}`);
+    // Their session with a colleague is still to come too.
+    await db.execute(sql`update booking set starts_at = now() + interval '2 days', ends_at = now() + interval '2 days 1 hour' where id = ${sharedOther.id}`);
     expect(html(await New(props))).not.toMatch(/>Shared Client · ML-CL-\d+<\/option>/);
     await db.execute(sql`update booking set status = 'completed', starts_at = '2026-09-01', ends_at = '2026-09-01 01:00:00+00' where id = ${mine.id}`);
     // The picker labels each client with their ID so it can be searched.
