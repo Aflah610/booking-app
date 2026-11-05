@@ -36,7 +36,7 @@ export default async function NewFollowUpPage({ searchParams }: { searchParams: 
       </div>
       <Notice error={sp.error} />
       {clients.length === 0 ? (
-        <p className="card max-w-2xl p-6 text-sm text-zinc-600">Clients appear here after at least one completed session. Failed attempts and sessions still to be completed are excluded.</p>
+        <p className="card max-w-2xl p-6 text-sm text-zinc-600">Clients appear here once they have had a session with you. Unpaid or failed attempts, cancelled sessions and sessions still to come are left out.</p>
       ) : (
         <form action={requestFollowUpAction} className="card grid max-w-2xl gap-4 p-5 sm:grid-cols-2">
           <div className="sm:col-span-2">

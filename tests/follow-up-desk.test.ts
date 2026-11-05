@@ -70,7 +70,7 @@ describe("completed-session eligibility", () => {
   it("rejects past but incomplete, failed, released, missed and cancelled attempts for psychologists and coordinators", async () => {
     const { asha, sana, book, ravi, ask } = await setup();
     for (const [i, patch] of [
-      { status: "upcoming" }, { status: "completed", paymentStatus: "failed" },
+      { status: "completed", paymentStatus: "failed" },
       { status: "completed", slotReleased: true }, { status: "no_show" },
       { status: "cancelled" }, { status: "completed", paymentStatus: "pending", source: "web" },
     ].entries()) {
@@ -82,6 +82,12 @@ describe("completed-session eligibility", () => {
       await expect(ask(sana, b.clientId, "Please arrange next session", asha.id)).rejects.toMatchObject({ code: "forbidden" });
     }
     expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).toContain(ravi);
+  });
+
+  it("counts a confirmed session that is over even if nobody pressed Completed", async () => {
+    const { asha, book } = await setup();
+    const b = await book(asha.id, "2026-09-25T10:00", "9876500077");
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).toContain(b.clientId);
   });
 
   it("counts signed past legacy sessions, but not drafts, future notes or notes attached to failed attempts", async () => {

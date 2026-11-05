@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-05 · Claude Code · Follow-ups: a session that is over counts as seen
+
+- Jasmin (and others) got an empty "New follow-up" client list: clientsOf required booking.status = 'completed', but
+  staff almost never press Completed, so held sessions stay 'upcoming'. Now eligible = completed OR (upcoming and
+  ends_at <= now), same as client status, performance and pending notes. Failed/released/unpaid web/no-show/
+  cancelled stay excluded. Codex's test updated (past-but-unmarked now counts) plus a new test. Picker wording changed.
+- Live data: Nihla moved from BDE (Past) to CCD, designation Consultation Coordinator, current (Aflah's request).
+
 ## 2026-11-04 · Claude Code · Phone numbers: no more guessed country codes
 
 - Aflah asked if client country codes were right. Live check of 317 clients: 17 are the deliberate +9100… MCH

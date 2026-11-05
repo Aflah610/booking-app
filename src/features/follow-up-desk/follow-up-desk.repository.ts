@@ -156,7 +156,8 @@ export function createFollowUpDeskRepository(db: Db) {
         .where(and(isNull(client.deletedAt), or(
           sql`exists (select 1 from ${booking} b where b.client_id = ${client.id}
             ${staffId ? sql`and b.staff_id = ${staffId}` : sql``}
-            and b.starts_at <= now() and b.status = 'completed' and not b.slot_released
+            -- Held: marked completed, or simply over and not cancelled or missed (staff rarely press Completed).
+            and (b.status = 'completed' or (b.status = 'upcoming' and b.ends_at <= now())) and not b.slot_released
             and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff'))`,
           sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
             where h.client_id = ${client.id} ${staffId ? sql`and n.author_id = ${staffId}` : sql``}
