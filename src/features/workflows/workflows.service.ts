@@ -109,7 +109,9 @@ export function createWorkflowsService(deps: {
     const staffBookedNow = event.type === "payment_success" && ctx.source === "staff";
     const runs = (await workflowsRepo.list())
       .filter((w) => w.active && (fires.includes(w.trigger) || (staffBookedNow && w.trigger === "booked" && toStaffMember(w)))
-        && (!w.serviceIds.length || w.serviceIds.includes(ctx.serviceId)))
+        && (!w.serviceIds.length || w.serviceIds.includes(ctx.serviceId))
+        // Not queued for an unpaid booking at all: each message is queued once per booking, so it waits for the payment.
+        && !(w.trigger === "booked" && toStaffMember(w) && !paidSession(ctx)))
       .flatMap((w) => {
         const at = when(w, ctx, now);
         return at ? [{ workflowId: w.id, bookingId: ctx.bookingId, scheduledFor: at }] : [];
