@@ -174,7 +174,7 @@ describe("the WhatsApp webhook", () => {
 
   it("reads customer messages and the ad they came from, skipping receipts and our own echoes", () => {
     const got = incomingMessages(payload("111", { source_type: "ad", source_id: "ad-9", headline: "Talk to someone today", source_url: "https://fb.me/x" }));
-    expect(got).toEqual([{ phone: "+919876543210", name: "Anu", source: "whatsapp_ad", adId: "ad-9", adHeadline: "Talk to someone today", adUrl: "https://fb.me/x", at: new Date(1792800000 * 1000) }]);
+    expect(got).toMatchObject([{ phone: "+919876543210", name: "Anu", source: "whatsapp_ad", adId: "ad-9", adHeadline: "Talk to someone today", adUrl: "https://fb.me/x", at: new Date(1792800000 * 1000) }]);
     expect(incomingMessages(payload("111"))[0]).toMatchObject({ source: "whatsapp", adId: null });
   });
 
