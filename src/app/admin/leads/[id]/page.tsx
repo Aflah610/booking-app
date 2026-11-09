@@ -23,7 +23,10 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
     throw err;
   });
   const manager = allowed(me, "leads.all");
-  const [team, s] = await Promise.all([manager ? app().leads.assignable() : Promise.resolve([]), app().settings.get()]);
+  const [team, s, numbers] = await Promise.all([manager ? app().leads.assignable() : Promise.resolve([]), app().settings.get(), app().whatsappConnect.status()]);
+  // With the leads number connected the chat happens here; before that, on the phone.
+  const chatHere = Boolean(numbers.leads.phoneNumberId);
+  const thread = `/admin/leads/chats/${l.clientId}`;
   const tz = s.timezone;
   const first = l.clientName.split(/\s+/)[0];
   const chat = (text?: string) => `https://wa.me/${l.clientPhone.replace(/\D/g, "")}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
@@ -43,9 +46,11 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a className="btn" href={chat()} target="_blank" rel="noopener">Open WhatsApp chat</a>
+          {chatHere ? <Link className="btn" href={thread}>Open chat</Link> : <a className="btn" href={chat()} target="_blank" rel="noopener">Open WhatsApp chat</a>}
           <a className="btn-ghost" href={`tel:${l.clientPhone}`}>Call</a>
-          <a className="btn-ghost" href={chat(`Hi ${first}, you can choose a psychologist and a time that suits you here: ${BOOKING_LINK}`)} target="_blank" rel="noopener">Send booking link</a>
+          {chatHere
+            ? <Link className="btn-ghost" href={`${thread}?draft=booking`}>Send booking link</Link>
+            : <a className="btn-ghost" href={chat(`Hi ${first}, you can choose a psychologist and a time that suits you here: ${BOOKING_LINK}`)} target="_blank" rel="noopener">Send booking link</a>}
         </div>
       </div>
       <Notice error={sp.error} ok={sp.ok} />

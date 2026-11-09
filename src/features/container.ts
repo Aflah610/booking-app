@@ -52,6 +52,9 @@ import { createCaseHistoryRepository } from "./case-history/case-history.reposit
 import { createCaseHistoryService } from "./case-history/case-history.service";
 import { createLeadsRepository } from "./leads/leads.repository";
 import { createLeadsService } from "./leads/leads.service";
+import type { ChatGraph } from "./whatsapp-chat/whatsapp-chat.dto";
+import { createWhatsAppChatRepository } from "./whatsapp-chat/whatsapp-chat.repository";
+import { createChatGraph, createWhatsAppChatService } from "./whatsapp-chat/whatsapp-chat.service";
 import { createFollowUpDeskRepository } from "./follow-up-desk/follow-up-desk.repository";
 import { createFollowUpDeskService } from "./follow-up-desk/follow-up-desk.service";
 import { createAccessRepository } from "./access/access.repository";
@@ -72,6 +75,8 @@ export function createContainer(db: Db, opts: {
     calendarProvider?: CalendarProvider;
     /** Meta's API for connecting the WhatsApp leads number; tests pass a stand-in. */
     metaGraph?: MetaGraph;
+    /** Meta's API for WhatsApp chat on the leads number; tests pass a stand-in. */
+    chatGraph?: ChatGraph;
     /** Where therapist join times come from (Google Meet once connected). Without one the punctuality KPI reports "no data". */
     attendance?: AttendanceSource;
     /** Runs follow-up work after the current request has answered. Without it, queued work waits for the scheduler. */
@@ -90,6 +95,11 @@ export function createContainer(db: Db, opts: {
     settingsRepo,
   });
   const whatsappConnect = createWhatsAppConnectService({ repo: createWhatsAppConnectRepository(db), graph: opts.metaGraph ?? createMetaGraph() });
+  const whatsappChat = createWhatsAppChatService({
+    repo: createWhatsAppChatRepository(db),
+    graph: opts.chatGraph ?? createChatGraph(),
+    leadsNumber: async () => process.env.WHATSAPP_LEADS_PHONE_NUMBER_ID || (await whatsappConnect.status()).leads.phoneNumberId,
+  });
   const senders = opts.senders ?? createSenders(process.env, async () => (await whatsappConnect.status()).messages.phoneNumberId);
   const workflows = createWorkflowsService({
     // The client's page for moving or cancelling a booking, for use in messages.
@@ -140,6 +150,7 @@ export function createContainer(db: Db, opts: {
     clients: createClientsService({ clientsRepo: createClientsRepository(db) }),
     leads,
     whatsappConnect,
+    whatsappChat,
     followUps,
     access,
     caseHistory: createCaseHistoryService({

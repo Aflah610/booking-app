@@ -55,6 +55,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     manager ? app().leads.summary(me, period === "today" ? today : daysBefore(today, period === "week" ? 6 : 29), today, tz) : Promise.resolve([]),
   ]);
   const anyoneOnline = sales.some((p) => p.online);
+  const unreadChats = await app().whatsappChat.unread(me);
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ view, q: sp.q, staff: sp.staff, status: sp.status, source: sp.source, from: sp.from, to: sp.to, period: sp.period, ...patch })) if (v) p.set(k, v);
@@ -69,7 +70,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <PageHeader
         title="Leads"
         subtitle={manager ? "Everyone who messaged from an ad or was added by staff. New leads are shared equally between sales executives." : "Your leads. New ones are shared equally between the sales team."}
-        action={<Link href="/admin/leads/new" className="btn">New lead</Link>}
+        action={<div className="flex gap-2">
+          <Link href="/admin/leads/chats" className="btn-ghost">Chats{unreadChats > 0 && <span className="ml-1.5 rounded-full bg-red-600 px-1.5 text-[11px] font-semibold leading-5 text-white">{unreadChats}</span>}</Link>
+          <Link href="/admin/leads/new" className="btn">New lead</Link>
+        </div>}
       />
       <Notice error={sp.error} ok={sp.ok} />
 

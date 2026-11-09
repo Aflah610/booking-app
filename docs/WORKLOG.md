@@ -3,6 +3,23 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-09 · Claude Code · WhatsApp chat in Leads (774 moves off the phone)
+
+- Aflah's decision: 774 leaves the WhatsApp Business app and goes fully on the Cloud API; leads and chat happen in the
+  booking app like Zoho CRM. This replaces the Coexistence plan for 774 only. BDEs will be added later.
+- New: migration 0046 whatsapp_message; features/whatsapp-chat; /admin/leads/chats (inbox) and /admin/leads/chats/[clientId]
+  (thread, reply, auto refresh); /api/whatsapp/media/[id] (voice notes, photos, files fetched from Meta on open).
+  Webhook stores incoming messages and delivery receipts for the leads number only.
+- Access: leads.all (admin, manager) sees every chat, including clients who booked before and so have no lead; leads.own
+  (BDE) only the chats of leads assigned to them. Unread clears for the owner, not when a manager looks in.
+- Replies are free text within 24 h of the person's last message, otherwise refused with a message. First reply moves a
+  new lead to contacted. A refused reply stays visible as Not sent.
+- Settings > WhatsApp has "Leads number without a phone app": WABA id, phone number id, 6-digit PIN; registers the number
+  and subscribes the app using WHATSAPP_ACCESS_TOKEN. PIN is not stored. Leads menu now also shows when the leads number
+  is connected, even with no BDE.
+- Open: finish 774 in WhatsApp Manager; give the token access to that WABA; billing on that WABA; templates for messaging
+  after 24 h; sending photos or files from the app is not built; Google Sheets posting stays until LEADS_SHEET_KEY decided.
+
 ## 2026-11-05 · Claude Code · Psychologists are told only about paid sessions
 
 - Aflah: a psychologist should be notified only after the booking is paid. Staff-recipient messages (email and

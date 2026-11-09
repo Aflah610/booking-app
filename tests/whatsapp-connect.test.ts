@@ -21,6 +21,7 @@ function setup() {
   const graph: MetaGraph = {
     exchangeCode: async (code) => { calls.push(`code:${code}`); return "business-token"; },
     subscribeApp: async (waba, token) => { calls.push(`subscribe:${waba}:${token}`); },
+    registerNumber: async (phone, pin) => { calls.push(`register:${phone}:${pin}`); },
   };
   return { calls, c: createContainer(db, { metaGraph: graph }) };
 }

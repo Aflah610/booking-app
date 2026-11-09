@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/session";
 import { ConnectWhatsApp } from "@/components/ConnectWhatsApp";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
-import { connectWhatsAppAction } from "./actions";
+import { connectLeadsDirectAction, connectWhatsAppAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "WhatsApp" };
@@ -38,7 +38,7 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
   return (
     <>
       <Link href="/admin/settings" className="text-sm text-zinc-600 hover:text-black">← Settings</Link>
-      <PageHeader title="WhatsApp" subtitle="Both numbers stay on the WhatsApp Business app on their phones; the booking app is linked to them as well." />
+      <PageHeader title="WhatsApp" subtitle="Connect the numbers the booking app works with." />
       <Notice error={sp.error} ok={sp.ok} />
       <div className="grid max-w-2xl gap-6">
         {NUMBERS.map((n) => {
@@ -63,8 +63,16 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
             </section>
           );
         })}
+        <form action={connectLeadsDirectAction} className="card grid gap-3 p-6">
+          <h2 className="font-semibold">Leads number without a phone app</h2>
+          <p className="text-sm text-zinc-600">For a number added in WhatsApp Manager and no longer on a phone. Chats are answered here, in Leads &gt; Chats. Copy both ids from WhatsApp Manager and choose a 6-digit PIN; keep the PIN safe, Meta asks for it if the number ever moves.</p>
+          <div><label className="label" htmlFor="wabaId">WhatsApp Business account id</label><input className="input" id="wabaId" name="wabaId" inputMode="numeric" required /></div>
+          <div><label className="label" htmlFor="phoneNumberId">Phone number id</label><input className="input" id="phoneNumberId" name="phoneNumberId" inputMode="numeric" required /></div>
+          <div><label className="label" htmlFor="pin">Two-step PIN (6 digits)</label><input className="input" id="pin" name="pin" type="password" inputMode="numeric" maxLength={6} autoComplete="off" required /></div>
+          <div><button className="btn" type="submit">Connect leads number</button></div>
+        </form>
         <section className="card p-6">
-          <h2 className="mb-2 font-semibold">How to connect a number</h2>
+          <h2 className="mb-2 font-semibold">How to connect a number with a phone app</h2>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-700">
             <li>Make sure the number is no longer connected to another system (for example Zoho CRM).</li>
             <li>Keep the phone with that number&apos;s WhatsApp Business app at hand.</li>

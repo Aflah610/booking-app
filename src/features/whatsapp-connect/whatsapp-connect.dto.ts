@@ -19,4 +19,6 @@ export type SignupResult = { code: string; wabaId: string; phoneNumberId: string
 export type MetaGraph = {
   exchangeCode(code: string): Promise<string>;
   subscribeApp(wabaId: string, token: string): Promise<void>;
+  /** Puts a number added in WhatsApp Manager into service, with the two-step PIN chosen for it. */
+  registerNumber(phoneNumberId: string, pin: string, token: string): Promise<void>;
 };

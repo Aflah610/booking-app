@@ -16,12 +16,13 @@ export async function Shell({ me, children }: { me: Me; children: React.ReactNod
   const can = (p: Parameters<typeof allowed>[1]) => allowed(me, p);
   const manages = ["clients.view", "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage"] as const;
   const [showLeads, followUpNews, pendingNotes, editRequests] = await Promise.all([
-    canUseLeads(me) && app().leads.hasSalesTeam(),
+    // With the leads number connected, managers need Leads for its chats even before any sales executive is added.
+    canUseLeads(me) && app().leads.hasSalesTeam().then(async (team) => team || Boolean((await app().whatsappConnect.status()).leads.phoneNumberId)),
     canUseFollowUps(me) ? app().followUps.countUnread(me) : 0,
     can("casenotes.pending") ? app().caseHistory.countOverdueNotes() : 0,
     app().caseHistory.pendingEditCount(me),
   ]);
-  const newLeads = showLeads ? await app().leads.countNew(me) : 0;
+  const newLeads = showLeads ? (await app().leads.countNew(me)) + (await app().whatsappChat.unread(me)) : 0;
   const unread = followUpNews + pendingNotes + editRequests + newLeads;
   const links = (
     <>

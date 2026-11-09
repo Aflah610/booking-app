@@ -348,6 +348,29 @@ export const lead = pgTable("lead", {
   index("lead_assignee_idx").on(t.assignedTo, t.createdAt),
 ]);
 
+/** WhatsApp chat on the leads number, in and out, per person. The person's own words: only leads viewers can open it. */
+export const whatsappMessage = pgTable("whatsapp_message", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  direction: text("direction").$type<"in" | "out">().notNull(),
+  kind: text("kind").$type<"text" | "image" | "audio" | "video" | "document" | "other">().notNull().default("text"),
+  /** The text, or a photo's or file's caption. */
+  body: text("body"),
+  /** Meta's id for a photo, voice note or file; fetched from Meta when someone opens it. */
+  mediaId: text("media_id"),
+  mimeType: text("mime_type"),
+  /** Meta's id; null when sending failed. Also stops a repeated webhook adding the message twice. */
+  waMessageId: text("wa_message_id").unique(),
+  status: text("status").$type<"received" | "sent" | "delivered" | "read" | "failed">().notNull(),
+  error: text("error"),
+  /** Who replied. */
+  staffId: uuid("staff_id").references(() => staff.id, { onDelete: "set null" }),
+  /** When the person assigned opened an incoming message. */
+  readAt: timestamp("read_at", { withTimezone: true }),
+  at: timestamp("at", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [index("whatsapp_message_client_idx").on(t.clientId, t.at)]);
+
 const oneOf = (column: unknown, values: readonly string[]) => sql`${column} in (${sql.raw(values.map((v) => `'${v}'`).join(", "))})`;
 
 /** A client's clinical record: the intake assessment. Session notes hang off it. */

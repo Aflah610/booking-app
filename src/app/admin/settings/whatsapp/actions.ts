@@ -6,6 +6,13 @@ import { requirePermission } from "@/lib/session";
 import { z } from "zod";
 import { WHATSAPP_PURPOSES } from "@/features/whatsapp-connect/whatsapp-connect.dto";
 
+export async function connectLeadsDirectAction(form: FormData) {
+  const me = await requirePermission("settings.manage");
+  await act("/admin/settings/whatsapp", "Leads number connected: chats now arrive in Leads > Chats", () =>
+    app().whatsappConnect.connectDirect(me, { wabaId: str(form, "wabaId"), phoneNumberId: str(form, "phoneNumberId"), pin: str(form, "pin") }),
+  );
+}
+
 export async function connectWhatsAppAction(form: FormData) {
   const me = await requirePermission("settings.manage");
   const purpose = z.enum(WHATSAPP_PURPOSES).parse(str(form, "purpose"));

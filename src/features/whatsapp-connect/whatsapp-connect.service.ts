@@ -5,6 +5,7 @@ import { WHATSAPP_PURPOSES, type MetaGraph, type SignupResult, type WhatsAppPurp
 import type { WhatsAppConnectRepository } from "./whatsapp-connect.repository";
 
 const metaId = z.string().trim().regex(/^\d{5,25}$/, "Meta sent an id that isn't a number");
+const directInput = z.object({ wabaId: metaId, phoneNumberId: metaId, pin: z.string().trim().regex(/^\d{6}$/, "The PIN must be 6 digits") });
 const signupInput = z.object({ code: z.string().trim().min(10).max(2000), wabaId: metaId, phoneNumberId: metaId });
 
 const API = "https://graph.facebook.com/v21.0";
@@ -32,12 +33,37 @@ export function createMetaGraph(env: Record<string, string | undefined> = proces
       const res = await fetch(`${API}/${wabaId}/subscribed_apps`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) await fail("send this number's messages to the booking app", res);
     },
+    async registerNumber(phoneNumberId, pin, token) {
+      const res = await fetch(`${API}/${phoneNumberId}/register`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", pin }),
+      });
+      if (!res.ok) await fail("put this number into service", res);
+    },
   };
 }
 
 export function createWhatsAppConnectService({ repo, graph }: { repo: WhatsAppConnectRepository; graph: MetaGraph }) {
   return {
     status: () => repo.get(),
+
+    /**
+     * Connects the leads number when it lives only on Meta's platform, with no WhatsApp Business app on a phone: chats are
+     * answered in the booking app. The PIN goes to Meta as the number's two-step PIN and is not kept here.
+     */
+    async connectDirect(viewer: { id: string } & AccessHolder, input: unknown, now = new Date()) {
+      if (!can(viewer, "settings.manage")) throw new DomainError("forbidden", "Only admins can connect WhatsApp");
+      const d = directInput.parse(input);
+      const token = process.env.WHATSAPP_ACCESS_TOKEN;
+      if (!token) throw new DomainError("invalid", "WHATSAPP_ACCESS_TOKEN must be set on the server");
+      if ((await repo.get()).messages.phoneNumberId === d.phoneNumberId) throw new DomainError("conflict", "That number is already connected for the other use. Leads and messages need two different numbers.");
+      await graph.registerNumber(d.phoneNumberId, d.pin, token);
+      await graph.subscribeApp(d.wabaId, token);
+      await repo.save("leads", { wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, at: now }, {
+        actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { purpose: "leads", wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, direct: true },
+      });
+    },
 
     /**
      * Finishes Meta's embedded sign-up (Coexistence: the number stays on the phone's WhatsApp Business app). Subscribes our
