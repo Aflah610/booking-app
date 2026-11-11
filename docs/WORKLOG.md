@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · 774 leads chat confirmed working
+
+- Live test by Aflah: messages to 774 create leads (board: 1 New lead, 1 Contacted) and show in Leads > Chats (2 chats),
+  so the webhook path (Mindlap Messaging app, signature, leads number) works. A test from a number in the client Bin is
+  hidden by design. Open: payment method on the Mind Lap messaging account; add BDE staff.
+
 ## 2026-11-11 · Claude Code · 774 connected as the leads number (no phone app)
 
 - After Aflah deleted the WhatsApp Business app account for 774, Settings > WhatsApp > "Leads number without a phone
