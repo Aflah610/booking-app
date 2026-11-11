@@ -4,7 +4,7 @@ import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
 import { can, type AccessRole } from "@/features/access/permissions";
 import { zonedToUtc } from "@/lib/time";
-import { OPEN_STATUSES, type CaptureResult, type LeadDTO, type LeadFilters, type LeadStatus, type LeadViewer } from "./leads.dto";
+import { BOARD_STATUSES, CLOSED_STATUSES, DEAL_PENDING_HOURS, OPEN_STATUSES, type CaptureResult, type LeadDTO, type LeadFilters, type LeadStatus, type LeadViewer } from "./leads.dto";
 import type { LeadsRepository } from "./leads.repository";
 import { captureInput, leadUpdateInput, type CaptureInput } from "./leads.schemas";
 
@@ -73,7 +73,7 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
       if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see leads");
       const statuses: readonly LeadStatus[] | undefined = opts.status
         ? [opts.status]
-        : opts.view === "closed" ? ["converted", "lost"] : opts.view === "all" ? undefined : OPEN_STATUSES;
+        : opts.view === "closed" ? CLOSED_STATUSES : opts.view === "all" ? undefined : OPEN_STATUSES;
       return leadsRepo.list({
         assignedTo: isManager(viewer) ? opts.assignedTo : viewer.id,
         statuses,
@@ -83,6 +83,23 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
         followUpBy: opts.followUpBy,
         q: opts.q,
       });
+    },
+
+    /** The leads board: each stage's newest leads (up to `perColumn`) and how many there are in all. */
+    async board(viewer: LeadViewer, opts: { assignedTo?: string; q?: string; source?: LeadFilters["source"] } = {}, perColumn = 100) {
+      if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see leads");
+      const assignedTo = isManager(viewer) ? opts.assignedTo : viewer.id;
+      const [counts, ...columns] = await Promise.all([
+        leadsRepo.countByStatus(assignedTo),
+        ...BOARD_STATUSES.map((status) => leadsRepo.list({ assignedTo, statuses: [status], q: opts.q, source: opts.source, limit: perColumn })),
+      ]);
+      return BOARD_STATUSES.map((status, i) => ({ status, count: opts.q || opts.source ? columns[i].length : counts[status] ?? 0, leads: columns[i] }));
+    },
+
+    /** Website visitors who tried to book: Payment pending (48 hours), Closed won (paid), Closed lost (didn't pay in time). */
+    async websiteDeals(viewer: LeadViewer, now = new Date()) {
+      if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can see deals");
+      return leadsRepo.websiteDeals(now, DEAL_PENDING_HOURS, isManager(viewer) ? undefined : viewer.id);
     },
 
     /** Converted leads, newest deal first, closed within [from, to] (YYYY-MM-DD, both days included). */
@@ -132,8 +149,7 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
     async update(viewer: LeadViewer, id: string, input: unknown, now = new Date()) {
       const current = await get(viewer, id);
       const d = leadUpdateInput.parse(input);
-      const closing = d.status === "converted" || d.status === "lost";
-      if (d.status === "follow_up" && !d.followUpOn) throw new DomainError("invalid", "Choose the date to follow up on");
+      const closing = CLOSED_STATUSES.includes(d.status);
       if (d.status === "lost" && !d.lostReason) throw new DomainError("invalid", "Choose why the lead was lost");
       const converted = d.status === "converted";
       await leadsRepo.update(

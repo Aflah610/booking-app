@@ -5,7 +5,7 @@ import { booking, client, clientPackage, lead, service, servicePackage, staff } 
 import { writeAudit } from "@/features/audit/audit.repository";
 import type { AuditEntry } from "@/features/audit/audit.types";
 import type { AccessRole } from "@/features/access/permissions";
-import { type CaptureResult, type LeadDTO, type LeadSource, type LeadStatus, type LeadSummaryRow, type LostReason } from "./leads.dto";
+import { type CaptureResult, type DealStage, type LeadDTO, type WebsiteDeal, type LeadSource, type LeadStatus, type LeadSummaryRow, type LostReason } from "./leads.dto";
 
 const dealBooking = alias(booking, "deal_booking");
 
@@ -32,7 +32,7 @@ const columns = {
   createdAt: lead.createdAt,
 };
 
-const open = notInArray(lead.status, ["converted", "lost"]);
+const open = notInArray(lead.status, ["converted", "lost", "junk"]);
 
 /** People who can be given a lead at `at`: active, in a role that works leads, switched online, and not on leave. */
 const takingLeads = (at: Date, roles: readonly AccessRole[]) =>
@@ -128,6 +128,52 @@ export function createLeadsRepository(db: Db) {
       }));
     },
 
+    /** How many leads are in each stage, for the board headers. */
+    async countByStatus(assignedTo?: string): Promise<Partial<Record<LeadStatus, number>>> {
+      const rows = await db.select({ status: lead.status, n: count() }).from(lead).where(assignedTo ? eq(lead.assignedTo, assignedTo) : undefined).groupBy(lead.status);
+      return Object.fromEntries(rows.map((r) => [r.status, r.n]));
+    },
+
+    /**
+     * Website booking attempts as deals: every paid website booking is won; a person's latest unpaid attempt (with nothing
+     * paid since) is pending for DEAL_PENDING_HOURS, then lost. `assignedTo` keeps to people whose lead is that member's.
+     */
+    async websiteDeals(now: Date, pendingHours: number, assignedTo?: string): Promise<WebsiteDeal[]> {
+      const since = new Date(now.getTime() - pendingHours * 3_600_000);
+      const rows = await db.execute(sql`
+        with a as (
+          select b.id, b.client_id, c.name as client_name, c.phone_e164, b.created_at, b.starts_at, coalesce(b.amount_paise, b.price_paise) as amount,
+            b.payment_status, s.name as service_name, st.name as staff_name,
+            (select l.id from lead l where l.client_id = b.client_id order by l.created_at desc limit 1) as lead_id,
+            (select l.assigned_to from lead l where l.client_id = b.client_id order by l.created_at desc limit 1) as lead_owner
+          from booking b
+          join client c on c.id = b.client_id and c.deleted_at is null
+          join service s on s.id = b.service_id
+          join staff st on st.id = b.staff_id
+          where b.source = 'web' and b.payment_status <> 'not_required'
+        ),
+        unpaid as (
+          select distinct on (a.client_id) a.* from a
+          where a.payment_status <> 'paid'
+            and not exists (select 1 from a p where p.client_id = a.client_id and p.payment_status = 'paid' and p.created_at >= a.created_at)
+          order by a.client_id, a.created_at desc
+        )
+        select * from (
+          select 'won' as stage, a.* from a where a.payment_status = 'paid'
+          union all
+          select case when unpaid.created_at > ${since} then 'pending' else 'lost' end as stage, unpaid.* from unpaid
+        ) d
+        where ${assignedTo ? sql`d.lead_owner = ${assignedTo}` : sql`true`}
+        order by d.created_at desc
+        limit 1000`);
+      type Row = { stage: DealStage; id: string; client_id: string; client_name: string; phone_e164: string; created_at: string | Date; starts_at: string | Date;
+        amount: number | null; service_name: string; staff_name: string; lead_id: string | null; lead_owner: string | null };
+      return (rows.rows as Row[]).map((r) => ({
+        stage: r.stage, bookingId: r.id, clientId: r.client_id, clientName: r.client_name, clientPhone: r.phone_e164, serviceName: r.service_name,
+        staffName: r.staff_name, amountPaise: r.amount, createdAt: new Date(r.created_at), startsAt: new Date(r.starts_at), leadId: r.lead_id, leadOwner: r.lead_owner,
+      }));
+    },
+
     /** New leads waiting for the first contact, for the menu badge. */
     async countNew(assignedTo?: string): Promise<number> {
       const [row] = await db.select({ n: count() }).from(lead).where(and(eq(lead.status, "new"), assignedTo ? eq(lead.assignedTo, assignedTo) : undefined));
@@ -187,6 +233,13 @@ export function createLeadsRepository(db: Db) {
         if (current) {
           await tx.update(lead).set({ lastMessageAt: n.at }).where(eq(lead.id, current.id));
           return { kind: "existing", lead: await one(tx, current.id) };
+        }
+
+        // Someone marked junk (spam, wrong number) who writes again stays junk: no new lead for the team.
+        const [junk] = n.evenForClients ? [] : await tx.select({ id: lead.id }).from(lead).where(and(eq(lead.clientId, person.id), eq(lead.status, "junk"))).limit(1);
+        if (junk) {
+          await tx.update(lead).set({ lastMessageAt: n.at }).where(eq(lead.id, junk.id));
+          return { kind: "existing", lead: await one(tx, junk.id) };
         }
 
         if (!n.evenForClients) {

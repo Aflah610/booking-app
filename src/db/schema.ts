@@ -329,7 +329,7 @@ export const lead = pgTable("lead", {
   assignedTo: uuid("assigned_to").references(() => staff.id, { onDelete: "set null" }),
   /** When it was last given to someone; the round robin goes by this, so leads handed out later still count. */
   assignedAt: timestamp("assigned_at", { withTimezone: true }),
-  status: text("status").$type<"new" | "contacted" | "follow_up" | "converted" | "lost">().notNull().default("new"),
+  status: text("status").$type<"new" | "attempted" | "contacted" | "junk" | "lost" | "converted">().notNull().default("new"),
   followUpOn: date("follow_up_on", { mode: "string" }),
   notes: text("notes"),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
@@ -344,7 +344,7 @@ export const lead = pgTable("lead", {
   updatedAt: updatedAt(),
 }, (t) => [
   // One open lead per person, so a second message from the same number never makes a second lead.
-  uniqueIndex("lead_open_client_idx").on(t.clientId).where(sql`${t.status} not in ('converted', 'lost')`),
+  uniqueIndex("lead_open_client_idx").on(t.clientId).where(sql`${t.status} not in ('converted', 'lost', 'junk')`),
   index("lead_assignee_idx").on(t.assignedTo, t.createdAt),
 ]);
 

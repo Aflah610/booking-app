@@ -330,6 +330,13 @@
       "when": 1794211347551,
       "tag": "0046_whatsapp_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794399638400,
+      "tag": "0047_lead_stages",
+      "breakpoints": true
     }
   ]
 }

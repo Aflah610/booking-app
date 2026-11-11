@@ -1,17 +1,23 @@
 import type { AccessHolder } from "@/features/access/permissions";
-export const LEAD_STATUSES = ["new", "contacted", "follow_up", "converted", "lost"] as const;
+/** The lead stages, as in the old Zoho CRM: every new WhatsApp chat starts at New lead. Converted = booked (it moves to Deals). */
+export const LEAD_STATUSES = ["new", "attempted", "contacted", "junk", "lost", "converted"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export type LeadSource = "whatsapp_ad" | "whatsapp" | "manual";
 
-/** A lead is open until it is converted (the person booked) or marked lost. */
-export const OPEN_STATUSES: readonly LeadStatus[] = ["new", "contacted", "follow_up"];
+/** A lead is open until it is converted (the person booked), marked lost or marked junk. */
+export const OPEN_STATUSES: readonly LeadStatus[] = ["new", "attempted", "contacted"];
+export const CLOSED_STATUSES: readonly LeadStatus[] = ["converted", "lost", "junk"];
+
+/** The columns of the leads board, left to right. */
+export const BOARD_STATUSES: readonly LeadStatus[] = ["new", "attempted", "contacted", "junk", "lost"];
 
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
-  new: "New",
+  new: "New lead",
+  attempted: "Attempted to contact",
   contacted: "Contacted",
-  follow_up: "Follow up",
+  junk: "Junk lead",
+  lost: "Lost lead",
   converted: "Converted",
-  lost: "Lost",
 };
 
 export const LOST_REASONS = ["price", "not_interested", "no_reply", "wrong_number", "other"] as const;
@@ -78,6 +84,30 @@ export type CaptureResult =
   | { kind: "created"; lead: LeadDTO }
   | { kind: "existing"; lead: LeadDTO }
   | { kind: "client" };
+
+/** Website booking attempts as sales deals: unpaid within 48 hours, then lost; paid = won. */
+export const DEAL_STAGES = ["pending", "won", "lost"] as const;
+export type DealStage = (typeof DEAL_STAGES)[number];
+export const DEAL_STAGE_LABEL: Record<DealStage, string> = { pending: "Payment pending", won: "Closed won", lost: "Closed lost" };
+/** How long a website visitor who didn't pay stays in Payment pending before the deal counts as lost. */
+export const DEAL_PENDING_HOURS = 48;
+
+export type WebsiteDeal = {
+  stage: DealStage;
+  bookingId: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string;
+  serviceName: string;
+  staffName: string;
+  amountPaise: number | null;
+  /** When they tried to book. */
+  createdAt: Date;
+  startsAt: Date;
+  /** Their lead, if they came in as one. */
+  leadId: string | null;
+  leadOwner: string | null;
+};
 
 /** Who is looking at leads. Sales executives see their own; managers and admins see everyone's. */
 export type LeadViewer = { id: string } & AccessHolder;

@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Leads and Deals boards like the old Zoho CRM
+
+- Aflah: leads should work like Zoho; Deals for website visitors who didn't pay. Choices: Zoho's exact lead stages,
+  Deals = website only, board view.
+- Lead stages: new (New lead), attempted, contacted, junk, lost, converted. follow_up removed (migration 0047 sets them
+  to contacted; the follow-up date field stays). Open = new/attempted/contacted; closed = converted/lost/junk.
+  lead_open_client_idx now excludes junk. A junk lead's number writing again stays junk (no new lead).
+- /admin/leads is now a board (Board component) with search, owner and source filters; "List view" keeps the old
+  lists (?layout=list). Header: Chats, Deals, List/Board view, New lead.
+- /admin/leads/deals: website bookings (source web, not not_required). Paid = Closed won; a person's latest unpaid
+  attempt with nothing paid since = Payment pending for 48 h (DEAL_PENDING_HOURS), then Closed lost. Derived, no
+  table. BDEs see deals of their own leads' clients; managers/admins all. Cards link to the booking (bookings.all).
+- Tests in tests/leads.test.ts (junk, board counts, website deal stages).
+
 ## 2026-11-11 · Claude Code · 774 connection paused by Aflah (one blocker left)
 
 - Facebook OAuth redirect flow now works (code swap OK). Registration of 774 (phone id 1425373823995294, WABA

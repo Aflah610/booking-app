@@ -8,6 +8,7 @@ import { allowed, requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { setLeadsOnlineAction } from "./actions";
+import { LeadsBoard } from "./LeadsBoard";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Leads" };
@@ -22,7 +23,7 @@ const day = (d: string) => dateLabel(new Date(`${d}T12:00:00Z`), "UTC");
 const daysBefore = (today: string, n: number) => new Date(Date.parse(`${today}T12:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
 const isDay = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
 
-type Search = { view?: string; q?: string; staff?: string; status?: string; source?: string; from?: string; to?: string; period?: string; error?: string; ok?: string };
+type Search = { layout?: string; view?: string; q?: string; staff?: string; status?: string; source?: string; from?: string; to?: string; period?: string; error?: string; ok?: string };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const me = await requireStaff();
@@ -40,6 +41,40 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const to = isDay(sp.to);
   const assignedTo = sp.staff || undefined;
   const q = sp.q?.trim() || undefined;
+  const unreadChats = await app().whatsappChat.unread(me);
+  const headerActions = (list: boolean) => (
+    <div className="flex flex-wrap gap-2">
+      <Link href="/admin/leads/chats" className="btn-ghost">Chats{unreadChats > 0 && <span className="ml-1.5 rounded-full bg-red-600 px-1.5 text-[11px] font-semibold leading-5 text-white">{unreadChats}</span>}</Link>
+      <Link href="/admin/leads/deals" className="btn-ghost">Deals</Link>
+      <Link href={list ? "/admin/leads" : "/admin/leads?layout=list"} className="btn-ghost">{list ? "Board view" : "List view"}</Link>
+      <Link href="/admin/leads/new" className="btn">New lead</Link>
+    </div>
+  );
+
+  if (sp.layout !== "list") {
+    const team = manager ? await app().leads.assignable() : [];
+    return (
+      <>
+        <PageHeader title="Leads" subtitle={manager ? "Every WhatsApp chat starts as a New lead. Open a card to change its stage." : "Your leads. Open a card to change its stage."} action={headerActions(false)} />
+        <form className="mb-4 flex flex-wrap items-end gap-2" action="/admin/leads">
+          <input className="input max-w-xs" name="q" defaultValue={sp.q} placeholder="Search name or mobile" aria-label="Search leads" />
+          {manager && (
+            <select className="input w-auto" name="staff" defaultValue={sp.staff ?? ""} aria-label="Assigned to">
+              <option value="">Everyone</option>
+              {team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          )}
+          <select className="input w-auto" name="source" defaultValue={sp.source ?? ""} aria-label="Came from">
+            <option value="">Any source</option>
+            {Object.entries(LEAD_SOURCE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <button className="btn-ghost" type="submit">Show</button>
+        </form>
+        <Notice error={sp.error} ok={sp.ok} />
+        <LeadsBoard me={me} q={q} assignedTo={manager ? assignedTo : undefined} source={source} tz={tz} />
+      </>
+    );
+  }
 
   const [rows, team, sales, summary] = await Promise.all([
     view === "deals"
@@ -55,10 +90,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     manager ? app().leads.summary(me, period === "today" ? today : daysBefore(today, period === "week" ? 6 : 29), today, tz) : Promise.resolve([]),
   ]);
   const anyoneOnline = sales.some((p) => p.online);
-  const unreadChats = await app().whatsappChat.unread(me);
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ view, q: sp.q, staff: sp.staff, status: sp.status, source: sp.source, from: sp.from, to: sp.to, period: sp.period, ...patch })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ layout: "list", view, q: sp.q, staff: sp.staff, status: sp.status, source: sp.source, from: sp.from, to: sp.to, period: sp.period, ...patch })) if (v) p.set(k, v);
     return `/admin/leads?${p}`;
   };
   const totals = summary.reduce((t, r) => ({ newLeads: t.newLeads + r.newLeads, contacted: t.contacted + r.contacted, converted: t.converted + r.converted, dealPaise: t.dealPaise + r.dealPaise }), { newLeads: 0, contacted: 0, converted: 0, dealPaise: 0 });
@@ -70,10 +104,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <PageHeader
         title="Leads"
         subtitle={manager ? "Everyone who messaged from an ad or was added by staff. New leads are shared equally between sales executives." : "Your leads. New ones are shared equally between the sales team."}
-        action={<div className="flex gap-2">
-          <Link href="/admin/leads/chats" className="btn-ghost">Chats{unreadChats > 0 && <span className="ml-1.5 rounded-full bg-red-600 px-1.5 text-[11px] font-semibold leading-5 text-white">{unreadChats}</span>}</Link>
-          <Link href="/admin/leads/new" className="btn">New lead</Link>
-        </div>}
+        action={headerActions(true)}
       />
       <Notice error={sp.error} ok={sp.ok} />
 
@@ -152,7 +183,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         {(view === "open" || view === "all") && (
           <select className="input w-auto" name="status" defaultValue={sp.status ?? ""} aria-label="Status">
             <option value="">Any status</option>
-            {LEAD_STATUSES.filter((st) => view === "all" || !["converted", "lost"].includes(st)).map((st) => <option key={st} value={st}>{LEAD_STATUS_LABEL[st]}</option>)}
+            {LEAD_STATUSES.filter((st) => view === "all" || !["converted", "lost", "junk"].includes(st)).map((st) => <option key={st} value={st}>{LEAD_STATUS_LABEL[st]}</option>)}
           </select>
         )}
         {!deals && (
