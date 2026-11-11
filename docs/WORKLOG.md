@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · WhatsApp booking confirmation to clients; test client removed
+
+- New Meta template booking_confirmed (Utility, en, on the 00282 "MindLap" WABA, APPROVED): "Hi {{1}}, your Mindlap
+  session with {{2}} is booked for {{3}} at {{4}}. Booking ID: {{5}}. We will send you the join link before the
+  session. Need help? Message our coordinator on WhatsApp: wa.me/918590991552".
+- Live workflow "WhatsApp booking confirmation": Booking is made, straight away, client, params client_name / staff /
+  date / time / booking_id.
+- workflows.service: "booked" messages for an unpaid booking now wait for payment for the psychologist (as before) AND
+  for the client on desk (CCD) bookings; they are queued on payment_success. Website bookings only announce "booked"
+  once paid (or credit). Website bookings with online payment off are still confirmed straight away. Tests updated.
+- Test client ML-CL-00370 (BK-00066/BK-00067) cancelled, binned and deleted for good at Aflah's request.
+
 ## 2026-11-11 · Claude Code · Lead page: no manual deal fields, no client record link
 
 - Aflah: the "If converted, amount" and "what they bought" boxes are gone; a booking or payment on the app or website
