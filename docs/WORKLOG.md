@@ -5,6 +5,15 @@ The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
 ## 2026-11-11 · Claude Code · 774 Meta setup progress (no code change)
 
+- Update: mindlap-website now has Full access to Messaging account "Mind Lap" 1670723201504753 (774's WABA).
+  774 phone number id: 1425373823995294. Still no payment method on that account.
+- Webhook finding: app "Mindlap Messaging" (1528505165963496) has callback https://book.mindlap.in/api/whatsapp/webhook
+  with "messages" subscribed. App "MindLap OTP" (2130581677532743) has NO callback. connectDirect subscribes the WABA
+  to the app that owns WHATSAPP_ACCESS_TOKEN; if that token is the OTP app's (as noted 2026-10-27), 774's messages
+  would go to an app with no webhook. Before connecting: subscribe WABA 1670723201504753 to Mindlap Messaging (a token
+  of that app), or confirm which app the server token belongs to. WHATSAPP_APP_SECRET must be Mindlap Messaging's.
+  Also check that Mindlap Messaging is published (unpublished apps receive only test webhooks).
+
 - 774 is verified (status Pending) and has its own Messaging account "Mind Lap" (id 1670723201504753); display name
   "MindLap" in review at Meta. Duplicate unverified 774 entries were deleted (three).
 - Blocking: system user mindlap-website (the server's WHATSAPP_ACCESS_TOKEN) has access only to the 00282 account, so
