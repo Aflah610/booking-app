@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · 774 connected as the leads number (no phone app)
+
+- After Aflah deleted the WhatsApp Business app account for 774, Settings > WhatsApp > "Leads number without a phone
+  app" succeeded: registered with Aflah's PIN, Mindlap Messaging subscribed to WABA 1670723201504753, leads number saved
+  (phone id 1425373823995294). Leads menu now shows. Next: live message test both ways; payment method on Mind Lap.
+
 ## 2026-11-11 · Claude Code · Hours shown in AM/PM
 
 - Aflah: CCD sees 24-hour times on staff hours. Browser time inputs follow the computer's locale, so they are replaced
