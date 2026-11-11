@@ -161,8 +161,9 @@ describe("reading Meta's webhook", () => {
     const { manager } = await team();
     const { clientId } = createdLead((await receive("+919800000001", "Hello")).r);
     await c.whatsappChat.reply(manager, clientId, { text: "Hi" }, plusHours(1));
-    await c.whatsappChat.statusUpdate({ waMessageId: "wamid.out1", status: "read", error: null });
-    await c.whatsappChat.statusUpdate({ waMessageId: "wamid.out1", status: "delivered", error: null });
+    // wamid.out1 is the automatic welcome; the reply is the second message out.
+    await c.whatsappChat.statusUpdate({ waMessageId: "wamid.out2", status: "read", error: null });
+    await c.whatsappChat.statusUpdate({ waMessageId: "wamid.out2", status: "delivered", error: null });
     expect((await c.whatsappChat.thread(manager, clientId, plusHours(1))).messages.at(-1)?.status).toBe("read");
   });
 });
