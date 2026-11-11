@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · 774 Meta setup progress (no code change)
+
+- 774 is verified (status Pending) and has its own Messaging account "Mind Lap" (id 1670723201504753); display name
+  "MindLap" in review at Meta. Duplicate unverified 774 entries were deleted (three).
+- Blocking: system user mindlap-website (the server's WHATSAPP_ACCESS_TOKEN) has access only to the 00282 account, so
+  the 774 phone number id is not visible to it yet. Aflah must assign the Mind Lap messaging account (and the 774
+  WhatsApp account if listed) to mindlap-website with full control, and add a payment method to Mind Lap.
+- Then: read the 774 phone number id, connect it in Settings > WhatsApp > "Leads number without a phone app" (WABA id,
+  phone number id, PIN), check the webhook subscription, test one message both ways. Do NOT revoke or regenerate the
+  mindlap-website token: OTP and reminders use it.
+
 ## 2026-11-09 · Claude Code · WhatsApp chat in Leads (774 moves off the phone)
 
 - Aflah's decision: 774 leaves the WhatsApp Business app and goes fully on the Cloud API; leads and chat happen in the
