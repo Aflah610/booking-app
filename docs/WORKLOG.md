@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Lead page: no manual deal fields, no client record link
+
+- Aflah: the "If converted, amount" and "what they bought" boxes are gone; a booking or payment on the app or website
+  converts the lead and fills the deal in by itself (the sidebar "Deal" line still shows it). The update keeps any
+  stored deal values instead of clearing them. The "Client record" link is removed too: CCD and managers do not see
+  case histories.
+
 ## 2026-11-11 · Claude Code · Case histories list only paid clients
 
 - Aflah: clients who haven't paid shouldn't show in Case histories. caseHistory list now needs a paid / not_required

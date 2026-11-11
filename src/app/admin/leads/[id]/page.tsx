@@ -74,16 +74,6 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
               {LOST_REASONS.map((r) => <option key={r} value={r}>{LOST_REASON_LABEL[r]}</option>)}
             </select>
           </div>
-          <div>
-            <label className="label" htmlFor="dealAmount">If converted, amount (₹)</label>
-            <input className="input" id="dealAmount" name="dealAmount" type="number" min={0} step="1" inputMode="numeric"
-              defaultValue={l.dealAmountPaise != null ? Math.round(l.dealAmountPaise / 100) : ""} placeholder={l.dealWhat ? "Filled in from the booking" : "e.g. 5400"} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label" htmlFor="dealNote">If converted, what they bought</label>
-            <input className="input" id="dealNote" name="dealNote" defaultValue={l.dealNote ?? ""} placeholder={l.dealWhat ?? "e.g. 4-session package, paid by UPI"} />
-            <p className="mt-1.5 text-xs text-zinc-600">A booking or payment on the website converts the lead and fills this in by itself. Use these for deals closed by phone or cash.</p>
-          </div>
           <div className="sm:col-span-2">
             <label className="label" htmlFor="notes">Notes</label>
             <textarea className="input" id="notes" name="notes" rows={5} defaultValue={l.notes ?? ""} placeholder="What they are looking for, what was offered, when to call back" />
@@ -101,7 +91,6 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
               <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Deal</dt><dd className="mt-1">{[l.dealWhat ?? l.dealNote, l.dealAmountPaise != null ? `₹${(l.dealAmountPaise / 100).toLocaleString("en-IN")}` : null].filter(Boolean).join(" · ")}</dd></div>
             )}
             {l.status === "lost" && l.lostReason && <div><dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Lost because</dt><dd className="mt-1">{LOST_REASON_LABEL[l.lostReason]}</dd></div>}
-            {manager && <div><Link className="underline" href={`/admin/clients/${l.clientId}`}>Client record →</Link></div>}
           </dl>
           {manager && (
             <form action={reassignLeadAction.bind(null, l.id)} className="card grid gap-3 p-5">

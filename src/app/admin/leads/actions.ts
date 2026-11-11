@@ -20,8 +20,6 @@ export async function updateLeadAction(id: string, form: FormData) {
       followUpOn: str(form, "followUpOn") || null,
       notes: optional(form, "notes"),
       lostReason: str(form, "lostReason"),
-      dealAmount: str(form, "dealAmount"),
-      dealNote: str(form, "dealNote"),
     }),
   );
 }

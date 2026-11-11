@@ -160,9 +160,9 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
           notes: d.notes,
           closedAt: closing ? (current.status === d.status && current.closedAt ? current.closedAt : now) : null,
           lostReason: d.status === "lost" ? d.lostReason : null,
-          // A deal closed by phone or cash is recorded by hand; a booking fills these in by itself.
+          // A booking or payment fills these in by itself; staff no longer type them.
           dealAmountPaise: converted ? (d.dealAmount != null ? Math.round(d.dealAmount * 100) : current.dealAmountPaise) : null,
-          dealNote: converted ? d.dealNote : null,
+          dealNote: converted ? (d.dealNote ?? current.dealNote) : null,
         },
         { actor: { staffId: viewer.id }, action: "update", entity: "lead", entityId: id, details: { status: d.status, previousStatus: current.status } },
       );
