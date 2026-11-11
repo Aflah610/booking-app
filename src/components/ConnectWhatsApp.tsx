@@ -19,7 +19,8 @@ let initialisedApp: string | null = null;
 /** "app": the number stays on the phone's WhatsApp Business app (Coexistence). "cloud": a number on Meta's platform only, put into service with a PIN. */
 export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode = "app" }: { appId: string; configId: string; purpose: "leads" | "messages"; label: string; onDone: (form: FormData) => Promise<void>; mode?: "app" | "cloud" }) {
   const [pin, setPin] = useState("");
-  const pinReady = mode === "app" || /^\d{6}$/.test(pin);
+  const [ids, setIds] = useState({ wabaId: "", phoneNumberId: "" });
+  const pinReady = mode === "app" || (/^\d{6}$/.test(pin) && /^\d{5,25}$/.test(ids.wabaId) && /^\d{5,25}$/.test(ids.phoneNumberId));
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<"idle" | "open" | "saving" | "cancelled" | "incomplete">("idle");
   const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -28,7 +29,9 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode 
   const formRef = useRef<HTMLFormElement>(null);
 
   const finish = () => {
-    const { code, wabaId, phoneNumberId } = signup.current;
+    // A number with no phone app: Meta's window often returns only the sign-in, so the ids typed here are used.
+    const typed = mode === "cloud" ? ids : {};
+    const { code, wabaId = typed.wabaId, phoneNumberId = typed.phoneNumberId } = signup.current;
     if (activeConnection !== owner.current || !code || !wabaId || !phoneNumberId) return;
     // Clear first: a duplicate FINISH event cannot submit the form twice.
     activeConnection = null;
@@ -128,6 +131,18 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode 
       <input type="hidden" name="code" />
       <input type="hidden" name="wabaId" />
       <input type="hidden" name="phoneNumberId" />
+      {mode === "cloud" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor={`waba-${purpose}`}>WhatsApp account id</label>
+            <input className="input" id={`waba-${purpose}`} inputMode="numeric" value={ids.wabaId} onChange={(e) => setIds({ ...ids, wabaId: e.target.value.replace(/\D/g, "") })} />
+          </div>
+          <div>
+            <label className="label" htmlFor={`phone-${purpose}`}>Phone number id</label>
+            <input className="input" id={`phone-${purpose}`} inputMode="numeric" value={ids.phoneNumberId} onChange={(e) => setIds({ ...ids, phoneNumberId: e.target.value.replace(/\D/g, "") })} />
+          </div>
+        </div>
+      )}
       {mode === "cloud" && (
         <div className="max-w-xs">
           <label className="label" htmlFor={`pin-${purpose}`}>Two-step PIN (6 digits)</label>
