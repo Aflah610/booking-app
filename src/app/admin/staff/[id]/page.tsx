@@ -13,6 +13,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/Shell";
 import { PhoneField } from "@/components/PhoneField";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
+import { amPm, TimeSelect } from "@/components/TimeSelect";
 import {
   addTimeOffAction,
   calendarOptionsAction,
@@ -89,7 +90,7 @@ export default async function StaffDetail({
                 <span className="flex-1">
                   <span className="block">{longDayLabel(new Date(`${o.date}T12:00:00Z`), "UTC")}</span>
                   <span className="text-zinc-600">
-                    {o.ranges.length ? o.ranges.map((r) => `${r.startTime}–${r.endTime}`).join(", ") : "Unavailable"}
+                    {o.ranges.length ? o.ranges.map((r) => `${amPm(r.startTime)}–${amPm(r.endTime)}`).join(", ") : "Unavailable"}
                   </span>
                 </span>
                 <form action={removeDateOverrideAction.bind(null, id, o.date)}>
@@ -101,10 +102,10 @@ export default async function StaffDetail({
           <form action={setDateOverrideAction.bind(null, id)} className="card grid gap-3 p-4">
             <div><label className="label" htmlFor="ov-date">Date</label><input className="input" id="ov-date" name="date" type="date" min={today} required /></div>
             <div className="grid grid-cols-2 gap-2">
-              <div><label className="label" htmlFor="start1">From</label><input className="input" id="start1" name="start1" type="time" defaultValue="10:00" /></div>
-              <div><label className="label" htmlFor="end1">To</label><input className="input" id="end1" name="end1" type="time" defaultValue="14:00" /></div>
-              <div><label className="label" htmlFor="start2">Then from</label><input className="input" id="start2" name="start2" type="time" /></div>
-              <div><label className="label" htmlFor="end2">To</label><input className="input" id="end2" name="end2" type="time" /></div>
+              <div><label className="label" htmlFor="start1">From</label><TimeSelect id="start1" name="start1" defaultValue="10:00" /></div>
+              <div><label className="label" htmlFor="end1">To</label><TimeSelect id="end1" name="end1" defaultValue="14:00" /></div>
+              <div><label className="label" htmlFor="start2">Then from</label><TimeSelect id="start2" name="start2" blank /></div>
+              <div><label className="label" htmlFor="end2">To</label><TimeSelect id="end2" name="end2" blank /></div>
             </div>
             <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="toggle" name="off" /> Unavailable all day</label>
             <div><button className="btn-ghost" type="submit">Add override</button></div>

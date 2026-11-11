@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Hours shown in AM/PM
+
+- Aflah: CCD sees 24-hour times on staff hours. Browser time inputs follow the computer's locale, so they are replaced
+  by components/TimeSelect (15-minute list labelled "9:00 AM", value still "HH:MM"; off-grid saved values kept).
+  Used in HoursEditor (weekly hours) and the date-override form; override list text uses amPm(). Time off still uses
+  datetime-local inputs.
+
 ## 2026-11-11 · Claude Code · Intake no longer stuck on "Intake pending"
 
 - Cause: on intake step 6 the main button only saved; completing needed the small "Save and mark complete" button.

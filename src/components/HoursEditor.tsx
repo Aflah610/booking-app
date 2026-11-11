@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TimeSelect } from "./TimeSelect";
 
 type Range = { start: string; end: string };
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -41,20 +42,16 @@ export function HoursEditor({ initial }: { initial: { weekday: number; startTime
               {!on && <span className="pt-1.5 text-sm text-zinc-600">Unavailable</span>}
               {ranges.map((r, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="time"
-                    step={300}
-                    aria-label={`${name} start`}
+                  <TimeSelect
+                    label={`${name} start`}
                     className="input w-32"
                     value={r.start}
                     onChange={(e) => update(d, (rs) => rs.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))}
                     required
                   />
                   <span className="text-zinc-600">–</span>
-                  <input
-                    type="time"
-                    step={300}
-                    aria-label={`${name} end`}
+                  <TimeSelect
+                    label={`${name} end`}
                     className="input w-32"
                     value={r.end}
                     onChange={(e) => update(d, (rs) => rs.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))}
