@@ -3,6 +3,15 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · 774 connection paused by Aflah (one blocker left)
+
+- Facebook OAuth redirect flow now works (code swap OK). Registration of 774 (phone id 1425373823995294, WABA
+  1670723201504753) refused: "Cannot create certificate - This number is registered to an existing WhatsApp account"
+  (code 100/2388001). Number at Meta: status PENDING, name_status PENDING_REVIEW, code_verification_status VERIFIED.
+- Remaining step (Aflah, later): export needed chats, delete the WhatsApp (Business) account for 774 on the phone,
+  wait ~5 min, then Settings > WhatsApp > "Leads number without a phone app" > Continue to Facebook again.
+- Still open: payment method on the Mind Lap messaging account; one real message test after connecting.
+
 ## 2026-11-11 · Claude Code · Leads number (no phone app): standard Facebook OAuth redirect instead of the JS SDK
 
 - FB.login (JS SDK) codes kept failing to swap: "Error validating verification code ... redirect_uri" (subcode 36008),
