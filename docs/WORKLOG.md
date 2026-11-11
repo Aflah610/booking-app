@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Voice notes from Leads > Chats
+
+- Chat page (/admin/leads/chats/[clientId]): "Record voice note" (VoiceNote.tsx). MediaRecorder records (WebM in
+  Chrome), the browser decodes it and encodes MP3 mono 24 kHz 48 kbps with @breezystack/lamejs (new dependency,
+  LGPL, loaded only on that button), preview, then POST /api/whatsapp/chat/[clientId]/voice (route handler, since
+  server actions cap bodies at 1 MB). whatsappChat.replyVoice uploads to Meta /{phone}/media and sends type audio from
+  the leads number; same 24h window and access rules as text; stored as kind audio with Meta's media id (plays back
+  through /api/whatsapp/media). Max 5 minutes / 10 MB. Arrives as an audio clip, not a voice-note bubble (that needs
+  OGG Opus, which Chrome can't record).
+- next.config: Permissions-Policy allows microphone=(self) on /admin/leads/chats/* only; everywhere else unchanged.
+
 ## 2026-11-11 · Claude Code · Automatic welcome on the 774 leads number
 
 - whatsappChat.receive: when someone messages 774 with no earlier message from them, or their last one was 24+ hours

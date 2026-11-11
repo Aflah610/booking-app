@@ -5,7 +5,7 @@ import type { LeadViewer } from "@/features/leads/leads.dto";
 import type { IncomingMessage, MessageStatusUpdate } from "@/features/leads/whatsapp-webhook";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { REPLY_WINDOW_HOURS, WELCOME_TEXT, type ChatGraph, type ChatKind } from "./whatsapp-chat.dto";
+import { REPLY_WINDOW_HOURS, VOICE_MAX_BYTES, VOICE_TYPES, WELCOME_TEXT, type ChatGraph, type ChatKind } from "./whatsapp-chat.dto";
 import type { WhatsAppChatRepository } from "./whatsapp-chat.repository";
 
 const replyInput = z.object({ text: z.string().trim().min(1, "Type a message first").max(4096) });
@@ -24,6 +24,27 @@ export function createChatGraph(env: Record<string, string | undefined> = proces
         method: "POST",
         headers: { ...auth(), "Content-Type": "application/json" },
         body: JSON.stringify({ messaging_product: "whatsapp", to: to.replace(/^\+/, ""), type: "text", text: { body: text } }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { message?: string } };
+      if (!res.ok) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+      return json.messages?.[0]?.id;
+    },
+    async uploadMedia(from, bytes, mimeType, filename) {
+      const body = new FormData();
+      body.append("messaging_product", "whatsapp");
+      body.append("type", mimeType);
+      body.append("file", new Blob([bytes], { type: mimeType }), filename);
+      const res = await fetch(`${API}/${from}/media`, { method: "POST", headers: auth(), body, signal: AbortSignal.timeout(60_000) });
+      const json = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+      if (!res.ok || !json.id) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+      return json.id;
+    },
+    async sendAudio(from, to, mediaId) {
+      const res = await fetch(`${API}/${from}/messages`, {
+        method: "POST",
+        headers: { ...auth(), "Content-Type": "application/json" },
+        body: JSON.stringify({ messaging_product: "whatsapp", to: to.replace(/^\+/, ""), type: "audio", audio: { id: mediaId } }),
         signal: AbortSignal.timeout(15_000),
       });
       const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { message?: string } };
@@ -120,6 +141,32 @@ export function createWhatsAppChatService({ repo, graph, leadsNumber }: { repo: 
         const error = err instanceof Error ? err.message.slice(0, 300) : "Could not send";
         await repo.addOutgoing({ clientId, staffId: viewer.id, body: text, waMessageId: null, status: "failed", error, at: now }, audit);
         throw new DomainError("conflict", `WhatsApp refused the message: ${error}`);
+      }
+    },
+
+    /** A voice note recorded on the chat page, sent from the leads number. Same rules as a typed reply. */
+    async replyVoice(viewer: LeadViewer, clientId: string, file: { bytes: ArrayBuffer; mimeType: string }, now = new Date()) {
+      const { person } = await open(viewer, clientId);
+      const mimeType = file.mimeType.split(";")[0].trim().toLowerCase();
+      if (!(VOICE_TYPES as readonly string[]).includes(mimeType)) throw new DomainError("invalid", "That recording format can't be sent on WhatsApp");
+      if (!file.bytes.byteLength) throw new DomainError("invalid", "The recording is empty");
+      if (file.bytes.byteLength > VOICE_MAX_BYTES) throw new DomainError("invalid", "The recording is too long. Keep it under five minutes");
+      if (!canReply(await repo.lastIncomingAt(clientId), now)) {
+        throw new DomainError("conflict", `WhatsApp allows a reply only within ${REPLY_WINDOW_HOURS} hours of their last message. Call them instead`);
+      }
+      const from = await leadsNumber();
+      if (!from) throw new DomainError("invalid", "The leads number isn't connected yet (Settings > WhatsApp)");
+      const audit = { actor: { staffId: viewer.id }, action: "whatsapp_voice", entity: "client", entityId: clientId };
+      const base = { clientId, staffId: viewer.id, body: null, at: now, kind: "audio" as const, mimeType };
+      let mediaId: string | null = null;
+      try {
+        mediaId = await graph.uploadMedia(from, file.bytes, mimeType, `voice-note.${mimeType === "audio/mpeg" ? "mp3" : mimeType.split("/")[1]}`);
+        const waMessageId = await graph.sendAudio(from, person.phoneE164, mediaId);
+        await repo.addOutgoing({ ...base, mediaId, waMessageId: waMessageId ?? null, status: "sent", error: null }, audit);
+      } catch (err) {
+        const error = err instanceof Error ? err.message.slice(0, 300) : "Could not send";
+        await repo.addOutgoing({ ...base, mediaId, waMessageId: null, status: "failed", error }, audit);
+        throw new DomainError("conflict", `WhatsApp refused the voice note: ${error}`);
       }
     },
 

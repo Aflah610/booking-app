@@ -44,9 +44,12 @@ export function createWhatsAppChatRepository(db: Db) {
     },
 
     /** A reply. The first one that goes out moves a new lead to contacted. */
-    addOutgoing(m: { clientId: string; staffId: string; body: string; waMessageId: string | null; status: ChatStatus; error: string | null; at: Date }, audit: AuditEntry) {
+    addOutgoing(
+      m: { clientId: string; staffId: string; body: string | null; waMessageId: string | null; status: ChatStatus; error: string | null; at: Date; kind?: ChatKind; mediaId?: string | null; mimeType?: string | null },
+      audit: AuditEntry,
+    ) {
       return db.transaction(async (tx) => {
-        await tx.insert(whatsappMessage).values({ ...m, direction: "out", kind: "text" });
+        await tx.insert(whatsappMessage).values({ ...m, direction: "out", kind: m.kind ?? "text" });
         if (m.status !== "failed") await tx.update(lead).set({ status: "contacted" }).where(and(eq(lead.clientId, m.clientId), eq(lead.status, "new")));
         await writeAudit(tx, audit);
       });

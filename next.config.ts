@@ -5,12 +5,16 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: [
-      { key: "X-Content-Type-Options", value: "nosniff" },
-      { key: "Referrer-Policy", value: "no-referrer" },
-      { key: "Strict-Transport-Security", value: "max-age=31536000" },
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-    ] }];
+    return [
+      { source: "/:path*", headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "Strict-Transport-Security", value: "max-age=31536000" },
+      ] },
+      // The microphone only where coordinators record WhatsApp voice notes.
+      { source: "/((?!admin/leads/chats/).*)", headers: [{ key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" }] },
+      { source: "/admin/leads/chats/:path+", headers: [{ key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" }] },
+    ];
   },
   experimental: {
     serverActions: {

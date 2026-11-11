@@ -1,6 +1,11 @@
 /** WhatsApp lets a business reply freely only this long after the person's last message; after that it needs a template. */
 export const REPLY_WINDOW_HOURS = 24;
 
+/** Audio WhatsApp accepts. The chat page records MP3; the others are allowed for a file a browser makes itself. */
+export const VOICE_TYPES = ["audio/mpeg", "audio/ogg", "audio/mp4", "audio/aac", "audio/amr"] as const;
+/** Meta's limit is 16 MB; five minutes of the page's MP3 is about 2 MB. */
+export const VOICE_MAX_BYTES = 10 * 1024 * 1024;
+
 /**
  * Sent by itself when someone messages the leads number for the first time, or again after a day of silence. It is a
  * reply inside WhatsApp's 24-hour window, so it needs no template and Meta does not charge for it.
@@ -40,5 +45,8 @@ export type ChatConversation = {
 /** The calls to Meta. Injected so tests run without it. */
 export type ChatGraph = {
   sendText(from: string, to: string, text: string): Promise<string | undefined>;
+  /** Puts a file on Meta's servers for the number; returns Meta's media id. */
+  uploadMedia(from: string, bytes: ArrayBuffer, mimeType: string, filename: string): Promise<string>;
+  sendAudio(from: string, to: string, mediaId: string): Promise<string | undefined>;
   download(mediaId: string): Promise<{ bytes: ArrayBuffer; mimeType: string }>;
 };

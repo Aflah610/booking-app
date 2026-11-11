@@ -14,8 +14,18 @@ const chatGraph: ChatGraph = {
     sent.push({ from, to, text });
     return `wamid.out${sent.length}`;
   },
+  uploadMedia: async (_from, bytes, mimeType) => {
+    if (refuse) throw new Error("Number blocked");
+    uploads.push({ size: bytes.byteLength, mimeType });
+    return `media${uploads.length}`;
+  },
+  sendAudio: async (from, to, mediaId) => {
+    sent.push({ from, to, text: `[audio ${mediaId}]` });
+    return `wamid.out${sent.length}`;
+  },
   download: async () => ({ bytes: new ArrayBuffer(1), mimeType: "audio/ogg" }),
 };
+const uploads: { size: number; mimeType: string }[] = [];
 const c = createContainer(db, { chatGraph, metaGraph: { exchangeCode: async () => "t", subscribeApp: async () => {}, registerNumber: async () => {} } });
 
 const NOW = new Date("2026-11-09T10:00:00Z");
@@ -24,6 +34,7 @@ const plusHours = (h: number) => new Date(NOW.getTime() + h * 3_600_000);
 beforeEach(async () => {
   await reset();
   sent.length = 0;
+  uploads.length = 0;
   refuse = false;
   await db.execute(sql`update business set whatsapp_waba_id = '111111', whatsapp_phone_number_id = '222222', whatsapp_msg_phone_number_id = null`);
 });
@@ -109,6 +120,19 @@ describe("WhatsApp chat on the leads number", () => {
     expect(lead?.status).toBe("contacted");
     await expect(c.whatsappChat.reply(manager, clientId, { text: "Late" }, plusHours(25))).rejects.toMatchObject({ code: "conflict" });
     expect((await c.whatsappChat.thread(manager, clientId, plusHours(25))).canReply).toBe(false);
+  });
+
+  it("sends a recorded voice note from the leads number, within the reply window only", async () => {
+    const { manager } = await team();
+    const { clientId } = createdLead((await receive("+919800000001", "Hello")).r);
+    await c.whatsappChat.replyVoice(manager, clientId, { bytes: new ArrayBuffer(2048), mimeType: "audio/mpeg" }, plusHours(1));
+    expect(uploads).toEqual([{ size: 2048, mimeType: "audio/mpeg" }]);
+    expect(sent.at(-1)).toEqual({ from: "222222", to: "+919800000001", text: "[audio media1]" });
+    const last = (await c.whatsappChat.thread(manager, clientId, plusHours(1))).messages.at(-1);
+    expect(last).toMatchObject({ direction: "out", kind: "audio", mediaId: "media1", mimeType: "audio/mpeg", status: "sent", staffName: "Mana" });
+    await expect(c.whatsappChat.replyVoice(manager, clientId, { bytes: new ArrayBuffer(10), mimeType: "audio/webm" }, plusHours(1))).rejects.toMatchObject({ code: "invalid" });
+    await expect(c.whatsappChat.replyVoice(manager, clientId, { bytes: new ArrayBuffer(10), mimeType: "audio/mpeg" }, plusHours(25))).rejects.toMatchObject({ code: "conflict" });
+    expect(uploads).toHaveLength(1);
   });
 
   it("keeps a refused reply visible as not sent", async () => {

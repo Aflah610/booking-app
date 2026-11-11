@@ -8,6 +8,7 @@ import { requireStaff } from "@/lib/session";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Notice } from "@/components/Notice";
 import { replyToChatAction } from "../../chat-actions";
+import { VoiceNote } from "./VoiceNote";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Chat" };
@@ -76,6 +77,11 @@ export default async function ChatPage({ params, searchParams }: { params: Promi
             {replyUntil && <p className="text-xs text-zinc-500">You can reply until {dayLabel(replyUntil, tz)}, {timeLabel(replyUntil, tz)}</p>}
           </div>
         </form>
+      ) : null}
+      {canReply ? (
+        <div className="mt-3 max-w-3xl">
+          <VoiceNote clientId={clientId} />
+        </div>
       ) : (
         <p className="mt-4 max-w-3xl rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           WhatsApp allows a reply only within 24 hours of their last message. Call them, or wait for them to write again.
