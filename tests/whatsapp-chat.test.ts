@@ -145,15 +145,20 @@ describe("reading Meta's webhook", () => {
 });
 
 describe("connecting the leads number without a phone app", () => {
-  it("is for admins, needs a 6-digit PIN, and remembers the number", async () => {
-    const admin = await c.staff.create({}, { name: "Ad", email: "ad@firm.test", role: "admin" });
+  it("puts the number into service with the PIN using Meta's sign-in token, then subscribes; admins only", async () => {
+    const calls: string[] = [];
+    const cc = createContainer(db, { chatGraph, metaGraph: {
+      exchangeCode: async () => { calls.push("code"); return "business-token"; },
+      registerNumber: async (phone, pin, token) => { calls.push(`register:${phone}:${pin}:${token}`); },
+      subscribeApp: async (waba, token) => { calls.push(`subscribe:${waba}:${token}`); },
+    } });
+    const admin = await cc.staff.create({}, { name: "Ad", email: "ad@firm.test", role: "admin" });
     const { manager } = await team();
-    process.env.WHATSAPP_ACCESS_TOKEN = "token";
-    const input = { wabaId: "333333", phoneNumberId: "444444", pin: "123456" };
-    await expect(c.whatsappConnect.connectDirect(manager, input)).rejects.toMatchObject({ code: "forbidden" });
-    await expect(c.whatsappConnect.connectDirect(admin, { ...input, pin: "12" })).rejects.toThrow();
-    await c.whatsappConnect.connectDirect(admin, input);
-    expect((await c.whatsappConnect.status()).leads).toMatchObject({ wabaId: "333333", phoneNumberId: "444444" });
-    delete process.env.WHATSAPP_ACCESS_TOKEN;
+    const input = { code: "code-0123456789", wabaId: "333333", phoneNumberId: "444444", pin: "123456" };
+    await expect(cc.whatsappConnect.connect(manager, "leads", input)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(cc.whatsappConnect.connect(admin, "leads", { ...input, pin: "12" })).rejects.toThrow();
+    await cc.whatsappConnect.connect(admin, "leads", input);
+    expect(calls).toEqual(["code", "register:444444:123456:business-token", "subscribe:333333:business-token"]);
+    expect((await cc.whatsappConnect.status()).leads).toMatchObject({ wabaId: "333333", phoneNumberId: "444444" });
   });
 });

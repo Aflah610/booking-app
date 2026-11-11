@@ -5,8 +5,13 @@ import { WHATSAPP_PURPOSES, type MetaGraph, type SignupResult, type WhatsAppPurp
 import type { WhatsAppConnectRepository } from "./whatsapp-connect.repository";
 
 const metaId = z.string().trim().regex(/^\d{5,25}$/, "Meta sent an id that isn't a number");
-const directInput = z.object({ wabaId: metaId, phoneNumberId: metaId, pin: z.string().trim().regex(/^\d{6}$/, "The PIN must be 6 digits") });
-const signupInput = z.object({ code: z.string().trim().min(10).max(2000), wabaId: metaId, phoneNumberId: metaId });
+const signupInput = z.object({
+  code: z.string().trim().min(10).max(2000),
+  wabaId: metaId,
+  phoneNumberId: metaId,
+  // Only for a number with no phone app: Meta needs it put into service with a two-step PIN.
+  pin: z.string().trim().regex(/^\d{6}$/, "The PIN must be 6 digits").optional(),
+});
 
 const API = "https://graph.facebook.com/v21.0";
 
@@ -49,25 +54,9 @@ export function createWhatsAppConnectService({ repo, graph }: { repo: WhatsAppCo
     status: () => repo.get(),
 
     /**
-     * Connects the leads number when it lives only on Meta's platform, with no WhatsApp Business app on a phone: chats are
-     * answered in the booking app. The PIN goes to Meta as the number's two-step PIN and is not kept here.
-     */
-    async connectDirect(viewer: { id: string } & AccessHolder, input: unknown, now = new Date()) {
-      if (!can(viewer, "settings.manage")) throw new DomainError("forbidden", "Only admins can connect WhatsApp");
-      const d = directInput.parse(input);
-      const token = process.env.WHATSAPP_ACCESS_TOKEN;
-      if (!token) throw new DomainError("invalid", "WHATSAPP_ACCESS_TOKEN must be set on the server");
-      if ((await repo.get()).messages.phoneNumberId === d.phoneNumberId) throw new DomainError("conflict", "That number is already connected for the other use. Leads and messages need two different numbers.");
-      await graph.registerNumber(d.phoneNumberId, d.pin, token);
-      await graph.subscribeApp(d.wabaId, token);
-      await repo.save("leads", { wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, at: now }, {
-        actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { purpose: "leads", wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, direct: true },
-      });
-    },
-
-    /**
-     * Finishes Meta's embedded sign-up (Coexistence: the number stays on the phone's WhatsApp Business app). Subscribes our
-     * app to the account so its chats reach the webhook, then remembers the number as the leads or the messages number.
+     * Finishes Meta's embedded sign-up and subscribes our app (the one whose webhook reaches the booking app) to the account,
+     * then remembers the number as the leads or the messages number. With a PIN the number has no phone app: it is put into
+     * service on Meta's platform first and its chats are answered in Leads > Chats. The PIN is not kept here.
      */
     async connect(viewer: { id: string } & AccessHolder, purpose: WhatsAppPurpose, input: SignupResult, now = new Date()) {
       if (!can(viewer, "settings.manage")) throw new DomainError("forbidden", "Only admins can connect WhatsApp");
@@ -76,11 +65,12 @@ export function createWhatsAppConnectService({ repo, graph }: { repo: WhatsAppCo
       const other = (await repo.get())[purpose === "leads" ? "messages" : "leads"];
       if (other.phoneNumberId === d.phoneNumberId) throw new DomainError("conflict", "That number is already connected for the other use. Leads and messages need two different numbers.");
       const token = await graph.exchangeCode(d.code);
+      if (d.pin) await graph.registerNumber(d.phoneNumberId, d.pin, token);
       await graph.subscribeApp(d.wabaId, token);
       await repo.save(
         purpose,
         { wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, at: now },
-        { actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { purpose, wabaId: d.wabaId, phoneNumberId: d.phoneNumberId } },
+        { actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { purpose, wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, phoneApp: !d.pin } },
       );
     },
   };

@@ -10,7 +10,7 @@ export type WhatsAppPurpose = (typeof WHATSAPP_PURPOSES)[number];
 export type WhatsAppConnection = Record<WhatsAppPurpose, WhatsAppSlot>;
 
 /** What the embedded sign-up window hands back once someone has linked their WhatsApp Business app. */
-export type SignupResult = { code: string; wabaId: string; phoneNumberId: string };
+export type SignupResult = { code: string; wabaId: string; phoneNumberId: string; pin?: string };
 
 /**
  * The two Meta calls the connection needs. Injected so tests run without Meta: swap the code for a business token, and

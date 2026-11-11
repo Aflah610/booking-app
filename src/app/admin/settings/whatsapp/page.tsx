@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/session";
 import { ConnectWhatsApp } from "@/components/ConnectWhatsApp";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
-import { connectLeadsDirectAction, connectWhatsAppAction } from "./actions";
+import { connectWhatsAppAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "WhatsApp" };
@@ -63,14 +63,19 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
             </section>
           );
         })}
-        <form action={connectLeadsDirectAction} className="card grid gap-3 p-6">
+        <section className="card grid gap-3 p-6">
           <h2 className="font-semibold">Leads number without a phone app</h2>
-          <p className="text-sm text-zinc-600">For a number added in WhatsApp Manager and no longer on a phone. Chats are answered here, in Leads &gt; Chats. Copy both ids from WhatsApp Manager and choose a 6-digit PIN; keep the PIN safe, Meta asks for it if the number ever moves.</p>
-          <div><label className="label" htmlFor="wabaId">WhatsApp Business account id</label><input className="input" id="wabaId" name="wabaId" inputMode="numeric" required /></div>
-          <div><label className="label" htmlFor="phoneNumberId">Phone number id</label><input className="input" id="phoneNumberId" name="phoneNumberId" inputMode="numeric" required /></div>
-          <div><label className="label" htmlFor="pin">Two-step PIN (6 digits)</label><input className="input" id="pin" name="pin" type="password" inputMode="numeric" maxLength={6} autoComplete="off" required /></div>
-          <div><button className="btn" type="submit">Connect leads number</button></div>
-        </form>
+          <p className="text-sm text-zinc-600">
+            For a number added in WhatsApp Manager that is no longer on a phone; its chats are answered here, in Leads &gt; Chats.
+            Choose a 6-digit PIN and keep it safe (Meta asks for it if the number ever moves), then sign in to Facebook, choose the
+            Mind Lap business, its WhatsApp account and the number.
+          </p>
+          {ready ? (
+            <ConnectWhatsApp appId={appId!} configId={configId!} purpose="leads" mode="cloud" label={c.leads.phoneNumberId ? "Connect again" : "Connect leads number"} onDone={connectWhatsAppAction} />
+          ) : (
+            <p className="text-sm text-red-700">Waiting for the server settings META_APP_ID, META_ES_CONFIG_ID and WHATSAPP_APP_SECRET.</p>
+          )}
+        </section>
         <section className="card p-6">
           <h2 className="mb-2 font-semibold">How to connect a number with a phone app</h2>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-700">

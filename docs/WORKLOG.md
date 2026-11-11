@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Leads number without a phone app connects through Meta sign-in
+
+- Codex hit its usage limit while trying to reach the server. Server route avoided: META_APP_ID is Mindlap Messaging
+  (1528505165963496), the app with the book.mindlap.in webhook, and WHATSAPP_APP_SECRET is its secret. So Settings >
+  WhatsApp > "Leads number without a phone app" now uses Meta's embedded sign-up in "cloud" mode (no
+  whatsapp_business_app_onboarding feature) plus a 6-digit PIN field. connect() exchanges the code for a Mindlap
+  Messaging business token, registers the number with the PIN, then subscribes that app to the WABA. connectDirect
+  (manual ids, server token, wrong app) removed. PIN is never stored.
+- For 774: WABA 1670723201504753, phone number id 1425373823995294. Aflah chooses the PIN and signs in himself.
+- Untested against real Meta until Aflah runs it; if Meta's window lists no existing number, the config id
+  (META_ES_CONFIG_ID) may need to allow existing numbers.
+
 ## 2026-11-11 · Claude Code · 774 Meta setup progress (no code change)
 
 - Update: mindlap-website now has Full access to Messaging account "Mind Lap" 1670723201504753 (774's WABA).

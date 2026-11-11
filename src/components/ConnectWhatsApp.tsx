@@ -16,7 +16,10 @@ declare global {
 let activeConnection: symbol | null = null;
 let initialisedApp: string | null = null;
 
-export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { appId: string; configId: string; purpose: "leads" | "messages"; label: string; onDone: (form: FormData) => Promise<void> }) {
+/** "app": the number stays on the phone's WhatsApp Business app (Coexistence). "cloud": a number on Meta's platform only, put into service with a PIN. */
+export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode = "app" }: { appId: string; configId: string; purpose: "leads" | "messages"; label: string; onDone: (form: FormData) => Promise<void>; mode?: "app" | "cloud" }) {
+  const [pin, setPin] = useState("");
+  const pinReady = mode === "app" || /^\d{6}$/.test(pin);
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<"idle" | "open" | "saving" | "cancelled" | "incomplete">("idle");
   const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +106,7 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { a
         config_id: configId,
         response_type: "code",
         override_default_response_type: true,
-        extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" },
+        extras: mode === "app" ? { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" } : { setup: {}, sessionInfoVersion: "3" },
       },
     );
   };
@@ -115,8 +118,14 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone }: { a
       <input type="hidden" name="code" />
       <input type="hidden" name="wabaId" />
       <input type="hidden" name="phoneNumberId" />
+      {mode === "cloud" && (
+        <div className="max-w-xs">
+          <label className="label" htmlFor={`pin-${purpose}`}>Two-step PIN (6 digits)</label>
+          <input className="input" id={`pin-${purpose}`} name="pin" type="password" inputMode="numeric" maxLength={6} autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+        </div>
+      )}
       <div>
-        <button type="button" className="btn" onClick={start} disabled={!ready || state === "open" || state === "saving"}>
+        <button type="button" className="btn" onClick={start} disabled={!ready || !pinReady || state === "open" || state === "saving"}>
           {state === "saving" ? "Connecting…" : state === "open" ? "Finish in Meta's window…" : label}
         </button>
       </div>
