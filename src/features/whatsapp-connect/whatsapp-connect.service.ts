@@ -26,9 +26,14 @@ export function createMetaGraph(env: Record<string, string | undefined> = proces
   return {
     async exchangeCode(code) {
       if (!appId || !secret) throw new DomainError("invalid", "META_APP_ID and WHATSAPP_APP_SECRET must be set on the server");
-      const url = new URL(`${API}/oauth/access_token`);
-      url.search = new URLSearchParams({ client_id: appId, client_secret: secret, code }).toString();
-      const res = await fetch(url);
+      const swap = (extra: Record<string, string>) => {
+        const url = new URL(`${API}/oauth/access_token`);
+        url.search = new URLSearchParams({ client_id: appId, client_secret: secret, code, ...extra }).toString();
+        return fetch(url);
+      };
+      let res = await swap({});
+      // A code from the JavaScript SDK's plain sign-in (no embedded sign-up steps) only swaps with an empty redirect_uri.
+      if (!res.ok && /redirect_uri/i.test(await res.clone().text())) res = await swap({ redirect_uri: "" });
       if (!res.ok) await fail("accept the sign-in code", res);
       const { access_token } = (await res.json()) as { access_token?: string };
       if (!access_token) throw new DomainError("invalid", "Meta sent no token for the sign-in code");
