@@ -146,7 +146,7 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode 
       {mode === "cloud" && (
         <div className="max-w-xs">
           <label className="label" htmlFor={`pin-${purpose}`}>Two-step PIN (6 digits)</label>
-          <input className="input" id={`pin-${purpose}`} name="pin" type="password" inputMode="numeric" maxLength={6} autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+          <input className="input" id={`pin-${purpose}`} name="pin" type="password" inputMode="numeric" maxLength={6} autoComplete="new-password" data-1p-ignore data-lpignore="true" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
         </div>
       )}
       <div>
