@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Intake no longer stuck on "Intake pending"
+
+- Cause: on intake step 6 the main button only saved; completing needed the small "Save and mark complete" button.
+  Now saving step 6 calls caseHistory.completeIntakeIfReady (completes when complaints and primary diagnosis exist).
+  Main button reads "Save and complete intake" while pending.
+- Migration 0048 marks existing intake_pending records that already have complaints and a diagnosis as in_treatment
+  (intake_completed_at = updated_at, by updated_by).
+
 ## 2026-11-11 · Claude Code · GET /api/v1/credits returns the client's name and email
 
 - For the website's details step: a returning client (asked by their own OTP-verified number via the Worker) gets

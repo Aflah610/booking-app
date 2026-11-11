@@ -69,7 +69,7 @@ export async function saveIntakeAction(clientId: string, step: number, form: For
   const next = step < 6 && steps.includes(step + 1) ? `${casePath(clientId)}/intake?step=${step + 1}` : casePath(clientId);
   await act(`${casePath(clientId)}/intake?step=${step}`, "Saved", async () => {
     await app().caseHistory.saveIntake(me, clientId, step, input);
-    if (step === 6 && form.get("intent") === "complete") await app().caseHistory.completeIntake(me, clientId);
+    if (step === 6) await app().caseHistory.completeIntakeIfReady(me, clientId);
     return next;
   });
 }

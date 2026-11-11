@@ -225,11 +225,10 @@ export default async function IntakePage({ params, searchParams }: { params: Pro
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button className="btn" type="submit" name="intent" value="save">{editableSteps.length === 1 ? "Save approved correction" : step < 6 ? "Save and continue" : "Save"}</button>
-            {step === 6 && r.status === "intake_pending" && <button className="btn-ghost" type="submit" name="intent" value="complete">Save and mark complete</button>}
+            <button className="btn" type="submit" name="intent" value="save">{editableSteps.length === 1 ? "Save approved correction" : step < 6 ? "Save and continue" : r.status === "intake_pending" ? "Save and complete intake" : "Save"}</button>
             <Link className="btn-ghost" href={editableSteps.includes(step - 1) ? `?step=${step - 1}` : `/admin/case-histories/${clientId}`}>Back</Link>
           </div>
-          {step === 6 && r.status === "intake_pending" && <p className="text-xs text-zinc-600"><span className="text-red-600">*</span> Presenting complaints (step 2) and the primary diagnosis are needed to mark it complete.</p>}
+          {step === 6 && r.status === "intake_pending" && <p className="text-xs text-zinc-600"><span className="text-red-600">*</span> Saving completes the intake once the presenting complaints (step 2) and the primary diagnosis are filled in.</p>}
         </form>
       )}
     </>

@@ -152,6 +152,17 @@ export function createCaseHistoryService({ caseRepo, senders = { email: noSender
       if (!completed) throw new DomainError("forbidden", "This intake is already completed or the client was reassigned");
     },
 
+    /**
+     * Saving the last intake step finishes the intake once it has its complaints and primary diagnosis: psychologists
+     * pressed Save there and the case stayed "Intake pending". Nothing happens if it is already complete or not ready.
+     */
+    async completeIntakeIfReady(reader: Reader, clientId: string, now = new Date()) {
+      const record = await openForWriting(reader, clientId);
+      if (record.intakeCompletedAt || record.status !== "intake_pending" || !record.presentingComplaints || !record.diagnosisLabel) return false;
+      await this.completeIntake(reader, clientId, now);
+      return true;
+    },
+
     async addNote(reader: Reader, clientId: string, input: unknown): Promise<string> {
       const data = noteInput.parse(input);
       const record = await openForWriting(reader, clientId);
