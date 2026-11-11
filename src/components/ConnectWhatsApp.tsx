@@ -30,7 +30,7 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode 
 
   const finish = () => {
     // A number with no phone app: Meta's window often returns only the sign-in, so the ids typed here are used.
-    const typed = mode === "cloud" ? ids : {};
+    const typed: { wabaId?: string; phoneNumberId?: string } = mode === "cloud" ? ids : {};
     const { code, wabaId = typed.wabaId, phoneNumberId = typed.phoneNumberId } = signup.current;
     if (activeConnection !== owner.current || !code || !wabaId || !phoneNumberId) return;
     // Clear first: a duplicate FINISH event cannot submit the form twice.
