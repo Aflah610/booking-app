@@ -3,6 +3,18 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Leads number (no phone app): standard Facebook OAuth redirect instead of the JS SDK
+
+- FB.login (JS SDK) codes kept failing to swap: "Error validating verification code ... redirect_uri" (subcode 36008),
+  also with an empty redirect_uri. "Continue as ..." skips embedded sign-up, so no session info either.
+- Now Settings > WhatsApp > "Leads number without a phone app" is a plain form (WABA id, phone number id, PIN) whose
+  action seals them with a state into an AES-GCM cookie (wa_connect, httpOnly, path /api/whatsapp/oauth/callback,
+  10 min, key from AUTH_SECRET) and redirects to https://www.facebook.com/v21.0/dialog/oauth (client_id META_APP_ID,
+  config_id META_ES_CONFIG_ID, response_type code). /api/whatsapp/oauth/callback checks admin + state, swaps the code
+  WITH redirect_uri = AUTH_URL/api/whatsapp/oauth/callback, registers with the PIN, subscribes Mindlap Messaging, saves.
+- Needs https://book.mindlap.in/api/whatsapp/oauth/callback in the Mindlap Messaging app's Valid OAuth Redirect URIs
+  (Facebook Login for Business > Settings). ConnectWhatsApp "cloud" mode is now unused.
+
 ## 2026-11-11 · Claude Code · Leads number without a phone app connects through Meta sign-in
 
 - Codex hit its usage limit while trying to reach the server. Server route avoided: META_APP_ID is Mindlap Messaging

@@ -10,14 +10,15 @@ export type WhatsAppPurpose = (typeof WHATSAPP_PURPOSES)[number];
 export type WhatsAppConnection = Record<WhatsAppPurpose, WhatsAppSlot>;
 
 /** What the embedded sign-up window hands back once someone has linked their WhatsApp Business app. */
-export type SignupResult = { code: string; wabaId: string; phoneNumberId: string; pin?: string };
+export type SignupResult = { code: string; wabaId: string; phoneNumberId: string; pin?: string; redirectUri?: string };
 
 /**
  * The two Meta calls the connection needs. Injected so tests run without Meta: swap the code for a business token, and
  * subscribe our app to the account so its messages reach the webhook.
  */
 export type MetaGraph = {
-  exchangeCode(code: string): Promise<string>;
+  /** `redirectUri`: the return address the sign-in page was opened with (none for the pop-up script). */
+  exchangeCode(code: string, redirectUri?: string): Promise<string>;
   subscribeApp(wabaId: string, token: string): Promise<void>;
   /** Puts a number added in WhatsApp Manager into service, with the two-step PIN chosen for it. */
   registerNumber(phoneNumberId: string, pin: string, token: string): Promise<void>;

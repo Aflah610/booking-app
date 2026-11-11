@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { createContainer } from "@/features/container";
 import { incomingMessages, statusUpdates } from "@/features/leads/whatsapp-webhook";
+import { seal, unseal } from "@/features/whatsapp-connect/oauth";
 import type { ChatGraph } from "@/features/whatsapp-chat/whatsapp-chat.dto";
 import { db, reset } from "./helpers";
 
@@ -148,7 +149,7 @@ describe("connecting the leads number without a phone app", () => {
   it("puts the number into service with the PIN using Meta's sign-in token, then subscribes; admins only", async () => {
     const calls: string[] = [];
     const cc = createContainer(db, { chatGraph, metaGraph: {
-      exchangeCode: async () => { calls.push("code"); return "business-token"; },
+      exchangeCode: async (_code, redirectUri) => { calls.push(`code:${redirectUri ?? "none"}`); return "business-token"; },
       registerNumber: async (phone, pin, token) => { calls.push(`register:${phone}:${pin}:${token}`); },
       subscribeApp: async (waba, token) => { calls.push(`subscribe:${waba}:${token}`); },
     } });
@@ -157,8 +158,22 @@ describe("connecting the leads number without a phone app", () => {
     const input = { code: "code-0123456789", wabaId: "333333", phoneNumberId: "444444", pin: "123456" };
     await expect(cc.whatsappConnect.connect(manager, "leads", input)).rejects.toMatchObject({ code: "forbidden" });
     await expect(cc.whatsappConnect.connect(admin, "leads", { ...input, pin: "12" })).rejects.toThrow();
-    await cc.whatsappConnect.connect(admin, "leads", input);
-    expect(calls).toEqual(["code", "register:444444:123456:business-token", "subscribe:333333:business-token"]);
+    await cc.whatsappConnect.connect(admin, "leads", { ...input, redirectUri: "https://book.example.com/api/whatsapp/oauth/callback" });
+    expect(calls).toEqual(["code:https://book.example.com/api/whatsapp/oauth/callback", "register:444444:123456:business-token", "subscribe:333333:business-token"]);
     expect((await cc.whatsappConnect.status()).leads).toMatchObject({ wabaId: "333333", phoneNumberId: "444444" });
+  });
+});
+
+describe("the sealed sign-in request", () => {
+  const p = { purpose: "leads" as const, wabaId: "333333", phoneNumberId: "444444", pin: "123456", staffId: "s1" };
+  it("opens only for the same admin, the same state and within 10 minutes", () => {
+    const now = new Date("2026-11-11T10:00:00Z");
+    const { cookie, state } = seal(p, "secret", now);
+    expect(cookie).not.toContain("123456");
+    expect(unseal(cookie, state, "s1", "secret", now)).toMatchObject({ pin: "123456", wabaId: "333333" });
+    expect(unseal(cookie, "other", "s1", "secret", now)).toBeNull();
+    expect(unseal(cookie, state, "s2", "secret", now)).toBeNull();
+    expect(unseal(cookie, state, "s1", "wrong", now)).toBeNull();
+    expect(unseal(cookie, state, "s1", "secret", new Date(now.getTime() + 11 * 60_000))).toBeNull();
   });
 });

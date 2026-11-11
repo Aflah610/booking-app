@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/session";
 import { ConnectWhatsApp } from "@/components/ConnectWhatsApp";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
-import { connectWhatsAppAction } from "./actions";
+import { connectWhatsAppAction, startLeadsConnectAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "WhatsApp" };
@@ -71,7 +71,14 @@ export default async function WhatsAppSettingsPage({ searchParams }: { searchPar
             Mind Lap business, its WhatsApp account and the number.
           </p>
           {ready ? (
-            <ConnectWhatsApp appId={appId!} configId={configId!} purpose="leads" mode="cloud" label={c.leads.phoneNumberId ? "Connect again" : "Connect leads number"} onDone={connectWhatsAppAction} />
+            <form action={startLeadsConnectAction} className="grid gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className="label" htmlFor="cloud-waba">WhatsApp account id</label><input className="input" id="cloud-waba" name="wabaId" inputMode="numeric" autoComplete="off" required /></div>
+                <div><label className="label" htmlFor="cloud-phone">Phone number id</label><input className="input" id="cloud-phone" name="phoneNumberId" inputMode="numeric" autoComplete="off" required /></div>
+              </div>
+              <div className="max-w-xs"><label className="label" htmlFor="cloud-pin">Two-step PIN (6 digits)</label><input className="input" id="cloud-pin" name="pin" type="password" inputMode="numeric" maxLength={6} autoComplete="new-password" data-1p-ignore data-lpignore="true" required /></div>
+              <div><button className="btn" type="submit">{c.leads.phoneNumberId ? "Connect again" : "Continue to Facebook"}</button></div>
+            </form>
           ) : (
             <p className="text-sm text-red-700">Waiting for the server settings META_APP_ID, META_ES_CONFIG_ID and WHATSAPP_APP_SECRET.</p>
           )}

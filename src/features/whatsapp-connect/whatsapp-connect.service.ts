@@ -11,6 +11,7 @@ const signupInput = z.object({
   phoneNumberId: metaId,
   // Only for a number with no phone app: Meta needs it put into service with a two-step PIN.
   pin: z.string().trim().regex(/^\d{6}$/, "The PIN must be 6 digits").optional(),
+  redirectUri: z.string().url().optional(),
 });
 
 const API = "https://graph.facebook.com/v21.0";
@@ -24,16 +25,17 @@ export function createMetaGraph(env: Record<string, string | undefined> = proces
     throw new DomainError("invalid", `Meta refused to ${what}: ${body.error?.message ?? `HTTP ${res.status}`}`);
   };
   return {
-    async exchangeCode(code) {
+    async exchangeCode(code, redirectUri) {
       if (!appId || !secret) throw new DomainError("invalid", "META_APP_ID and WHATSAPP_APP_SECRET must be set on the server");
       const swap = (extra: Record<string, string>) => {
         const url = new URL(`${API}/oauth/access_token`);
         url.search = new URLSearchParams({ client_id: appId, client_secret: secret, code, ...extra }).toString();
         return fetch(url);
       };
-      let res = await swap({});
+      // A code from Facebook's sign-in page must be swapped with the same return address it was opened with.
+      let res = await swap(redirectUri ? { redirect_uri: redirectUri } : {});
       // A code from the JavaScript SDK's plain sign-in (no embedded sign-up steps) only swaps with an empty redirect_uri.
-      if (!res.ok && /redirect_uri/i.test(await res.clone().text())) res = await swap({ redirect_uri: "" });
+      if (!redirectUri && !res.ok && /redirect_uri/i.test(await res.clone().text())) res = await swap({ redirect_uri: "" });
       if (!res.ok) await fail("accept the sign-in code", res);
       const { access_token } = (await res.json()) as { access_token?: string };
       if (!access_token) throw new DomainError("invalid", "Meta sent no token for the sign-in code");
@@ -69,7 +71,7 @@ export function createWhatsAppConnectService({ repo, graph }: { repo: WhatsAppCo
       const d = signupInput.parse(input);
       const other = (await repo.get())[purpose === "leads" ? "messages" : "leads"];
       if (other.phoneNumberId === d.phoneNumberId) throw new DomainError("conflict", "That number is already connected for the other use. Leads and messages need two different numbers.");
-      const token = await graph.exchangeCode(d.code);
+      const token = await graph.exchangeCode(d.code, d.redirectUri);
       if (d.pin) await graph.registerNumber(d.phoneNumberId, d.pin, token);
       await graph.subscribeApp(d.wabaId, token);
       await repo.save(
