@@ -69,6 +69,7 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode 
     };
   }, []);
 
+  const sdkReadyRef = useRef(() => {});
   const sdkReady = () => {
     if (!window.FB) return;
     if (initialisedApp !== appId) {
@@ -77,6 +78,15 @@ export function ConnectWhatsApp({ appId, configId, purpose, label, onDone, mode 
     }
     setReady(true);
   };
+  useEffect(() => { sdkReadyRef.current = sdkReady; });
+
+  // The page loads Meta's script once; a box that mounts after it has loaded must not wait for a load event that already came.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (window.FB) { sdkReadyRef.current(); clearInterval(timer); }
+    }, 300);
+    return () => clearInterval(timer);
+  }, []);
 
   const start = () => {
     if (!window.FB || activeConnection) return;
