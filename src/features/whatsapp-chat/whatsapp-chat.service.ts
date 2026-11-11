@@ -15,8 +15,9 @@ const API = "https://graph.facebook.com/v21.0";
 /** The real Meta calls, with the sending token from the environment. */
 export function createChatGraph(env: Record<string, string | undefined> = process.env): ChatGraph {
   const auth = () => {
-    if (!env.WHATSAPP_ACCESS_TOKEN) throw new DomainError("invalid", "WhatsApp sending isn't set up on the server yet");
-    return { Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` };
+    const token = env.WHATSAPP_LEADS_ACCESS_TOKEN || env.WHATSAPP_ACCESS_TOKEN;
+    if (!token) throw new DomainError("invalid", "WhatsApp sending isn't set up on the server yet");
+    return { Authorization: `Bearer ${token}` };
   };
   return {
     async sendText(from, to, text) {

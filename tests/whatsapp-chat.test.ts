@@ -15,7 +15,7 @@ const chatGraph: ChatGraph = {
   },
   download: async () => ({ bytes: new ArrayBuffer(1), mimeType: "audio/ogg" }),
 };
-const c = createContainer(db, { chatGraph, metaGraph: { exchangeCode: async () => "t", subscribeApp: async () => {}, registerNumber: async () => {} } });
+const c = createContainer(db, { chatGraph, metaGraph: { checkApp: async () => {}, exchangeCode: async () => "t", subscribeApp: async () => {}, registerNumber: async () => {} } });
 
 const NOW = new Date("2026-11-09T10:00:00Z");
 const plusHours = (h: number) => new Date(NOW.getTime() + h * 3_600_000);

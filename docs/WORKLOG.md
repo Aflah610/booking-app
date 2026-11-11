@@ -3,6 +3,21 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 - Codex - In progress: 774 app ownership and separate leads credentials
+
+- Read Claude's November 9/11 handover and Aflah's explicit instructions for WABA 1670723201504753,
+  phone id 1425373823995294, app Mindlap Messaging 1528505165963496. Existing OTP/reminder tokens must stay intact.
+- Preparing optional WHATSAPP_LEADS_ACCESS_TOKEN for direct setup, chat replies and media; direct setup checks
+  token/app-secret ownership before subscribing the WABA and sending a registration PIN. No live settings,
+  subscriptions, registration, tokens or client records have changed yet. PIN will be entered by Aflah in the app.
+- SSH to 13.203.168.102 remains unreachable. AWS currently shows sign-in/profile rather than the instance's
+  Networking page; asked Aflah to open the actual Lightsail page. Cannot yet inspect server token/secret ownership.
+- All 21 focused WhatsApp connection/chat tests, lint, TypeScript and production build pass. Full regression
+  suite/release and live message-in/reply test still open. Code on codex/whatsapp-774-connect; not live.
+- Browser access retry succeeded: AWS Builder ID was signed in but had no AWS account session. Actual AWS
+  IAM/root account login is open for Aflah. Server ownership inspection script is prepared with allowlisted
+  metadata-only output; it has not been run on production.
+
 ## 2026-11-11 · Claude Code · 774 Meta setup progress (no code change)
 
 - Update: mindlap-website now has Full access to Messaging account "Mind Lap" 1670723201504753 (774's WABA).

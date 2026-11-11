@@ -1,3 +1,6 @@
+import { createMetaGraph } from "@/features/whatsapp-connect/whatsapp-connect.service";
+import { createChatGraph } from "@/features/whatsapp-chat/whatsapp-chat.service";
+import { DomainError } from "@/features/shared/errors";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import { NextRequest } from "next/server";
@@ -19,11 +22,12 @@ const asViewer = (s: { id: string; accessRole: AccessRole }) => s;
 function setup() {
   const calls: string[] = [];
   const graph: MetaGraph = {
+    checkApp: async token => { calls.push(`verify:${token}`); },
     exchangeCode: async (code) => { calls.push(`code:${code}`); return "business-token"; },
     subscribeApp: async (waba, token) => { calls.push(`subscribe:${waba}:${token}`); },
-    registerNumber: async (phone, pin) => { calls.push(`register:${phone}:${pin}`); },
+    registerNumber: async (phone) => { calls.push(`register:${phone}`); },
   };
-  return { calls, c: createContainer(db, { metaGraph: graph }) };
+  return { calls, graph, c: createContainer(db, { metaGraph: graph }) };
 }
 
 describe("connecting the WhatsApp numbers", () => {
@@ -85,5 +89,80 @@ describe("CCD replies stay out of sales", () => {
     const leads = await c.leads.list(asViewer(admin));
     expect(leads).toHaveLength(1);
     expect(leads[0].clientPhone).toBe("+919800000000");
+  });
+});
+
+
+describe("direct leads token separation", () => {
+  const input = { wabaId: "333333", phoneNumberId: "444444", pin: "0".repeat(6) };
+  it("checks and subscribes with the separate leads token before registering; leaves the existing sender intact", async () => {
+    vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "synthetic-otp-token");
+    vi.stubEnv("WHATSAPP_LEADS_ACCESS_TOKEN", "synthetic-messaging-token");
+    const { c, calls } = setup();
+    const admin = await c.staff.create({}, { name: "Admin", email: "direct@firm.test", role: "admin" });
+    await c.whatsappConnect.connectDirect(admin, input);
+    expect(calls).toEqual(["verify:synthetic-messaging-token", "subscribe:333333:synthetic-messaging-token", "register:444444"]);
+    expect(process.env.WHATSAPP_ACCESS_TOKEN).toBe("synthetic-otp-token");
+    expect((await c.whatsappConnect.status()).leads.phoneNumberId).toBe(input.phoneNumberId);
+    const rows = await db.execute(sql`select details from audit_log where action = 'connect_whatsapp'`);
+    expect(JSON.stringify(rows)).not.toContain(input.pin);
+    expect(JSON.stringify(rows)).not.toContain("synthetic-messaging-token");
+  });
+  it("refuses a wrong-app token before subscribing, registering or saving a connection", async () => {
+    vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "synthetic-otp-token");
+    vi.stubEnv("WHATSAPP_LEADS_ACCESS_TOKEN", "");
+    const { c, calls, graph } = setup();
+    graph.checkApp = async () => { throw new DomainError("invalid", "Token belongs to the other app"); };
+    const admin = await c.staff.create({}, { name: "Admin", email: "wrong@firm.test", role: "admin" });
+    await expect(c.whatsappConnect.connectDirect(admin, input)).rejects.toMatchObject({ code: "invalid" });
+    expect(calls).toEqual([]);
+    expect((await c.whatsappConnect.status()).leads.phoneNumberId).toBeNull();
+  });
+  it("keeps a matching shared token usable when no leads override is set", async () => {
+    vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "synthetic-messaging-token");
+    vi.stubEnv("WHATSAPP_LEADS_ACCESS_TOKEN", "");
+    const { c, calls } = setup();
+    const admin = await c.staff.create({}, { name: "Admin", email: "shared@firm.test", role: "admin" });
+    await c.whatsappConnect.connectDirect(admin, input);
+    expect(calls[0]).toBe("verify:synthetic-messaging-token");
+  });
+});
+
+describe("Meta token ownership and chat credential boundaries", () => {
+  const env = { META_APP_ID: "1528505165963496", WHATSAPP_APP_SECRET: "synthetic-app-secret", WHATSAPP_ACCESS_TOKEN: "synthetic-otp-token", WHATSAPP_LEADS_ACCESS_TOKEN: "synthetic-leads-token" };
+  afterEach(() => vi.restoreAllMocks());
+  it("uses debug_token with the configured app credential and rejects invalid/wrong-app tokens", async () => {
+    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ data: { app_id: env.META_APP_ID, is_valid: true } }));
+    await createMetaGraph(env).checkApp(env.WHATSAPP_LEADS_ACCESS_TOKEN);
+    expect(String(request.mock.calls[0][0])).toContain("/debug_token?");
+    expect(new Headers(request.mock.calls[0][1]?.headers).get("authorization")).toBe(`Bearer ${env.META_APP_ID}|${env.WHATSAPP_APP_SECRET}`);
+    for (const data of [{ app_id: "2130581677532743", is_valid: true }, { app_id: env.META_APP_ID, is_valid: false }]) {
+      request.mockResolvedValue(Response.json({ data }));
+      await expect(createMetaGraph(env).checkApp(env.WHATSAPP_LEADS_ACCESS_TOKEN)).rejects.toMatchObject({ code: "invalid" });
+    }
+    request.mockResolvedValue(Response.json({ error: { message: env.WHATSAPP_APP_SECRET } }, { status: 401 }));
+    await expect(createMetaGraph(env).checkApp(env.WHATSAPP_LEADS_ACCESS_TOKEN)).rejects.not.toThrow(env.WHATSAPP_APP_SECRET);
+  });
+  it("can verify a separate leads app without changing the embedded-signup app", async () => {
+    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ data: { app_id: env.META_APP_ID, is_valid: true } }));
+    await createMetaGraph({ ...env, META_APP_ID: "2130581677532743", WHATSAPP_LEADS_APP_ID: env.META_APP_ID }).checkApp(env.WHATSAPP_LEADS_ACCESS_TOKEN);
+    expect(new Headers(request.mock.calls[0][1]?.headers).get("authorization")).toBe(`Bearer ${env.META_APP_ID}|${env.WHATSAPP_APP_SECRET}`);
+  });
+  it("never relays a provider error containing a PIN or credential", async () => {
+    const fakePin = "8".repeat(6);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ error: { code: 100, message: `${fakePin} ${env.WHATSAPP_LEADS_ACCESS_TOKEN}` } }, { status: 400 }));
+    await expect(createMetaGraph(env).registerNumber("444444", fakePin, env.WHATSAPP_LEADS_ACCESS_TOKEN)).rejects.toThrow("HTTP 400 (code 100)");
+  });
+  it("uses the leads override for both sending and media, with the old shared-token fallback preserved", async () => {
+    const request = vi.spyOn(globalThis, "fetch");
+    request.mockResolvedValueOnce(Response.json({ messages: [{ id: "wamid.synthetic" }] }));
+    expect(await createChatGraph(env).sendText("444444", "+919800000001", "Synthetic setup test")).toBe("wamid.synthetic");
+    request.mockResolvedValueOnce(Response.json({ url: "https://lookaside.fbsbx.com/synthetic", mime_type: "audio/ogg" }));
+    request.mockResolvedValueOnce(new Response(new Uint8Array([1])));
+    await createChatGraph(env).download("synthetic-media");
+    expect(request.mock.calls.every(([, init]) => new Headers(init?.headers).get("authorization") === "Bearer synthetic-leads-token")).toBe(true);
+    request.mockResolvedValueOnce(Response.json({ messages: [{ id: "wamid.synthetic2" }] }));
+    await createChatGraph({ WHATSAPP_ACCESS_TOKEN: "synthetic-shared-token" }).sendText("444444", "+919800000001", "Synthetic fallback test");
+    expect(new Headers(request.mock.calls.at(-1)?.[1]?.headers).get("authorization")).toBe("Bearer synthetic-shared-token");
   });
 });

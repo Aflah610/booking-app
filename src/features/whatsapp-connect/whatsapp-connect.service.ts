@@ -13,12 +13,29 @@ const API = "https://graph.facebook.com/v21.0";
 /** The real Meta calls, with the app's id and secret from the environment. */
 export function createMetaGraph(env: Record<string, string | undefined> = process.env): MetaGraph {
   const appId = env.META_APP_ID;
+  const leadsAppId = env.WHATSAPP_LEADS_APP_ID || appId;
   const secret = env.WHATSAPP_APP_SECRET;
   const fail = async (what: string, res: Response) => {
-    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new DomainError("invalid", `Meta refused to ${what}: ${body.error?.message ?? `HTTP ${res.status}`}`);
+    const body = (await res.json().catch(() => ({}))) as { error?: { code?: number } };
+    // Provider messages may echo request data. Never forward a token, secret or registration PIN into app logs/UI.
+    throw new DomainError("invalid", `Meta refused to ${what}: HTTP ${res.status}${typeof body.error?.code === "number" ? ` (code ${body.error.code})` : ""}`);
   };
   return {
+    async checkApp(token) {
+      if (!leadsAppId || !secret) throw new DomainError("invalid", "Set the leads app id and matching WHATSAPP_APP_SECRET before connecting the leads number");
+      const url = new URL(`${API}/debug_token`);
+      url.searchParams.set("input_token", token);
+      let res: Response;
+      try {
+        res = await fetch(url, { headers: { Authorization: `Bearer ${leadsAppId}|${secret}` }, signal: AbortSignal.timeout(15_000) });
+      } catch {
+        throw new DomainError("invalid", "Could not verify the leads token with Meta. No registration or subscription was attempted");
+      }
+      const body = await res.json().catch(() => ({})) as { data?: { app_id?: string; is_valid?: boolean } };
+      if (!res.ok || body.data?.is_valid !== true || body.data.app_id !== leadsAppId) {
+        throw new DomainError("invalid", "The leads token must belong to WHATSAPP_LEADS_APP_ID (or META_APP_ID) and its matching webhook secret. Set WHATSAPP_LEADS_ACCESS_TOKEN for that app; keep the OTP/reminder token unchanged");
+      }
+    },
     async exchangeCode(code) {
       if (!appId || !secret) throw new DomainError("invalid", "META_APP_ID and WHATSAPP_APP_SECRET must be set on the server");
       const url = new URL(`${API}/oauth/access_token`);
@@ -55,11 +72,12 @@ export function createWhatsAppConnectService({ repo, graph }: { repo: WhatsAppCo
     async connectDirect(viewer: { id: string } & AccessHolder, input: unknown, now = new Date()) {
       if (!can(viewer, "settings.manage")) throw new DomainError("forbidden", "Only admins can connect WhatsApp");
       const d = directInput.parse(input);
-      const token = process.env.WHATSAPP_ACCESS_TOKEN;
-      if (!token) throw new DomainError("invalid", "WHATSAPP_ACCESS_TOKEN must be set on the server");
+      const token = process.env.WHATSAPP_LEADS_ACCESS_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN;
+      if (!token) throw new DomainError("invalid", "Set a sending token for the leads app on the server");
       if ((await repo.get()).messages.phoneNumberId === d.phoneNumberId) throw new DomainError("conflict", "That number is already connected for the other use. Leads and messages need two different numbers.");
-      await graph.registerNumber(d.phoneNumberId, d.pin, token);
+      await graph.checkApp(token);
       await graph.subscribeApp(d.wabaId, token);
+      await graph.registerNumber(d.phoneNumberId, d.pin, token);
       await repo.save("leads", { wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, at: now }, {
         actor: { staffId: viewer.id }, action: "connect_whatsapp", entity: "business", entityId: "1", details: { purpose: "leads", wabaId: d.wabaId, phoneNumberId: d.phoneNumberId, direct: true },
       });

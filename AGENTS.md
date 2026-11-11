@@ -61,6 +61,11 @@ project for the same owner, Aflah.
   Links bind booking, balance and expiry (24 hours or session start), grant no account/manage access, and expire
   on move/cancel/balance change. Public /pay uses Razorpay through the Worker; captured payments use existing
   verified reporting/webhooks. QR generation is local; coordinators copy/share links or download the PNG.
+- Leads-only WhatsApp credentials: WHATSAPP_LEADS_ACCESS_TOKEN overrides WHATSAPP_ACCESS_TOKEN only for
+  direct leads setup, Leads > Chats replies and media. OTP/workflow senders retain their existing tokens.
+  Direct setup verifies token ownership against WHATSAPP_LEADS_APP_ID (or META_APP_ID) with the webhook
+  WHATSAPP_APP_SECRET before subscription
+  and registration; that app must own the configured messages webhook. Never log tokens, app secrets or PINs.
 - Case history mirrors the old system MCH (6 steps). MCH data is copied with `scripts/import-mch.ts`
   (dry run by default). Never print or log clients' clinical text.
 - The website (`mindlap.in`, repo `mindlap-therapy`) talks to this app through its Cloudflare Worker.
