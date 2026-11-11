@@ -76,7 +76,8 @@ describe("booking online", () => {
     expect((await book(free.id, "2026-10-19T11:00", meena)).paymentStatus).toBe("not_required");
     await online(false);
     expect(await book(svc.id, "2026-10-19T12:00", { ...meena, phone: "98765 22222" })).toMatchObject({ paymentStatus: "pending", resumeUntil: null });
-    expect(await c.workflows.processDue({ now: t0 })).toBe(3); // all three are confirmed straight away
+    // The free and the offline-payment bookings are confirmed straight away; the desk booking waits for its payment.
+    expect(await c.workflows.processDue({ now: t0 })).toBe(2);
   });
 });
 

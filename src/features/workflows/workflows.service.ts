@@ -52,6 +52,7 @@ export function paidSession(b: Pick<BookingDTO, "paymentStatus" | "slotReleased"
   return !b.slotReleased && (b.paymentStatus === "paid" || b.paymentStatus === "not_required");
 }
 
+const toStaffMember = (w: WorkflowDTO) => (w.channel === "email" || w.channel === "whatsapp") && (w.config as { recipient?: string }).recipient === "staff";
 
 export function createWorkflowsService(deps: {
   workflowsRepo: WorkflowsRepository;
@@ -110,7 +111,9 @@ export function createWorkflowsService(deps: {
       .filter((w) => w.active && (fires.includes(w.trigger) || (staffBookedNow && w.trigger === "booked"))
         && (!w.serviceIds.length || w.serviceIds.includes(ctx.serviceId))
         // Not queued for an unpaid booking at all: each message is queued once per booking, so it waits for the payment.
-        && !(w.trigger === "booked" && w.channel !== "webhook" && !paidSession(ctx)))
+        // The psychologist's notice always waits; the client's confirmation waits only on a desk booking, which CCD
+        // collects payment for (a website booking with online payment off is confirmed as it is made).
+        && !(w.trigger === "booked" && !paidSession(ctx) && (toStaffMember(w) || (ctx.source === "staff" && w.channel !== "webhook"))))
       .flatMap((w) => {
         const at = when(w, ctx, now);
         return at ? [{ workflowId: w.id, bookingId: ctx.bookingId, scheduledFor: at }] : [];
