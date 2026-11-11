@@ -3,6 +3,11 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · GET /api/v1/credits returns the client's name and email
+
+- For the website's details step: a returning client (asked by their own OTP-verified number via the Worker) gets
+  their saved name and email filled in. client is null for an unknown number.
+
 ## 2026-11-11 · Claude Code · Leads and Deals boards like the old Zoho CRM
 
 - Aflah: leads should work like Zoho; Deals for website visitors who didn't pay. Choices: Zoho's exact lead stages,

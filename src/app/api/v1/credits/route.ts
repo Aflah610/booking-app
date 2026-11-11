@@ -18,7 +18,7 @@ export const GET = apiRoute("website", async (req) => {
   if (!phone) throw new DomainError("invalid", "Enter a valid phone number, e.g. +91 98765 43210");
   const { clients, packages } = app();
   const client = await clients.findByPhone(phone);
-  const none = { packages: [], walletPaise: 0, packageValuePaise: 0, totalPaise: 0, wallet: [] };
+  const none = { packages: [], walletPaise: 0, packageValuePaise: 0, totalPaise: 0, wallet: [], client: null };
   if (!client) return none;
   const credit = await packages.summary(client.id);
   return {
@@ -39,5 +39,7 @@ export const GET = apiRoute("website", async (req) => {
     packageValuePaise: credit.packageValuePaise,
     totalPaise: credit.totalPaise,
     wallet: credit.lots.map((l) => ({ remainingPaise: l.remainingPaise, expiresAt: l.expiresAt.toISOString() })),
+    // The website asks with the client's own verified number, so it may fill in their name and email when they book.
+    client: { name: client.name, email: client.email },
   };
 });
