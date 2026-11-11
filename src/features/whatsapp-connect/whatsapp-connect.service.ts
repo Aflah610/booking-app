@@ -20,9 +20,13 @@ const API = "https://graph.facebook.com/v21.0";
 export function createMetaGraph(env: Record<string, string | undefined> = process.env): MetaGraph {
   const appId = env.META_APP_ID;
   const secret = env.WHATSAPP_APP_SECRET;
-  const fail = async (what: string, res: Response) => {
-    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new DomainError("invalid", `Meta refused to ${what}: ${body.error?.message ?? `HTTP ${res.status}`}`);
+  type MetaError = { message?: string; code?: number; error_subcode?: number; error_user_title?: string; error_user_msg?: string; error_data?: { details?: string } };
+  const fail = async (what: string, res: Response, extra = "") => {
+    const e = ((await res.json().catch(() => ({}))) as { error?: MetaError }).error ?? {};
+    // Meta's short message ("Invalid parameter") hides the reason; its user message and details say what to fix.
+    const reason = [e.error_user_title, e.error_user_msg, e.error_data?.details, e.message].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(" · ");
+    const code = e.code ? ` (code ${e.code}${e.error_subcode ? `/${e.error_subcode}` : ""})` : "";
+    throw new DomainError("invalid", `Meta refused to ${what}: ${reason || `HTTP ${res.status}`}${code}${extra}`);
   };
   return {
     async exchangeCode(code, redirectUri) {
@@ -51,7 +55,13 @@ export function createMetaGraph(env: Record<string, string | undefined> = proces
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ messaging_product: "whatsapp", pin }),
       });
-      if (!res.ok) await fail("put this number into service", res);
+      if (!res.ok) {
+        // Say where the number stands at Meta, so the reason can be acted on.
+        const info = await fetch(`${API}/${phoneNumberId}?fields=display_phone_number,status,name_status,code_verification_status,platform_type`, { headers: { Authorization: `Bearer ${token}` } })
+          .then((r) => r.json()).catch(() => ({})) as Record<string, unknown>;
+        const facts = ["status", "name_status", "code_verification_status", "platform_type"].filter((k) => info[k]).map((k) => `${k} ${String(info[k])}`).join(", ");
+        await fail("put this number into service", res, facts ? `. The number at Meta: ${facts}` : "");
+      }
     },
   };
 }
