@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { createContainer } from "@/features/container";
 import { incomingMessages, statusUpdates } from "@/features/leads/whatsapp-webhook";
 import { seal, unseal } from "@/features/whatsapp-connect/oauth";
-import type { ChatGraph } from "@/features/whatsapp-chat/whatsapp-chat.dto";
+import { WELCOME_TEXT, type ChatGraph } from "@/features/whatsapp-chat/whatsapp-chat.dto";
 import { db, reset } from "./helpers";
 
 const sent: { from: string; to: string; text: string }[] = [];
@@ -74,16 +74,38 @@ describe("WhatsApp chat on the leads number", () => {
     const { manager } = await team();
     const { m, r } = await receive("+919800000001", "Hello");
     await c.whatsappChat.receive(m);
-    expect((await c.whatsappChat.thread(manager, createdLead(r).clientId, NOW)).messages).toHaveLength(1);
+    // The message once, and one welcome.
+    expect((await c.whatsappChat.thread(manager, createdLead(r).clientId, NOW)).messages.map((x) => x.direction)).toEqual(["in", "out"]);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("welcomes a new conversation by itself, not every message, and again after a day of silence", async () => {
+    const { manager } = await team();
+    const { clientId } = createdLead((await receive("+919800000001", "Hello")).r);
+    expect(sent).toEqual([{ from: "222222", to: "+919800000001", text: WELCOME_TEXT }]);
+    await receive("+919800000001", "Are you there?", plusHours(2));
+    expect(sent).toHaveLength(1);
+    const { messages, lead } = await c.whatsappChat.thread(manager, clientId, plusHours(2));
+    expect(messages.map((x) => [x.direction, x.staffName])).toEqual([["in", null], ["out", null], ["in", null]]);
+    expect(lead?.status).toBe("new"); // the welcome is not a coordinator's call
+    await receive("+919800000001", "Hi again", plusHours(30));
+    expect(sent).toHaveLength(2);
+  });
+
+  it("keeps a refused welcome visible as not sent", async () => {
+    const { manager } = await team();
+    refuse = true;
+    const { clientId } = createdLead((await receive("+919800000001", "Hello")).r);
+    expect((await c.whatsappChat.thread(manager, clientId, NOW)).messages.at(-1)).toMatchObject({ direction: "out", status: "failed", error: "Number blocked" });
   });
 
   it("replies from the leads number within 24 hours, moves the lead to contacted, and refuses after", async () => {
     const { manager } = await team();
     const { clientId } = createdLead((await receive("+919800000001", "Hello")).r);
     await c.whatsappChat.reply(manager, clientId, { text: "Hi Riya" }, plusHours(1));
-    expect(sent).toEqual([{ from: "222222", to: "+919800000001", text: "Hi Riya" }]);
+    expect(sent.at(-1)).toEqual({ from: "222222", to: "+919800000001", text: "Hi Riya" });
     const { messages, lead } = await c.whatsappChat.thread(manager, clientId, plusHours(1));
-    expect(messages.map((m) => [m.direction, m.status, m.staffName])).toEqual([["in", "received", null], ["out", "sent", "Mana"]]);
+    expect(messages.map((m) => [m.direction, m.status, m.staffName])).toEqual([["in", "received", null], ["out", "sent", null], ["out", "sent", "Mana"]]);
     expect(lead?.status).toBe("contacted");
     await expect(c.whatsappChat.reply(manager, clientId, { text: "Late" }, plusHours(25))).rejects.toMatchObject({ code: "conflict" });
     expect((await c.whatsappChat.thread(manager, clientId, plusHours(25))).canReply).toBe(false);
@@ -107,7 +129,7 @@ describe("WhatsApp chat on the leads number", () => {
     await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: bde.id, start, client: { name: "Old client", phone: "+919800000009" } });
     const { r } = await receive("+919800000009", "Can I move my session?");
     expect(r.kind).toBe("client");
-    expect((await c.whatsappChat.conversations(manager))[0]).toMatchObject({ lastText: "Can I move my session?" });
+    expect((await c.whatsappChat.conversations(manager))[0]).toMatchObject({ lastText: WELCOME_TEXT, unread: 1 });
     expect(await c.whatsappChat.conversations(bde)).toEqual([]);
   });
 

@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Automatic welcome on the 774 leads number
+
+- whatsappChat.receive: when someone messages 774 with no earlier message from them, or their last one was 24+ hours
+  ago, the app replies by itself with WELCOME_TEXT (whatsapp-chat.dto.ts): welcome to Mindlap, coordinator will get
+  back shortly, mindlap.in/book link. Free service reply inside the 24h window, no template. Stored as an outgoing
+  message with no staff ("Automatic welcome" in the chat); it does not move the lead to Contacted. A refused send is
+  kept as failed. A webhook Meta repeats does not send it twice. Tests in tests/whatsapp-chat.test.ts.
+
 ## 2026-11-11 · Claude Code · WhatsApp booking confirmation to clients; test client removed
 
 - New Meta template booking_confirmed (Utility, en, on the 00282 "MindLap" WABA, APPROVED): "Hi {{1}}, your Mindlap

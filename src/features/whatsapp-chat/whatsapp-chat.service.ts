@@ -5,7 +5,7 @@ import type { LeadViewer } from "@/features/leads/leads.dto";
 import type { IncomingMessage, MessageStatusUpdate } from "@/features/leads/whatsapp-webhook";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { REPLY_WINDOW_HOURS, type ChatGraph, type ChatKind } from "./whatsapp-chat.dto";
+import { REPLY_WINDOW_HOURS, WELCOME_TEXT, type ChatGraph, type ChatKind } from "./whatsapp-chat.dto";
 import type { WhatsAppChatRepository } from "./whatsapp-chat.repository";
 
 const replyInput = z.object({ text: z.string().trim().min(1, "Type a message first").max(4096) });
@@ -60,6 +60,10 @@ export function createWhatsAppChatService({ repo, graph, leadsNumber }: { repo: 
       if (!m.waMessageId) return;
       const clientId = await repo.clientByPhone(m.phone);
       if (!clientId) return;
+      const at = m.at ?? new Date();
+      // Their previous message: none, or over a day ago, means a new conversation, which gets the welcome. A webhook
+      // Meta sends twice finds the first copy here, so the welcome goes out once.
+      const previous = await repo.lastIncomingAt(clientId);
       await repo.addIncoming({
         clientId,
         waMessageId: m.waMessageId,
@@ -67,8 +71,19 @@ export function createWhatsAppChatService({ repo, graph, leadsNumber }: { repo: 
         body: m.text ?? null,
         mediaId: m.mediaId ?? null,
         mimeType: m.mimeType ?? null,
-        at: m.at ?? new Date(),
+        at,
       });
+      if (previous && at.getTime() - previous.getTime() < REPLY_WINDOW_HOURS * 3_600_000) return;
+      const from = await leadsNumber();
+      const to = (await repo.client(clientId))?.phoneE164;
+      if (!from || !to) return;
+      try {
+        const waMessageId = await graph.sendText(from, to, WELCOME_TEXT);
+        await repo.addWelcome({ clientId, body: WELCOME_TEXT, waMessageId: waMessageId ?? null, status: "sent", error: null, at: new Date(at.getTime() + 1) });
+      } catch (err) {
+        const error = err instanceof Error ? err.message.slice(0, 300) : "Could not send";
+        await repo.addWelcome({ clientId, body: WELCOME_TEXT, waMessageId: null, status: "failed", error, at: new Date(at.getTime() + 1) });
+      }
     },
 
     statusUpdate: (u: MessageStatusUpdate) => repo.setStatus(u.waMessageId, u.status, u.error),

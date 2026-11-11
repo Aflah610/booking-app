@@ -61,7 +61,7 @@ export default async function ChatPage({ params, searchParams }: { params: Promi
             {m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
             <p className="mt-1 text-[11px] text-zinc-500">
               {dayLabel(m.at, tz)}, {timeLabel(m.at, tz)}
-              {m.direction === "out" && <> · {m.staffName ?? "Staff"} · <span className={m.status === "failed" ? "font-medium text-red-700" : ""}>{TICKS[m.status] ?? m.status}</span></>}
+              {m.direction === "out" && <> · {m.staffName ?? "Automatic welcome"} · <span className={m.status === "failed" ? "font-medium text-red-700" : ""}>{TICKS[m.status] ?? m.status}</span></>}
             </p>
             {m.error && <p className="mt-1 text-xs text-red-700">{m.error}</p>}
           </div>

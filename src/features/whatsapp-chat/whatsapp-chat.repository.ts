@@ -52,6 +52,11 @@ export function createWhatsAppChatRepository(db: Db) {
       });
     },
 
+    /** The automatic welcome: no staff member, and it does not count as contacting the lead. */
+    async addWelcome(m: { clientId: string; body: string; waMessageId: string | null; status: ChatStatus; error: string | null; at: Date }) {
+      await db.insert(whatsappMessage).values({ ...m, staffId: null, direction: "out", kind: "text" });
+    },
+
     async setStatus(waMessageId: string, status: ChatStatus, error: string | null) {
       // A late "delivered" must not overwrite "read".
       const from: ChatStatus[] = status === "read" || status === "failed" ? ["sent", "delivered"] : ["sent"];
