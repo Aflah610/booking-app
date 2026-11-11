@@ -185,12 +185,22 @@ describe("the list", () => {
     await db.execute(sql`update business set online_payment = true`);
     const unpaid = await book(asha.id, "2026-09-04T10:00", "98000 00003");
     await db.execute(sql`update booking set payment_due_at = now() + interval '10 minutes', payment_status = 'pending' where id = ${unpaid.id}`);
-    // A booking the coordinator made (no online payment window): this person is in treatment.
+    // A coordinator's booking with nothing to pay (free service): this person is in treatment.
     const desk = await book(asha.id, "2026-09-05T10:00", "98000 00004");
     expect((await c.caseHistory.list(lead)).map((r) => r.clientId).sort()).toEqual([clientId, desk.clientId].sort());
     // Once the website booking is paid, they appear too.
     await db.execute(sql`update booking set payment_status = 'paid' where id = ${unpaid.id}`);
     expect((await c.caseHistory.list(lead)).map((r) => r.clientId)).toContain(unpaid.clientId);
+  });
+
+  it("leaves out a coordinator's booking until it is paid, even with a psychologist chosen", async () => {
+    const { lead, book, asha } = await setup();
+    const owed = await book(asha.id, "2026-09-06T10:00", "98000 00005");
+    await db.execute(sql`update booking set payment_status = 'pending', payment_due_at = null where id = ${owed.id}`);
+    await c.clients.assignTherapist({}, owed.clientId, { staffId: asha.id });
+    expect((await c.caseHistory.list(lead)).map((r) => r.clientId)).not.toContain(owed.clientId);
+    await db.execute(sql`update booking set payment_status = 'paid' where id = ${owed.id}`);
+    expect((await c.caseHistory.list(lead)).map((r) => r.clientId)).toContain(owed.clientId);
   });
 
   it("hides diagnosis from readers without access and shows a therapist only their own clients", async () => {

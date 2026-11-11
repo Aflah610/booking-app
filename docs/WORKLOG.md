@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-11 · Claude Code · Case histories list only paid clients
+
+- Aflah: clients who haven't paid shouldn't show in Case histories. caseHistory list now needs a paid / not_required
+  booking (not cancelled, slot kept) or clinical writing (notes, intake content, status past intake_pending). Dropped:
+  "a psychologist is assigned" and "staff booking with no payment window" (unpaid CCD bookings). Test added.
+
 ## 2026-11-11 · Claude Code · No separate sales role: the CCD team works leads
 
 - Aflah: no BDE/CCD split any more; a CCD team of three works leads together; Leads only for CCD, managers, admins.
