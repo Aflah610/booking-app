@@ -52,7 +52,6 @@ export function paidSession(b: Pick<BookingDTO, "paymentStatus" | "slotReleased"
   return !b.slotReleased && (b.paymentStatus === "paid" || b.paymentStatus === "not_required");
 }
 
-const toStaffMember = (w: WorkflowDTO) => (w.channel === "email" || w.channel === "whatsapp") && (w.config as { recipient?: string }).recipient === "staff";
 
 export function createWorkflowsService(deps: {
   workflowsRepo: WorkflowsRepository;
@@ -104,14 +103,14 @@ export function createWorkflowsService(deps: {
     const ctx = await workflowsRepo.context(event.bookingId);
     if (!ctx) return;
     const fires: WorkflowTrigger[] = [event.type, ...(FIRES_WITH_BOOKING.includes(event.type) ? TIME_BASED : [])];
-    // A desk booking is announced when it is made, before it is paid; the psychologist hears of it once the payment
-    // arrives, so their "booked" messages go out then.
+    // A desk booking is announced when it is made, before it is paid; the client's confirmation and the
+    // psychologist's notice go out once the payment arrives, so its "booked" messages are queued then.
     const staffBookedNow = event.type === "payment_success" && ctx.source === "staff";
     const runs = (await workflowsRepo.list())
-      .filter((w) => w.active && (fires.includes(w.trigger) || (staffBookedNow && w.trigger === "booked" && toStaffMember(w)))
+      .filter((w) => w.active && (fires.includes(w.trigger) || (staffBookedNow && w.trigger === "booked"))
         && (!w.serviceIds.length || w.serviceIds.includes(ctx.serviceId))
         // Not queued for an unpaid booking at all: each message is queued once per booking, so it waits for the payment.
-        && !(w.trigger === "booked" && toStaffMember(w) && !paidSession(ctx)))
+        && !(w.trigger === "booked" && w.channel !== "webhook" && !paidSession(ctx)))
       .flatMap((w) => {
         const at = when(w, ctx, now);
         return at ? [{ workflowId: w.id, bookingId: ctx.bookingId, scheduledFor: at }] : [];
