@@ -27,8 +27,8 @@ export function createChatGraph(env: Record<string, string | undefined> = proces
         body: JSON.stringify({ messaging_product: "whatsapp", to: to.replace(/^\+/, ""), type: "text", text: { body: text } }),
         signal: AbortSignal.timeout(15_000),
       });
-      const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { message?: string } };
-      if (!res.ok) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+      const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { code?: number } };
+      if (!res.ok) throw new Error(`Meta refused the message: HTTP ${res.status}${typeof json.error?.code === "number" ? ` (code ${json.error.code})` : ""}`);
       return json.messages?.[0]?.id;
     },
     async download(mediaId) {

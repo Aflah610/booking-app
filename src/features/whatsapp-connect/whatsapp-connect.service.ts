@@ -27,7 +27,7 @@ export function createMetaGraph(env: Record<string, string | undefined> = proces
       url.searchParams.set("input_token", token);
       let res: Response;
       try {
-        res = await fetch(url, { headers: { Authorization: `Bearer ${leadsAppId}|${secret}` }, signal: AbortSignal.timeout(15_000) });
+        res = await fetch(url, { headers: { Authorization: `Bearer ${leadsAppId}|${secret}` }, cache: "no-store", signal: AbortSignal.timeout(15_000) });
       } catch {
         throw new DomainError("invalid", "Could not verify the leads token with Meta. No registration or subscription was attempted");
       }

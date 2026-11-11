@@ -150,8 +150,9 @@ describe("Meta token ownership and chat credential boundaries", () => {
   });
   it("never relays a provider error containing a PIN or credential", async () => {
     const fakePin = "8".repeat(6);
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ error: { code: 100, message: `${fakePin} ${env.WHATSAPP_LEADS_ACCESS_TOKEN}` } }, { status: 400 }));
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ error: { code: 100, message: `${fakePin} ${env.WHATSAPP_LEADS_ACCESS_TOKEN}` } }, { status: 400 }));
     await expect(createMetaGraph(env).registerNumber("444444", fakePin, env.WHATSAPP_LEADS_ACCESS_TOKEN)).rejects.toThrow("HTTP 400 (code 100)");
+    await expect(createChatGraph(env).sendText("444444", "+919800000001", "Synthetic failure test")).rejects.toThrow("HTTP 400 (code 100)");
   });
   it("uses the leads override for both sending and media, with the old shared-token fallback preserved", async () => {
     const request = vi.spyOn(globalThis, "fetch");
