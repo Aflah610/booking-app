@@ -3,6 +3,14 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-15 · Claude Code · Staff accounts for three new psychologists
+
+- Added through Staff > Add a staff member (role and designation Psychologist, Asia/Kolkata): Emtesan Dilna,
+  Elizabeth Sara Joseph, Ashlin. Names match what mindlap.in's Book Now buttons look up (book.js: dilna -> first
+  name "emtesan"; elizabeth; ashlin). Sign-in emails are their own addresses (kept in the app only).
+- OPEN: no services, working hours or WhatsApp numbers yet, so they can't be booked; waiting for Aflah. They set
+  passwords with Forgot password.
+
 ## 2026-11-15 · Claude Code · Theresa moved to Past staff; Fathima after her last session
 
 - Aflah: Theresa and Fathima have left. Theresa: Current staff switched off (Past staff), no upcoming sessions.
