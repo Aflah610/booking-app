@@ -100,6 +100,15 @@ export async function assignInitialTherapist(
   });
 }
 
+/**
+ * A booking (alias b) that is a real session: the rule of isConfirmedSession (paid, nothing to pay, or a desk booking not
+ * yet settled; never a released slot or a failed or unpaid online attempt).
+ */
+const SESSION_REAL = sql.raw(`not b.slot_released and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff')`);
+/** Held: over, and neither cancelled nor missed. */
+const SESSION_DONE = sql`${SESSION_REAL} and b.status not in ('cancelled', 'no_show') and b.ends_at <= now()`;
+const SESSION_UPCOMING = sql`${SESSION_REAL} and b.status = 'upcoming' and b.starts_at > now()`;
+
 export function createClientsRepository(db: Db) {
   return {
     async findById(id: string): Promise<ClientDTO | null> {
@@ -112,7 +121,7 @@ export function createClientsRepository(db: Db) {
       return row ?? null;
     },
 
-    /** Newest first, with how many bookings each has; `q` matches name, phone or email; `from`/`to` bound the sign-up time. */
+    /** Newest first, with how many bookings and real sessions (held, to come) each has; `q` matches name, phone or email; `from`/`to` bound the sign-up time. */
     list({ q, limit = 100, relevance = false, from, to }: { q?: string; limit?: number; relevance?: boolean; from?: Date; to?: Date } = {}) {
       const like = (s: string) => `%${s.replace(/[%_\\]/g, "\\$&")}%`;
       const pattern = q ? like(q) : null;
@@ -123,6 +132,8 @@ export function createClientsRepository(db: Db) {
           ...clientColumns,
           bookings: // Written out in full: inside a subquery the short column names would resolve to the booking table and always count zero.
           sql<number>`(select count(*)::int from booking b where b.client_id = client.id)`,
+          sessionsDone: sql<number>`(select count(*)::int from booking b where b.client_id = client.id and ${SESSION_DONE})`,
+          sessionsUpcoming: sql<number>`(select count(*)::int from booking b where b.client_id = client.id and ${SESSION_UPCOMING})`,
         })
         .from(client)
         .where(and(
@@ -166,6 +177,8 @@ export function createClientsRepository(db: Db) {
           c.emergency_phone as "emergencyPhone", c.referral_source as "referralSource", c.consent_signed_at as "consentSignedAt",
           c.registered_by as "registeredBy", c.created_at as "createdAt",
           (select count(*)::int from booking b where b.client_id = c.id and ${f.treatedBy ? sql`b.staff_id = ${f.treatedBy}` : sql`true`}) as bookings,
+          (select count(*)::int from booking b where b.client_id = c.id and ${SESSION_DONE} and ${f.treatedBy ? sql`b.staff_id = ${f.treatedBy}` : sql`true`}) as "sessionsDone",
+          (select count(*)::int from booking b where b.client_id = c.id and ${SESSION_UPCOMING} and ${f.treatedBy ? sql`b.staff_id = ${f.treatedBy}` : sql`true`}) as "sessionsUpcoming",
           t.staff_id as "therapistId", ts.name as "therapistName", ts.active as "therapistActive",
           ab.name as "assignedByName", rb.name as "registeredByName", ch.status as "caseStatus"
         from client c

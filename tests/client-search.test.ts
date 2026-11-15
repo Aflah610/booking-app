@@ -45,6 +45,11 @@ describe("finding an existing client", () => {
     await add("Meena Rao", "99999 11111");
     const byName = Object.fromEntries((await c.clients.list({ q: "", limit: 10 })).map((x) => [x.name, x.bookings]));
     expect(byName).toMatchObject({ "Ravi Kumar": 2, "Meena Rao": 0 });
+    // Both desk bookings are real sessions (held or to come, depending on today's date); Meena has none.
+    const count = (x: { sessionsDone: number; sessionsUpcoming: number }) => x.sessionsDone + x.sessionsUpcoming;
+    expect(count((await c.clients.list({ q: "Ravi", limit: 1 }))[0])).toBe(2);
+    expect(count((await c.clients.directory({ q: "Ravi" }))[0])).toBe(2);
+    expect(count((await c.clients.directory({ q: "Meena" }))[0])).toBe(0);
   });
 
   it("works from a single letter: everyone with it in their name, phone or email, names starting with it first", async () => {

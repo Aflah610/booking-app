@@ -92,7 +92,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
               {contact && <th>Phone · email</th>}
               <th>Psychologist</th>
               {caseStatus && <th>Case history</th>}
-              <th className="text-right">Bookings</th>
+              <th className="text-right">Sessions</th>
             </tr>
           </thead>
           <tbody>
@@ -135,7 +135,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                     ) : <span className="text-zinc-500">Unassigned</span>}
                   </td>
                   {caseStatus && <td data-label="Case history">{c.caseStatus ? <StatusBadge status={c.caseStatus} /> : <span className="badge border-dashed border-zinc-300 text-zinc-500">Not started</span>}</td>}
-                  <td data-label="Bookings" className="text-right tabular-nums">{c.bookings}</td>
+                  <td data-label="Sessions" className="whitespace-nowrap text-right tabular-nums">
+                    <p>{c.sessionsDone} done</p>
+                    {c.sessionsUpcoming > 0 && <p className="text-xs text-zinc-600">{c.sessionsUpcoming} upcoming</p>}
+                  </td>
                 </tr>
               );
             })}

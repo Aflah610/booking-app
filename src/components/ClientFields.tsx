@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { PhoneField } from "./PhoneField";
 
-type Match = { id: string; name: string; phone: string; email: string | null; whatsappOptIn: boolean; bookings: number };
+type Match = { id: string; name: string; phone: string; email: string | null; whatsappOptIn: boolean; bookings: number; sessionsDone?: number; sessionsUpcoming?: number };
 /** A client already chosen before the form opens, e.g. from "New booking" on their page. */
-export type PickedClient = Omit<Match, "bookings">;
+export type PickedClient = Omit<Match, "bookings" | "sessionsDone" | "sessionsUpcoming">;
 
 /**
  * The client's details on a new booking. Managers can search existing clients by name, phone or email and pick one to fill the
@@ -80,7 +80,10 @@ export function ClientFields({ canSearch, initial }: { canSearch: boolean; initi
                       <span className="block font-medium">{m.name}</span>
                       <span className="block text-xs text-zinc-500">{m.phone}{m.email ? ` · ${m.email}` : ""}</span>
                     </span>
-                    <span className="shrink-0 text-xs text-zinc-500">{m.bookings} booking{m.bookings === 1 ? "" : "s"}</span>
+                    <span className="shrink-0 text-right text-xs text-zinc-500">
+                      {m.sessionsDone ?? 0} session{m.sessionsDone === 1 ? "" : "s"} done
+                      {(m.sessionsUpcoming ?? 0) > 0 && <span className="block">{m.sessionsUpcoming} upcoming</span>}
+                    </span>
                   </button>
                 </li>
               ))}

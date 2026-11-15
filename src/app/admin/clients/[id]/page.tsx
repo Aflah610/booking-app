@@ -1,3 +1,4 @@
+import { isConfirmedSession } from "@/features/bookings/bookings.dto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { app } from "@/features/container";
@@ -60,6 +61,13 @@ export default async function ClientPage({
     cancelled: history.filter((b) => b.status === "cancelled").reverse(),
   };
   const next = byView.upcoming[0];
+  // Real sessions only (paid, nothing to pay, or booked by the desk): the number CCD is asked for.
+  const real = history.filter((b) => isConfirmedSession(b));
+  const sessions = {
+    done: real.filter((b) => b.status !== "cancelled" && b.status !== "no_show" && b.endsAt <= now).length,
+    upcoming: real.filter((b) => b.status === "upcoming" && b.startsAt > now).length,
+    missed: real.filter((b) => b.status === "no_show").length,
+  };
   const current = periods[0] && !periods[0].endsAt ? periods[0] : null;
   // The reason and who made a change are stored on the period that replaced the old one (the next newer row).
   const previous = periods.slice(current ? 1 : 0).map((p) => ({ ...p, replacedBy: periods[periods.indexOf(p) - 1] ?? null }));
@@ -108,6 +116,11 @@ export default async function ClientPage({
               <p className="mt-1 text-sm text-zinc-600">
                 Client since {dateLabel(c.createdAt, tz)}
                 {next && <> · next session {dayLabel(next.startsAt, tz)}, {timeLabel(next.startsAt, tz)}</>}
+              </p>
+              <p className="mt-2 flex flex-wrap gap-2 text-sm" aria-label="Sessions">
+                <span className="badge">{sessions.done} session{sessions.done === 1 ? "" : "s"} done</span>
+                <span className="badge">{sessions.upcoming} upcoming</span>
+                {sessions.missed > 0 && <span className="badge border-amber-300 text-amber-800">{sessions.missed} missed</span>}
               </p>
             </div>
             {allowed(me, "bookings.create") && <Link href={`/admin/bookings/new?${new URLSearchParams({ client: id, ...(current ? { staff: current.staffId } : {}) })}`} className="btn">New booking</Link>}

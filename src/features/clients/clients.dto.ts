@@ -62,6 +62,9 @@ export function clientAge(c: Pick<ClientDTO, "dateOfBirth" | "age">, today: stri
 /** A row of the clients directory: the client plus who treats them and how far their case history is. */
 export type ClientDirectoryRow = ClientDTO & {
   bookings: number;
+  /** Real sessions already held (not cancelled, not missed) and still to come; unpaid online attempts never count. */
+  sessionsDone: number;
+  sessionsUpcoming: number;
   therapistId: string | null;
   therapistName: string | null;
   therapistActive: boolean | null;

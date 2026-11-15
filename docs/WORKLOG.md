@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-15 · Claude Code · Session counts for CCD
+
+- Aflah: CCD get asked how many sessions a client has had. Counts real sessions only (isConfirmedSession rule:
+  paid, nothing to pay, or a desk booking; never failed/unpaid online attempts or released slots):
+  - Client page header: "N sessions done · M upcoming", plus "K missed" when there are no-shows.
+  - Clients list: "Bookings" column is now "Sessions" (done, and upcoming under it).
+  - New booking client search: "N sessions done / M upcoming" instead of the raw booking count.
+- clients.repository SESSION_DONE / SESSION_UPCOMING (alias b); list() and directory() return sessionsDone and
+  sessionsUpcoming. The raw `bookings` count is kept for reports and existing callers.
+
 ## 2026-11-15 · Claude Code · Staff accounts for three new psychologists
 
 - Added through Staff > Add a staff member (role and designation Psychologist, Asia/Kolkata): Emtesan Dilna,
