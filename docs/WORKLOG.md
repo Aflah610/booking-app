@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-15 · Claude Code · Theresa moved to Past staff; Fathima after her last session
+
+- Aflah: Theresa and Fathima have left. Theresa: Current staff switched off (Past staff), no upcoming sessions.
+- Fathima: still Current on purpose. She takes her last paid session BK-00061 (Sun 22 Nov 2026, 4:30 pm IST, Aflah's
+  choice). OPEN: switch her off (Staff > Fathima Sidhyc > Current staff) after 22 Nov.
+- Both are already off mindlap.in (website log, same day).
+
 ## 2026-11-11 · Claude Code · Voice notes from Leads > Chats
 
 - Chat page (/admin/leads/chats/[clientId]): "Record voice note" (VoiceNote.tsx). MediaRecorder records (WebM in
