@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-16 · Claude Code · Elizabeth Sara Joseph's staff record deleted
+
+- Aflah: she has left. She had no bookings, clients or notes, so Staff > Delete staff member (not Past staff).
+  Also removed from mindlap.in the same day (website log). Emtesan Dilna and Ashlin stay; still OPEN for them:
+  services, working hours, WhatsApp numbers.
+
 ## 2026-11-16 · Claude Code · New psychologists sign in with @mindlap.in
 
 - Emtesan Dilna, Elizabeth Sara Joseph and Ashlin couldn't sign in ("isn't set up as staff"): their staff records had
