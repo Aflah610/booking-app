@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-16 · Claude Code · New psychologists sign in with @mindlap.in
+
+- Emtesan Dilna, Elizabeth Sara Joseph and Ashlin couldn't sign in ("isn't set up as staff"): their staff records had
+  personal emails but they used their new Workspace accounts. Staff emails changed to dilna@, elizabeth@ and
+  ashlin@mindlap.in (Aflah confirmed). Still OPEN: services, working hours, WhatsApp numbers.
+
 ## 2026-11-15 · Claude Code · Session counts for CCD
 
 - Aflah: CCD get asked how many sessions a client has had. Counts real sessions only (isConfirmedSession rule:
