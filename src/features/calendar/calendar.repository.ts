@@ -215,6 +215,11 @@ export function createCalendarRepository(db: Db) {
       return rows.map((r) => r.id);
     },
 
+    /** Busy entries copied from a calendar that are really this event (the organiser's or a guest's copy). */
+    async dropBusyCopies(externalEventId: string) {
+      await db.delete(calendarBusy).where(eq(calendarBusy.externalId, externalEventId));
+    },
+
     async removeEventId(bookingId: string) {
       await db.delete(bookingCalendarEvent).where(and(eq(bookingCalendarEvent.bookingId, bookingId), eq(bookingCalendarEvent.provider, PROVIDER)));
     },

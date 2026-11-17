@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-17 · Claude Code · Cancelled times free at once; Fathima off the lists; Ashlin and Dilna on
+
+- Bug (Aflah: a cancelled session's time didn't come back): bookings, holds and daily caps already ignored cancelled
+  sessions, so the blocker was the copied Google busy times: a psychologist's calendar holds a copy of our own
+  session (guest copy of the firm-calendar invite, or an event whose delete hasn't happened yet), and that copy kept
+  the time closed after cancelling. availability.repository now skips calendar_busy rows that are one of our events
+  (booking_calendar_event id) or sit exactly on a booking of the same person; calendar.service drops busy copies of
+  an event as soon as it deletes it. Test in tests/calendar.test.ts.
+- Migration 0049 (data): Fathima Sidhyc loses her services, weekly hours and date overrides (off the psychologist
+  dropdowns, website and free times; BK-00061 on 22 Nov stays, staff record still current). Ashlin and Emtesan Dilna
+  get Individual therapy (by name). They still have NO working hours: OPEN, waiting for Aflah.
+- Website Worker: JSON replies sent with Cache-Control: no-store (website log).
+
 ## 2026-11-16 · Claude Code · Elizabeth Sara Joseph's staff record deleted
 
 - Aflah: she has left. She had no bookings, clients or notes, so Staff > Delete staff member (not Past staff).

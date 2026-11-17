@@ -184,6 +184,8 @@ export function createCalendarService(deps: {
     if (gone) {
       if (!eventId) return;
       await provider.deleteEvent(await accessToken(conn, now), conn.calendarId, eventId, conn.inviteClients);
+      // The psychologist's copy of the invite would otherwise keep the time looking busy until the next refresh.
+      await calendarRepo.dropBusyCopies(eventId);
       await calendarRepo.removeEventId(b.id);
       return;
     }

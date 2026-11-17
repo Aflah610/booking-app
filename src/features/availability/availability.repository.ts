@@ -74,7 +74,15 @@ export function createAvailabilityRepository(db: Db) {
         db
           .select({ staffId: calendarBusy.staffId, start: calendarBusy.startsAt, end: calendarBusy.endsAt })
           .from(calendarBusy)
-          .where(and(inArray(calendarBusy.staffId, staffIds), lt(calendarBusy.startsAt, to), gt(calendarBusy.endsAt, from))),
+          .where(and(
+            inArray(calendarBusy.staffId, staffIds), lt(calendarBusy.startsAt, to), gt(calendarBusy.endsAt, from),
+            // A psychologist's calendar can hold a copy of one of our own sessions (the invite from the firm calendar, or
+            // an event whose delete hasn't reached Google yet). The session itself already blocks the time while it is on;
+            // once it is cancelled the copy must not keep the time closed. So skip any busy entry that is one of our
+            // events, or that sits exactly on a booking of the same person (whatever its status).
+            sql`not exists (select 1 from booking_calendar_event e where e.external_event_id = calendar_busy.external_id)`,
+            sql`not exists (select 1 from booking x where x.staff_id = calendar_busy.staff_id and x.starts_at = calendar_busy.starts_at and x.ends_at = calendar_busy.ends_at)`,
+          )),
         db.select({ date: holiday.date }).from(holiday).where(sql`${holiday.date} between ${fromDate} and ${toDate}`),
       ]);
 

@@ -270,6 +270,23 @@ describe("blocking busy times", () => {
     expect(await slots(svc.id, "2026-10-19")).toContain(at("2026-10-19T10:00").toISOString());
   });
 
+  it("frees a cancelled session's time at once, even while the calendar still holds a copy of its event", async () => {
+    const { svc, staff } = await setup();
+    await connect(staff.id);
+    const b = await book(svc.id, "2026-10-19T10:00");
+    // The psychologist's calendar shows the session (a guest copy, with an id of its own).
+    google.state.busy = [{ externalId: "guest-copy", start: at("2026-10-19T10:00"), end: at("2026-10-19T10:30") }];
+    await c.calendar.syncBusy(plus(t0, 10));
+    expect(await slots(svc.id, "2026-10-19")).not.toContain(at("2026-10-19T10:00").toISOString());
+    await c.bookings.cancel(desk, b.id, {}, { now: plus(t0, 11) });
+    // No calendar refresh yet: the time is free anyway.
+    expect(await slots(svc.id, "2026-10-19")).toContain(at("2026-10-19T10:00").toISOString());
+    // A real event elsewhere still blocks.
+    google.state.busy = [{ externalId: "dentist", start: at("2026-10-19T12:00"), end: at("2026-10-19T13:00") }];
+    await c.calendar.syncBusy(plus(t0, 20));
+    expect(await slots(svc.id, "2026-10-19")).not.toContain(at("2026-10-19T12:00").toISOString());
+  });
+
   it("refreshes only when the copy is older than five minutes", async () => {
     const { staff } = await setup();
     await connect(staff.id);
