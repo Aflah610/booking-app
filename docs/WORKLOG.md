@@ -3,6 +3,12 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-17 · Claude Code · Fathima to Past staff now
+
+- Aflah: Fathima has left now (not after 22 Nov). Migration 0050 sets her staff record inactive (Past staff).
+- OPEN: BK-00061 (Sun 22 Nov 2026, 4:30 pm, paid) is still with her; CCD must reschedule it to another
+  psychologist or cancel it. Waiting for Aflah's choice.
+
 ## 2026-11-17 · Claude Code · Cancelled times free at once; Fathima off the lists; Ashlin and Dilna on
 
 - Bug (Aflah: a cancelled session's time didn't come back): bookings, holds and daily caps already ignored cancelled
