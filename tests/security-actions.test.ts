@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isoDay } from "@/lib/format";
 import { zonedToUtc } from "@/lib/time";
 import { c, reset } from "./helpers";
 
@@ -71,8 +72,9 @@ describe("S2: only the booking role moves, cancels or takes payment", () => {
     await c.staff.setServices({}, psych.id, [therapy.id]);
     await c.schedules.setWeeklyHours({}, psych.id, [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startTime: "09:00", endTime: "17:00" })));
     const { booking } = await c.bookings.create({ mode: "staff" }, {
-      serviceId: therapy.id, staffId: psych.id, start: zonedToUtc("2026-11-16T10:00", "Asia/Kolkata"), client: { name: "Ravi", phone: "98765 43210" },
-    }, { now: zonedToUtc("2026-10-26T09:00", "Asia/Kolkata") });
+      // A week from today, so the session is still to come whenever the test runs (a fixed date expired on 16 Nov 2026).
+      serviceId: therapy.id, staffId: psych.id, start: zonedToUtc(`${isoDay(new Date(Date.now() + 7 * 86_400_000), "Asia/Kolkata")}T10:00`, "Asia/Kolkata"), client: { name: "Ravi", phone: "98765 43210" },
+    }, { now: new Date() });
     return { psych, booking };
   }
 
