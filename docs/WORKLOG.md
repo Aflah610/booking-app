@@ -3,6 +3,19 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-19 · Claude Code · Leads: coordinators' round robin, Online panel on the board, drag and drop
+
+- Round robin team (leads.repository inLeadTeam): roles with leads.own PLUS every active Consultation Coordinator by
+  designation (so Akhila, a manager, takes turns with Lumi). Offline or on leave = skipped; coming online picks up
+  waiting leads. Migration 0052: role ccd gets leads.own and loses leads.all, so Lumi sees only her own leads/chats.
+- Akhila (manager) starts on "My leads" on the board and "My chats" in Chats, with "Everyone" one click away.
+  ?staff=all on the board, ?who=all in Chats.
+- OnlinePanel.tsx on both board and list: your own switch (You're online / offline) and teammates' status; managers
+  can switch others. Footer says who gets the next lead, or warns nobody is online.
+- Board drag and drop (DragBoard.tsx, client): grip handle with pointer events (works on touch), floating card,
+  highlighted target column, landing animation (.lead-landed in globals.css, reduced-motion respected). Dropping on
+  Lost asks the reason. moveLeadAction -> leads.move (stage only; slides back on error). Test in tests/leads.test.ts.
+
 ## 2026-11-19 · Claude Code · Leads: coordinators' round robin, Online switch on the board, drag and drop
 
 - Round robin team = roles with leads.own PLUS anyone with designation "Consultation Coordinator" (inLeadTeam in
