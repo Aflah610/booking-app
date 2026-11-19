@@ -328,7 +328,7 @@ describe("paying an existing booking with credit", () => {
     expect(b).toMatchObject({ paymentStatus: "pending", creditMilli: 0 });
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
     // Nothing goes out for the unpaid desk booking (only setup's free booking, flushed here).
-    await c.workflows.processDue({ now: t0 });
+    await c.workflows.processDue({ now: days(t0, 0.0005) });
     sent.length = 0;
     expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditMilli: 1000, amountPaise: null });
     expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
