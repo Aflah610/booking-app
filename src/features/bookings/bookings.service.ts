@@ -438,6 +438,8 @@ export function createBookingsService(deps: {
       }
       // An online booking was never confirmed to the client; paying it off by credit is what confirms it.
       if (covered && wasOnline) await announce({ type: "booked", bookingId: id, at: now });
+      // A desk booking's "booked" messages wait for its payment; credit covering it is that payment.
+      else if (covered) await announce({ type: "payment_success", bookingId: id, at: now });
       return get(id);
     },
 

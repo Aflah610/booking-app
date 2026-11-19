@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-19 · Claude Code · CCD can sell packages, also while booking
+
+- New permission packages.sell ("Sell packages": sell a package / add wallet money; packages.manage still edits the
+  catalogue). Default for ccd and manager; sellPackageAction/topUpWalletAction accept either; client Credits tab shows
+  for either.
+- New booking form: Payment choice (PaymentChoice.tsx): "Payment QR after booking" (default), "Use their package or
+  wallet", or "Sell a package and pay with it" (package + how they paid). createBookingAction books, then sells and
+  calls bookings.useCredit; if that step fails the booking stays and the booking page shows why.
+- Fix: paying a desk booking with credit now announces payment_success, so the client's confirmation and the
+  psychologist's notice (which wait for payment on desk bookings) go out. Test in tests/packages.test.ts.
+
 ## 2026-11-19 · Claude Code · Leads: coordinators' round robin, Online panel on the board, drag and drop
 
 - Round robin team (leads.repository inLeadTeam): roles with leads.own PLUS every active Consultation Coordinator by

@@ -329,6 +329,10 @@ describe("paying an existing booking with credit", () => {
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
     expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditMilli: 1000, amountPaise: null });
     expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
+    // A desk booking's confirmation waits for payment; credit paying it sends it.
+    sent.length = 0;
+    await c.workflows.processDue({ now: days(t0, 0.001) });
+    expect(sent.filter((m) => m.channel === "email" && m.body.includes(b.reference))).toHaveLength(1);
   });
 
   it("uses wallet money added later, leaving the difference to pay", async () => {

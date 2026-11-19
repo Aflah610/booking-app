@@ -2,7 +2,7 @@ import Link from "next/link";
 import { app } from "@/features/container";
 import { isUuid } from "@/features/shared/validation";
 import { addDays } from "@/features/availability/slots";
-import { isFrontDesk, requirePermission } from "@/lib/session";
+import { isFrontDesk, requirePermission, allowed } from "@/lib/session";
 import { zonedToUtc } from "@/lib/time";
 import { isoDay, longDayLabel, timeLabel } from "@/lib/format";
 import { ClientFields } from "@/components/ClientFields";
@@ -13,6 +13,7 @@ import { groupByPart } from "@/lib/day-parts";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
 import { createBookingAction } from "../actions";
+import { PaymentChoice } from "./PaymentChoice";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,9 @@ export default async function NewBookingPage({
   const serviceId = sp.service && services.some((x) => x.id === sp.service) ? sp.service : services[0]?.id;
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : isoDay(new Date(), tz);
   const people = serviceId ? await staff.listBookableForService(serviceId) : [];
+  const canSell = allowed(me, "packages.sell") || allowed(me, "packages.manage");
+  // Packages on sale that cover this service, for "Sell a package and pay with it".
+  const packages = canSell && serviceId ? (await app().packages.list()).filter((p) => p.active && (!p.serviceIds?.length || p.serviceIds.includes(serviceId))) : [];
   const staffId = sp.staff && people.some((p) => p.id === sp.staff) ? sp.staff : "";
   const svc = services.find((x) => x.id === serviceId);
   // Opened from a client's page: their details fill the form. Only for managers, who can already search clients here.
@@ -126,6 +130,7 @@ export default async function NewBookingPage({
               <p className="sm:col-span-2 text-xs text-zinc-600">A matching existing-client number OR ticking Follow-up is enough. The same client record is reused. A payment QR is available after booking.</p>
               <QuestionFields questions={svc.questions} />
               <div className="sm:col-span-2"><label className="label" htmlFor="notes">Notes</label><textarea className="input" id="notes" name="notes" rows={2} placeholder="Only staff see these" /></div>
+              <PaymentChoice packages={packages.map((p) => ({ id: p.id, label: `${p.name} · ₹${(p.pricePaise / 100).toLocaleString("en-IN")}` }))} />
               <div className="sm:col-span-2"><button className="btn-success" type="submit">Confirm booking</button></div>
             </form>
           )}

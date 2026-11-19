@@ -34,7 +34,7 @@ export default async function ClientPage({
   // Psychologists open their own clients read-only, without contact details.
   const manages = allowed(me, "clients.view");
   const contact = allowed(me, "clients.contact");
-  const canCredits = allowed(me, "packages.manage");
+  const canCredits = allowed(me, "packages.manage") || allowed(me, "packages.sell");
   const sp = await searchParams;
   const tab = sp.tab && sp.tab in TABS && (sp.tab !== "credits" || canCredits) ? (sp.tab as keyof typeof TABS) : "case";
   // Psychologists only need the sessions still to come; past and cancelled ones are the desk's business.

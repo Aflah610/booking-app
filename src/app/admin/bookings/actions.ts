@@ -56,6 +56,22 @@ export async function createBookingAction(form: FormData) {
       notes: optional(form, "notes"),
       formAnswers: answersFromForm(form),
     });
+    // How the client pays: a QR later (default), their package credit or wallet, or a package sold now.
+    const pay = str(form, "pay");
+    const done = (msg: string) => `/admin/bookings/${booking.id}?ok=${encodeURIComponent(msg)}`;
+    const failed = (msg: string) => `/admin/bookings/${booking.id}?error=${encodeURIComponent(`Booked, but ${msg}`)}`;
+    if (pay === "credit" || pay === "package") {
+      try {
+        if (pay === "package") {
+          if (!(allowed(me, "packages.sell") || allowed(me, "packages.manage"))) return failed("you can't sell packages");
+          await app().packages.sell({ staffId: me.id }, booking.clientId, { packageId: str(form, "packageId"), paymentNote: optional(form, "paymentNote") });
+        }
+        await app().bookings.useCredit({ staffId: me.id }, booking.id);
+        return done(pay === "package" ? "Booked and paid with the new package" : "Booked and paid with the client's credit");
+      } catch (err) {
+        return failed(err instanceof Error ? err.message.charAt(0).toLowerCase() + err.message.slice(1) : "the payment step failed");
+      }
+    }
     return `/admin/bookings/${booking.id}`;
   });
 }

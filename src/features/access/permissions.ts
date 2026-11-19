@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   "casenotes.read_all",
   "casehistory.delete",
   "packages.manage",
+  "packages.sell",
   "services.manage",
   "staff.manage",
   "reports.view",
@@ -88,6 +89,7 @@ export const PERMISSION_GROUPS: { title: string; items: { key: Permission; label
     title: "Running the practice",
     items: [
       { key: "packages.manage", label: "Packages and credits", hint: "Sell packages and correct client credit." },
+      { key: "packages.sell", label: "Sell packages", hint: "Sell a package or add wallet money for a client, also while booking." },
       { key: "services.manage", label: "Services and prices", hint: "" },
       { key: "staff.manage", label: "Staff", hint: "Add people and set their hours and services." },
       { key: "reports.view", label: "Reports and dashboard", hint: "" },
@@ -103,11 +105,11 @@ export const DEFAULT_PERMISSIONS: Record<AccessRole, ReadonlySet<Permission>> = 
   admin: all,
   manager: new Set<Permission>([
     "bookings.all", "availability.manage", "bookings.reschedule", "clients.view", "clients.contact", "clients.reassign", "clients.delete", "leads.all", "followups.all", "casenotes.pending",
-    "packages.manage", "services.manage", "staff.manage", "reports.view", "workflows.manage",
+    "packages.manage", "packages.sell", "services.manage", "staff.manage", "reports.view", "workflows.manage",
   ]),
   psychologist: new Set<Permission>(["clients.own", "followups.own", "casenotes.write"]),
   bde: new Set<Permission>(["leads.own", "clients.contact"]),
-  ccd: new Set<Permission>(["bookings.all", "availability.manage", "bookings.create", "bookings.reschedule", "clients.view", "clients.contact", "followups.all"]),
+  ccd: new Set<Permission>(["bookings.all", "availability.manage", "bookings.create", "bookings.reschedule", "clients.view", "clients.contact", "followups.all", "packages.sell"]),
 };
 
 /** For staff saved before access roles existed, or added without one. */
