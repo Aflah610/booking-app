@@ -327,12 +327,14 @@ describe("paying an existing booking with credit", () => {
     const b = await book(counselling.id, asha.id, "2026-10-19T10:00");
     expect(b).toMatchObject({ paymentStatus: "pending", creditMilli: 0 });
     await c.packages.sell({}, clientId, { packageId: (await pack([counselling.id])).id }, t0);
+    // Nothing goes out for the unpaid desk booking (only setup's free booking, flushed here).
+    await c.workflows.processDue({ now: t0 });
+    sent.length = 0;
     expect(await c.bookings.useCredit({}, b.id, { now: t0 })).toMatchObject({ paymentStatus: "paid", creditMilli: 1000, amountPaise: null });
     expect((await left(clientId)).packages[0].creditsLeft).toBe(3);
-    // A desk booking's confirmation waits for payment; credit paying it sends it.
-    sent.length = 0;
+    // Credit paying it is the payment its confirmation waits for.
     await c.workflows.processDue({ now: days(t0, 0.001) });
-    expect(sent.filter((m) => m.channel === "email" && m.body.includes(b.reference))).toHaveLength(1);
+    expect(sent.filter((m) => m.channel === "email")).toHaveLength(1);
   });
 
   it("uses wallet money added later, leaving the difference to pay", async () => {
