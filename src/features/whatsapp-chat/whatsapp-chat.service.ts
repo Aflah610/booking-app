@@ -109,9 +109,10 @@ export function createWhatsAppChatService({ repo, graph, leadsNumber }: { repo: 
 
     statusUpdate: (u: MessageStatusUpdate) => repo.setStatus(u.waMessageId, u.status, u.error),
 
-    async conversations(viewer: LeadViewer) {
+    /** `mine` keeps a coordinator who can see everyone to their own chats (the default for the lead team). */
+    async conversations(viewer: LeadViewer, mine = false) {
       if (!canUseLeads(viewer)) throw new DomainError("forbidden", "Only sales executives, managers and admins can open chats");
-      return repo.conversations(can(viewer, "leads.all") ? undefined : viewer.id);
+      return repo.conversations(can(viewer, "leads.all") && !mine ? undefined : viewer.id);
     },
 
     unread: (viewer: LeadViewer) => (canUseLeads(viewer) ? repo.unread(can(viewer, "leads.all") ? undefined : viewer.id) : Promise.resolve(0)),

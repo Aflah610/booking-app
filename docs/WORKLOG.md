@@ -3,6 +3,20 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-19 · Claude Code · Leads: coordinators' round robin, Online switch on the board, drag and drop
+
+- Round robin team = roles with leads.own PLUS anyone with designation "Consultation Coordinator" (inLeadTeam in
+  leads.repository), so Akhila (manager role) and Lumi (ccd) share leads in turn; Offline sends them to the other.
+- Migration 0052: role_permission ccd leads.own = true, leads.all = false (each coordinator sees only their own leads
+  and chats). Managers keep leads.all, but a manager in the lead team starts on "My leads" (board) / "My chats"
+  (Chats tab, ?who=all for everyone). Board "Assigned to" select: "all" = Everyone.
+- OnlinePanel.tsx (both layouts): a switch for yourself ("You're online, new leads come to you in turn"), the others'
+  status (managers can set them), and who gets the next lead / "Nobody is online" warning.
+- DragBoard.tsx: drag a card by its grip to another column (pointer events, works on touch), lifted card follows the
+  pointer, target column highlights, card settles with .lead-landed animation (globals.css; off for reduced motion).
+  Dropping on Lost asks for the reason. moveLeadAction -> leads.service.move (keeps follow-up date and notes).
+  Fails slide back with the error.
+
 ## 2026-11-19 · Claude Code · Client contact details out of Google Calendar / Meet
 
 - Aflah: the Meet "Information" tab showed the client's phone and email (from the calendar event description), which

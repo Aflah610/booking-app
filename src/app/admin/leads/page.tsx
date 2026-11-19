@@ -7,8 +7,8 @@ import { dateLabel, dayLabel, isoDay, phoneLabel, timeLabel } from "@/lib/format
 import { allowed, requireStaff } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PageHeader } from "@/components/Shell";
-import { setLeadsOnlineAction } from "./actions";
 import { LeadsBoard } from "./LeadsBoard";
+import { OnlinePanel } from "./OnlinePanel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Leads" };
@@ -39,7 +39,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const source = sp.source && sp.source in LEAD_SOURCE_LABEL ? (sp.source as LeadSource) : undefined;
   const from = isDay(sp.from);
   const to = isDay(sp.to);
-  const assignedTo = sp.staff || undefined;
+  const assignedTo = sp.staff && sp.staff !== "all" ? sp.staff : undefined;
   const q = sp.q?.trim() || undefined;
   const unreadChats = await app().whatsappChat.unread(me);
   const headerActions = (list: boolean) => (
@@ -52,16 +52,20 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   );
 
   if (sp.layout !== "list") {
-    const team = manager ? await app().leads.assignable() : [];
+    const [team, sales] = await Promise.all([manager ? app().leads.assignable() : Promise.resolve([]), app().leads.salesTeam(me)]);
+    // A coordinator who can see everyone (Akhila) starts on her own leads; "Everyone" shows the whole team.
+    const inTeam = sales.some((p) => p.id === me.id);
+    const who = sp.staff ?? (manager && inTeam ? me.id : "");
+    const boardFor = manager ? (who === "all" ? undefined : who || undefined) : undefined;
     return (
       <>
         <PageHeader title="Leads" subtitle={manager ? "Every WhatsApp chat starts as a New lead. Open a card to change its stage." : "Your leads. Open a card to change its stage."} action={headerActions(false)} />
         <form className="mb-4 flex flex-wrap items-end gap-2" action="/admin/leads">
           <input className="input max-w-xs" name="q" defaultValue={sp.q} placeholder="Search name or mobile" aria-label="Search leads" />
           {manager && (
-            <select className="input w-auto" name="staff" defaultValue={sp.staff ?? ""} aria-label="Assigned to">
-              <option value="">Everyone</option>
-              {team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <select className="input w-auto" name="staff" defaultValue={who || "all"} aria-label="Assigned to">
+              <option value="all">Everyone</option>
+              {team.map((m) => <option key={m.id} value={m.id}>{m.id === me.id ? "My leads" : m.name}</option>)}
             </select>
           )}
           <select className="input w-auto" name="source" defaultValue={sp.source ?? ""} aria-label="Came from">
@@ -71,7 +75,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <button className="btn-ghost" type="submit">Show</button>
         </form>
         <Notice error={sp.error} ok={sp.ok} />
-        <LeadsBoard me={me} q={q} assignedTo={manager ? assignedTo : undefined} source={source} tz={tz} />
+        <OnlinePanel team={sales} meId={me.id} manager={manager} />
+        <LeadsBoard me={me} q={q} assignedTo={boardFor} source={source} tz={tz} showOwner={manager && !boardFor} />
       </>
     );
   }
@@ -89,7 +94,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     app().leads.salesTeam(me),
     manager ? app().leads.summary(me, period === "today" ? today : daysBefore(today, period === "week" ? 6 : 29), today, tz) : Promise.resolve([]),
   ]);
-  const anyoneOnline = sales.some((p) => p.online);
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ layout: "list", view, q: sp.q, staff: sp.staff, status: sp.status, source: sp.source, from: sp.from, to: sp.to, period: sp.period, ...patch })) if (v) p.set(k, v);
@@ -150,26 +154,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         </section>
       )}
 
-      {sales.length > 0 && (
-        <section className="card mb-6 p-4" aria-label="Who is taking leads">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">Taking new leads:</span>
-            {sales.map((p) => {
-              const mine = p.id === me.id;
-              return (
-                <form key={p.id} action={setLeadsOnlineAction.bind(null, p.id, !p.online)} className="flex items-center gap-2 rounded-full border border-zinc-200 py-1 pl-3 pr-1">
-                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${p.online ? "bg-green-600" : "bg-zinc-400"}`} />
-                  <span className="text-sm">{mine ? "You" : p.name} · {p.online ? "Online" : "Offline"}</span>
-                  {(mine || manager) && (
-                    <button type="submit" className="btn-ghost px-2 py-0.5 text-xs">{p.online ? "Go offline" : "Go online"}</button>
-                  )}
-                </form>
-              );
-            })}
-          </div>
-          {!anyoneOnline && <p className="mt-2 text-sm text-red-700">Nobody is online, so new leads wait as Not assigned until someone comes online.</p>}
-        </section>
-      )}
+      <OnlinePanel team={sales} meId={me.id} manager={manager} />
 
       <nav className="tabs" aria-label="Which leads">
         {Object.entries(VIEWS).map(([key, label]) => (

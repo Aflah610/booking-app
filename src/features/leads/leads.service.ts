@@ -146,6 +146,18 @@ export function createLeadsService({ leadsRepo, salesRoles }: {
       });
     },
 
+    /** Dragged to another column on the board: only the stage changes (and why, for Lost). */
+    async move(viewer: LeadViewer, id: string, status: string, lostReason: string | null, now = new Date()) {
+      const current = await get(viewer, id);
+      if (!(BOARD_STATUSES as readonly string[]).includes(status)) throw new DomainError("invalid", "Leads can only be moved between the board's columns");
+      return this.update(viewer, id, { status, followUpOn: current.followUpOn ?? "", notes: current.notes, lostReason }, now);
+    },
+
+    /** Whether this person takes a turn in the round robin (shown the Online switch and their own leads first). */
+    async inTeam(viewer: LeadViewer) {
+      return (await leadsRepo.salesTeam(await salesRoles())).some((s) => s.id === viewer.id);
+    },
+
     async update(viewer: LeadViewer, id: string, input: unknown, now = new Date()) {
       const current = await get(viewer, id);
       const d = leadUpdateInput.parse(input);

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { app } from "@/features/container";
 import { act, optional, str } from "@/lib/form-actions";
 import { requirePermission, requireStaff } from "@/lib/session";
@@ -30,6 +31,18 @@ export async function reassignLeadAction(id: string, form: FormData) {
 }
 
 /** The Online / Offline switch on the Leads page. */
+/** From the board's drag and drop: answers instead of redirecting, so the card can slide back if it fails. */
+export async function moveLeadAction(id: string, status: string, lostReason: string | null): Promise<{ error?: string }> {
+  const me = await requireStaff();
+  try {
+    await app().leads.move(me, id, status, lostReason);
+    revalidatePath("/admin/leads");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not move the lead" };
+  }
+}
+
 export async function setLeadsOnlineAction(staffId: string, online: boolean) {
   const me = await requireStaff();
   await act("/admin/leads", online ? "Online: new leads will come to you" : "Offline: new leads go to the rest of the team", async () => {

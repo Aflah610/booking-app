@@ -206,6 +206,18 @@ describe("online and offline", () => {
     expect((await c.leads.salesTeam(asViewer(asha))).map((p) => [p.name, p.online])).toEqual([["Asha", true], ["Binu", false]]);
   });
 
+  it("shares leads between the coordinators, including one who is also a manager, and each sees only their own", async () => {
+    const lumi = await c.staff.create({}, { name: "Lumi", email: "lumi@firm.test", designation: "Consultation Coordinator", accessRole: "ccd" });
+    const akhila = await c.staff.create({}, { name: "Akhila", email: "akhila@firm.test", designation: "Consultation Coordinator", accessRole: "manager" });
+    const owners = [];
+    for (let i = 0; i < 4; i++) owners.push(owner(await message(`982000000${i}`, `2026-10-20T0${i + 1}:00:00Z`)));
+    expect(new Set(owners)).toEqual(new Set([lumi.id, akhila.id]));
+    expect(owners.filter((o) => o === lumi.id)).toHaveLength(2);
+    await c.leads.setOnline(asViewer(akhila), akhila.id, false, new Date("2026-10-20T06:00:00Z"));
+    expect(owner(await message("98200 00009", "2026-10-20T07:00:00Z"))).toBe(lumi.id);
+    expect(await c.leads.inTeam(asViewer(akhila))).toBe(true);
+  });
+
   it("goes back to taking turns once both are online again", async () => {
     const asha = await sales("Asha");
     const binu = await sales("Binu");

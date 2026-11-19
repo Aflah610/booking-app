@@ -34,11 +34,18 @@ const columns = {
 
 const open = notInArray(lead.status, ["converted", "lost", "junk"]);
 
-/** People who can be given a lead at `at`: active, in a role that works leads, switched online, and not on leave. */
+/**
+ * The lead team: anyone in a role that works its own leads, and every Consultation Coordinator whatever their role
+ * (a coordinator who is also a manager still takes her turn).
+ */
+const inLeadTeam = (roles: readonly AccessRole[]) =>
+  or(roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`, eq(staff.designation, "Consultation Coordinator"));
+
+/** People who can be given a lead at `at`: active, in the lead team, switched online, and not on leave. */
 const takingLeads = (at: Date, roles: readonly AccessRole[]) =>
   and(
     eq(staff.active, true),
-    inArray(staff.accessRole, [...roles]),
+    inLeadTeam(roles),
     eq(staff.leadsOnline, true),
     sql`not exists (select 1 from time_off t where t.staff_id = ${staff.id} and t.starts_at <= ${at} and t.ends_at > ${at})`,
   );
@@ -185,7 +192,7 @@ export function createLeadsRepository(db: Db) {
       return db
         .select({ id: staff.id, name: staff.name, online: staff.leadsOnline, changedAt: staff.leadsOnlineChangedAt })
         .from(staff)
-        .where(and(eq(staff.active, true), roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`))
+        .where(and(eq(staff.active, true), inLeadTeam(roles)))
         .orderBy(asc(staff.name));
     },
 
@@ -215,7 +222,7 @@ export function createLeadsRepository(db: Db) {
         .select({ id: staff.id, name: staff.name, designation: staff.designation })
         .from(staff)
         .where(eq(staff.active, true))
-        .orderBy(sql`case when ${roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`} then 0 else 1 end`, asc(staff.name));
+        .orderBy(sql`case when ${inLeadTeam(roles)} then 0 else 1 end`, asc(staff.name));
     },
 
     /**
