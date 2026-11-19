@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { AccessRole } from "@/features/access/permissions";
+import { DEFAULT_PERMISSIONS, type AccessRole } from "@/features/access/permissions";
 import type { LeadViewer } from "@/features/leads/leads.dto";
 import { incomingMessages, signatureValid } from "@/features/leads/whatsapp-webhook";
 import { c, reset } from "./helpers";
@@ -209,6 +209,8 @@ describe("online and offline", () => {
   it("shares leads between the coordinators, including one who is also a manager, and each sees only their own", async () => {
     const lumi = await c.staff.create({}, { name: "Lumi", email: "lumi@firm.test", designation: "Consultation Coordinator", accessRole: "ccd" });
     const akhila = await c.staff.create({}, { name: "Akhila", email: "akhila@firm.test", designation: "Consultation Coordinator", accessRole: "manager" });
+    // Coordinators work leads (as on the live site: migration 0052).
+    await c.access.setRole({ staffId: akhila.id, accessRole: "admin" }, "ccd", [...DEFAULT_PERMISSIONS.ccd, "leads.own"]);
     const owners = [];
     for (let i = 0; i < 4; i++) owners.push(owner(await message(`982000000${i}`, `2026-10-20T0${i + 1}:00:00Z`)));
     expect(new Set(owners)).toEqual(new Set([lumi.id, akhila.id]));

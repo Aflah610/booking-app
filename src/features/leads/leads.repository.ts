@@ -35,11 +35,14 @@ const columns = {
 const open = notInArray(lead.status, ["converted", "lost", "junk"]);
 
 /**
- * The lead team: anyone in a role that works its own leads, and every Consultation Coordinator whatever their role
- * (a coordinator who is also a manager still takes her turn).
+ * The lead team: anyone in a role that works its own leads. When the coordinators' role does (Roles & access), every
+ * Consultation Coordinator joins whatever their role, so a coordinator who is also a manager still takes her turn.
  */
 const inLeadTeam = (roles: readonly AccessRole[]) =>
-  or(roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`, eq(staff.designation, "Consultation Coordinator"));
+  or(
+    roles.length ? inArray(staff.accessRole, [...roles]) : sql`false`,
+    roles.includes("ccd") ? eq(staff.designation, "Consultation Coordinator") : sql`false`,
+  );
 
 /** People who can be given a lead at `at`: active, in the lead team, switched online, and not on leave. */
 const takingLeads = (at: Date, roles: readonly AccessRole[]) =>
