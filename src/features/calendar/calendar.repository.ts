@@ -21,7 +21,7 @@ const connectionColumns = {
 type ConnectionRow = Omit<CalendarConnectionDTO, "provider">;
 const toDto = (r: ConnectionRow): CalendarConnectionDTO => ({ ...r, provider: PROVIDER });
 
-export type DueJob = { bookingId: string; action: "upsert" | "delete"; attempts: number };
+export type DueJob = { bookingId: string; action: "upsert" | "delete" | "refresh"; attempts: number };
 
 export function createCalendarRepository(db: Db) {
   return {
@@ -257,7 +257,7 @@ export function createCalendarRepository(db: Db) {
     },
 
     /** Queues a calendar write; a newer request for the same booking replaces the pending one. */
-    async enqueue(jobs: { bookingId: string; action: "upsert" | "delete" }[], runAt: Date) {
+    async enqueue(jobs: { bookingId: string; action: "upsert" | "delete" | "refresh" }[], runAt: Date) {
       if (!jobs.length) return;
       await db
         .insert(calendarJob)
@@ -271,7 +271,7 @@ export function createCalendarRepository(db: Db) {
     /** Takes due jobs and pushes their run time out by `leaseMin`, so a crashed worker's jobs come back later. */
     async claimDue(now: Date, limit: number, leaseMin: number): Promise<DueJob[]> {
       const lease = new Date(now.getTime() + leaseMin * 60_000);
-      const result = await db.execute<{ booking_id: string; action: "upsert" | "delete"; attempts: number }>(sql`
+      const result = await db.execute<{ booking_id: string; action: "upsert" | "delete" | "refresh"; attempts: number }>(sql`
         update calendar_job set attempts = attempts + 1, run_at = ${lease}
         where booking_id in (
           select booking_id from calendar_job where run_at <= ${now} order by run_at limit ${limit} for update skip locked

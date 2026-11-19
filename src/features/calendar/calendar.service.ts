@@ -201,7 +201,7 @@ export function createCalendarService(deps: {
       hasLink,
       // Switched off for this booking (or the service no longer wants one): take the link off the event.
       remove: !want && hasLink,
-    }, staffGuest);
+    }, staffGuest, job.action === "refresh");
     await calendarRepo.saveEventId(b.id, result.eventId, conn.staffId);
     if (want && result.meetUrl) await calendarRepo.saveGoogleMeeting(b.id, result.meetUrl);
     else if (!want && hasLink) await calendarRepo.clearGoogleMeeting(b.id);

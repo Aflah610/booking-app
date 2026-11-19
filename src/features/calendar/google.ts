@@ -42,14 +42,9 @@ function eventBody(b: CalendarBookingDTO, inviteClient: boolean, staffGuest: { e
     ...(staffGuest ? [{ email: staffGuest.email, displayName: staffGuest.name }] : []),
     ...(inviteClient && b.clientEmail ? [{ email: b.clientEmail, displayName: b.clientName }] : []),
   ];
-  const lines = [
-    `Client: ${b.clientName}`,
-    `Phone: ${b.clientPhone}`,
-    b.clientEmail ? `Email: ${b.clientEmail}` : null,
-    b.notes ? `Notes: ${b.notes}` : null,
-    "",
-    "Booked through Mindlap.",
-  ].filter((l): l is string => l !== null);
+  // Everyone in the Meet call can read this (Information tab), and so can the psychologist in their calendar:
+  // only the client's name. Phone, email and staff notes stay in the booking app.
+  const lines = [`Client: ${b.clientName}`, "", "Booked through Mindlap."];
   return {
     summary: `${b.serviceName} – ${b.clientName}`,
     description: lines.join("\n"),
@@ -154,9 +149,9 @@ export function createGoogleProvider(env: Env = process.env): CalendarProvider {
       return out;
     },
 
-    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient, meet, staffGuest = null) {
+    async upsertEvent(accessToken, calendarId, eventId, booking, inviteClient, meet, staffGuest = null, silent = false) {
       const base = eventBody(booking, inviteClient, staffGuest);
-      const notify = inviteClient && booking.clientEmail ? "all" : "none";
+      const notify = inviteClient && booking.clientEmail && !silent ? "all" : "none";
       // conferenceDataVersion=1 is what lets the request create or remove a Meet link; without it Google ignores that part.
       const version = meet.want || meet.remove ? "&conferenceDataVersion=1" : "";
       // The request id makes asking twice for the same booking's link return the same link, not two.

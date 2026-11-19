@@ -3,6 +3,16 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-19 · Claude Code · Client contact details out of Google Calendar / Meet
+
+- Aflah: the Meet "Information" tab showed the client's phone and email (from the calendar event description), which
+  psychologists must not see. google.ts eventBody description is now only "Client: <name>" + "Booked through
+  Mindlap." (no phone, email or staff notes).
+- New calendar job action "refresh" (upsert with sendUpdates=none, via upsertEvent's new `silent` flag). Migration 0051
+  widens the calendar_job_action check and queues a refresh for every upcoming session that has an event, so existing
+  events lose the details without emailing clients. Note: if "invite clients" is on, the client's email still shows
+  in the event's guest list.
+
 ## 2026-11-17 · Claude Code · Fathima to Past staff now
 
 - Aflah: Fathima has left now (not after 22 Nov). Migration 0050 sets her staff record inactive (Past staff).

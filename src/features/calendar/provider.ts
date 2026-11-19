@@ -42,6 +42,8 @@ export interface CalendarProvider {
     inviteClient: boolean,
     meet: { want: boolean; hasLink: boolean; remove: boolean },
     staffGuest?: { email: string; name: string } | null,
+    /** Update without emailing guests (a tidy-up, not a change they need to hear about). */
+    silent?: boolean,
   ): Promise<{ eventId: string; meetUrl: string | null }>;
   /** Deleting an event that is already gone is not an error. */
   deleteEvent(accessToken: string, calendarId: string, eventId: string, notifyGuests: boolean): Promise<void>;

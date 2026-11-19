@@ -737,7 +737,7 @@ export const calendarJob = pgTable("calendar_job", {
   attempts: integer("attempts").notNull().default(0),
   lastError: text("last_error"),
   createdAt: createdAt(),
-}, (t) => [index("calendar_job_due_idx").on(t.runAt), check("calendar_job_action", sql`${t.action} in ('upsert', 'delete')`)]);
+}, (t) => [index("calendar_job_due_idx").on(t.runAt), check("calendar_job_action", sql`${t.action} in ('upsert', 'delete', 'refresh')`)]);
 
 export const notification = pgTable("notification", {
   id: uuid("id").primaryKey().defaultRandom(),
