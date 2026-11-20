@@ -277,6 +277,14 @@ export async function deleteClientAction(clientId: string, form: FormData) {
   });
 }
 
+export async function mergeClientAction(clientId: string, form: FormData) {
+  const me = await requirePermission("clients.delete");
+  await act(`/admin/clients/${clientId}/edit`, "Merged", async () => {
+    const kept = await app().clients.merge({ staffId: me.id }, clientId, str(form, "into"));
+    return `/admin/clients/${kept.id}?ok=${encodeURIComponent(`Merged: everything is on ${clientReference(kept.number)} now`)}`;
+  });
+}
+
 export async function restoreClientAction(clientId: string) {
   const me = await requirePermission("clients.delete");
   await act("/admin/clients/bin", "Client restored", async () => {

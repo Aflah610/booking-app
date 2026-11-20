@@ -1,7 +1,7 @@
 import type { Actor } from "@/features/audit/audit.types";
 import { DomainError } from "@/features/shared/errors";
 import { isUuid } from "@/features/shared/validation";
-import { clientReference, type ClientDirectoryFilters, type ClientDTO } from "./clients.dto";
+import { clientReference, mchCodeNumber, type ClientDirectoryFilters, type ClientDTO } from "./clients.dto";
 import type { ClientsRepository } from "./clients.repository";
 import { assignTherapistInput, clientCreateInput, clientProfileInput, clientUpdateInput } from "./clients.schemas";
 
@@ -81,6 +81,22 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
       // Personal data: the audit row keeps the client number, not the name.
       await clientsRepo.bin(id, actor.staffId ?? null, now, { actor, action: "bin", entity: "client", entityId: id, details: { number: c.number } });
       return c;
+    },
+
+    /** Two records of the same person (booked with two numbers): keep `intoRef` (a client ID like ML-CL-00355). */
+    async merge(actor: Actor, fromId: string, intoRef: string, now = new Date()) {
+      const from = await get(fromId);
+      const n = mchCodeNumber(intoRef.toUpperCase());
+      const into = n === null ? null : await clientsRepo.findByNumber(n);
+      if (!into) throw new DomainError("not_found", `No client ${intoRef.trim() || "with that ID"}. Use the ID of the record to keep, like ML-CL-00355`);
+      if (into.id === from.id) throw new DomainError("invalid", "Choose the other record, not this one");
+      const result = await clientsRepo.merge(from.id, into.id, actor.staffId ?? null, now, {
+        actor, action: "merge", entity: "client", entityId: from.id, details: { from: from.number, into: into.number },
+      });
+      if (result === "two_case_histories") {
+        throw new DomainError("conflict", "Both records have a case history with notes. Ask the psychologist which one to keep, delete the other's notes, then merge");
+      }
+      return into;
     },
 
     bin: () => clientsRepo.binned(),

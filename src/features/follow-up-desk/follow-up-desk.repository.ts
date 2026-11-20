@@ -162,13 +162,17 @@ export function createFollowUpDeskRepository(db: Db) {
           sql`exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
             where h.client_id = ${client.id} ${staffId ? sql`and n.author_id = ${staffId}` : sql``}
             and n.booking_id is null and n.signed_at is not null and n.session_at <= now())`,
-          // Their own client now (e.g. brought over from MCH or moved from a colleague) who has had therapy with anyone.
+          // Their own client now (e.g. brought over from MCH or moved from a colleague) who has had therapy with anyone,
+          // or whose sessions were before this app: no session here at all, held or booked. Someone whose first session
+          // is still to come is not asked about yet.
           staffId ? sql`exists (select 1 from ${clientTherapist} ct where ct.client_id = ${client.id} and ct.staff_id = ${staffId} and ct.ends_at is null)
             and (exists (select 1 from ${booking} b where b.client_id = ${client.id}
               and (b.status = 'completed' or (b.status = 'upcoming' and b.ends_at <= now())) and not b.slot_released
               and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff'))
             or exists (select 1 from ${sessionNote} n join ${caseHistory} h on h.id = n.case_history_id
-              where h.client_id = ${client.id} and n.signed_at is not null and n.session_at <= now()))` : undefined,
+              where h.client_id = ${client.id} and n.signed_at is not null and n.session_at <= now())
+            or not exists (select 1 from ${booking} b where b.client_id = ${client.id} and b.status <> 'cancelled' and not b.slot_released
+              and b.payment_status <> 'failed' and (b.payment_status <> 'pending' or b.source = 'staff')))` : undefined,
         )))
         .orderBy(asc(client.name))
         .limit(1000);

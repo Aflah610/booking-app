@@ -96,6 +96,16 @@ describe("completed-session eligibility", () => {
     expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).not.toContain(fresh);
   });
 
+  it("counts their own client whose sessions were all before the app (no booking here at all)", async () => {
+    const { asha, book } = await setup();
+    const b = await book(asha.id, "2026-09-24T10:00", "9876500088");
+    // Only the assignment is left: as for a client whose sessions were kept in the old system.
+    await db.update(booking).set({ status: "cancelled" }).where(eq(booking.id, b.id));
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).not.toContain(b.clientId);
+    await c.clients.assignTherapist({}, b.clientId, { staffId: asha.id });
+    expect((await c.followUps.clientsOf(asha.id)).map(c => c.id)).toContain(b.clientId);
+  });
+
   it("counts a confirmed session that is over even if nobody pressed Completed", async () => {
     const { asha, book } = await setup();
     const b = await book(asha.id, "2026-09-25T10:00", "9876500077");

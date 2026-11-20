@@ -304,3 +304,21 @@ describe("deleting a client", () => {
     expect((await c.clients.get(clientId)).id).toBe(clientId);
   });
 });
+
+describe("merging two records of the same person", () => {
+  it("moves bookings and the case history onto the kept record and bins the other", async () => {
+    const svc = await c.catalog.create({}, { name: "Therapy", durationMin: 60 });
+    const asha = await c.staff.create({}, { name: "Asha", email: "asha-merge@firm.test", designation: "Psychologist" });
+    await c.staff.setServices({}, asha.id, [svc.id]);
+    await c.schedules.setWeeklyHours({}, asha.id, [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, startTime: "09:00", endTime: "17:00" })));
+    const now = new Date("2026-10-15T02:30:00Z");
+    const a = (await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: asha.id, start: new Date("2026-10-19T05:00:00Z"), client: { name: "Sujatha", phone: "98765 40000" } }, { now })).booking;
+    const b = (await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: asha.id, start: new Date("2026-10-20T05:00:00Z"), client: { name: "Sujatha", phone: "+44 7700 900123", email: "s@example.com" } }, { now })).booking;
+    const kept = await c.clients.get(a.clientId);
+    await c.clients.merge({}, b.clientId, `ML-CL-${String(kept.number).padStart(5, "0")}`);
+    expect((await c.bookings.get(b.id)).clientId).toBe(a.clientId);
+    expect((await c.clients.get(a.clientId)).email).toBe("s@example.com");
+    await expect(c.clients.get(b.clientId)).rejects.toMatchObject({ code: "not_found" });
+    await expect(c.clients.merge({}, a.clientId, "ML-CL-99999")).rejects.toMatchObject({ code: "not_found" });
+  });
+});

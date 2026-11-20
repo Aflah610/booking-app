@@ -238,6 +238,59 @@ export function createClientsRepository(db: Db) {
       });
     },
 
+    /**
+     * Moves everything of `fromId` onto `intoId` (bookings, payments, credits, wallet, case history, psychologists,
+     * leads, chats, follow-ups), fills the kept record's blanks from the other, and puts the other in the Bin.
+     * Where only one open item may exist per client, the moved one is closed. Two case histories with content can't be
+     * joined: that returns "two_case_histories" and changes nothing.
+     */
+    merge(fromId: string, intoId: string, by: string | null, at: Date, audit: AuditEntry): Promise<"ok" | "two_case_histories"> {
+      return db.transaction(async (tx) => {
+        const one = async (q: ReturnType<typeof sql>) => (await tx.execute(q)).rows[0] as Record<string, unknown> | undefined;
+        const empty = (id: string) => sql`(select h.status = 'intake_pending' and coalesce(trim(h.presenting_complaints), '') = ''
+          and not exists (select 1 from session_note n where n.case_history_id = h.id) from case_history h where h.client_id = ${id})`;
+        const from = await one(sql`select id, ${empty(fromId)} as empty from case_history where client_id = ${fromId}`);
+        const into = await one(sql`select id, ${empty(intoId)} as empty from case_history where client_id = ${intoId}`);
+        if (from && into) {
+          if (from.empty) await tx.execute(sql`delete from case_history where client_id = ${fromId}`);
+          else if (into.empty) await tx.execute(sql`delete from case_history where client_id = ${intoId}`);
+          else return "two_case_histories";
+        }
+        await tx.execute(sql`update case_history set client_id = ${intoId} where client_id = ${fromId}`);
+        // Only one current psychologist, one open lead and one open follow-up per client.
+        await tx.execute(sql`update client_therapist set ends_at = ${at}, reason = coalesce(reason, 'Merged duplicate record')
+          where client_id = ${fromId} and ends_at is null and exists (select 1 from client_therapist x where x.client_id = ${intoId} and x.ends_at is null)`);
+        await tx.execute(sql`update lead set status = 'lost', lost_reason = 'other', closed_at = ${at}
+          where client_id = ${fromId} and status not in ('converted', 'lost', 'junk')
+            and exists (select 1 from lead x where x.client_id = ${intoId} and x.status not in ('converted', 'lost', 'junk'))`);
+        await tx.execute(sql`update follow_up_request set status = 'declined'
+          where client_id = ${fromId} and status not in ('booked', 'declined')
+            and exists (select 1 from follow_up_request x where x.client_id = ${intoId} and x.status not in ('booked', 'declined'))`);
+        for (const table of ["booking", "credit_purchase", "client_package", "wallet_lot", "client_therapist", "lead", "whatsapp_message", "follow_up_request"]) {
+          await tx.execute(sql`update ${sql.identifier(table)} set client_id = ${intoId} where client_id = ${fromId}`);
+        }
+        // The kept record takes any detail it is missing from the other one.
+        await tx.execute(sql`update client k set
+            email = coalesce(k.email, f.email), date_of_birth = coalesce(k.date_of_birth, f.date_of_birth), age = coalesce(k.age, f.age),
+            gender = coalesce(k.gender, f.gender), marital_status = coalesce(k.marital_status, f.marital_status),
+            occupation = coalesce(k.occupation, f.occupation), education = coalesce(k.education, f.education),
+            location = coalesce(k.location, f.location), address = coalesce(k.address, f.address), languages = coalesce(k.languages, f.languages),
+            emergency_name = coalesce(k.emergency_name, f.emergency_name), emergency_relation = coalesce(k.emergency_relation, f.emergency_relation),
+            emergency_phone = coalesce(k.emergency_phone, f.emergency_phone), referral_source = coalesce(k.referral_source, f.referral_source),
+            consent_signed_at = coalesce(k.consent_signed_at, f.consent_signed_at),
+            notes = nullif(concat_ws(E'\n', k.notes, 'Also used mobile ' || f.phone_e164 || ' (merged duplicate record)'), '')
+          from client f where k.id = ${intoId} and f.id = ${fromId}`);
+        await tx.update(client).set({ deletedAt: at, deletedBy: by }).where(eq(client.id, fromId));
+        await writeAudit(tx, audit);
+        return "ok";
+      });
+    },
+
+    async findByNumber(number: number): Promise<ClientDTO | null> {
+      const [row] = await db.select(clientColumns).from(client).where(and(eq(client.number, number), isNull(client.deletedAt)));
+      return row ?? null;
+    },
+
     restore(id: string, audit: AuditEntry) {
       return db.transaction(async (tx) => {
         const rows = await tx.update(client).set({ deletedAt: null, deletedBy: null }).where(and(eq(client.id, id), isNotNull(client.deletedAt))).returning({ id: client.id });

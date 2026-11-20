@@ -8,7 +8,7 @@ import { allowed, requirePermission } from "@/lib/session";
 import { Notice } from "@/components/Notice";
 import { PhoneField } from "@/components/PhoneField";
 import { PageHeader } from "@/components/Shell";
-import { deleteClientAction, updateClientProfileAction } from "../../../actions";
+import { deleteClientAction, mergeClientAction, updateClientProfileAction } from "../../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +114,21 @@ export default async function EditClientPage({
           <Link href={`/admin/clients/${id}`} className="btn-ghost">Cancel</Link>
         </div>
       </form>
+      {allowed(me, "clients.delete") && (
+        <form id="merge" action={mergeClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 p-5">
+          <h2 className="font-semibold">Merge with another record</h2>
+          <p className="text-sm text-zinc-600">
+            For the same person saved twice (for example, booked with two mobile numbers). Everything on {clientReference(c.number)}:
+            bookings, payments, packages, wallet, case history, psychologists, leads and chats, moves to the record you name here.
+            This record then goes to the Bin, and its mobile number is noted on the kept one.
+          </p>
+          <div className="max-w-xs">
+            <label className="label" htmlFor="into">Client ID to keep</label>
+            <input className="input" id="into" name="into" autoComplete="off" required placeholder="ML-CL-00355" />
+          </div>
+          <div><button className="btn" type="submit">Merge into that record</button></div>
+        </form>
+      )}
       {allowed(me, "clients.delete") && (
         <form id="delete" action={deleteClientAction.bind(null, id)} className="card mt-10 grid max-w-3xl gap-3 border-red-200 p-5">
           <h2 className="font-semibold text-red-700">Delete client</h2>

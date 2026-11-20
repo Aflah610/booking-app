@@ -3,6 +3,17 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-20 · Claude Code · Follow-ups for clients from before the app; merge duplicate client records
+
+- A psychologist couldn't pick an assigned client in New follow-up because the client had no booking in the app
+  (sessions before go-live). follow-up-desk clientsOf now also counts a psychologist's own assigned client with no
+  real booking here at all; someone whose first session is still to come is still left out. Test added.
+- Same person saved twice (booked with two mobile numbers): client edit page has "Merge with another record"
+  (clients.delete: admin, manager). clients.merge moves bookings, credit purchases, packages, wallet, case history,
+  psychologist periods, leads, chats and follow-ups onto the kept record; closes the moved open lead, follow-up or
+  psychologist period where the kept one already has one; fills the kept record's blank details and notes the other
+  mobile on it; bins the other record. Refuses if both case histories have content. Test added.
+
 ## 2026-11-19 · Claude Code · CCD can sell packages, also while booking
 
 - New permission packages.sell ("Sell packages": sell a package / add wallet money; packages.manage still edits the
