@@ -3,6 +3,13 @@
 Newest first. One entry per finished piece of work: date, agent, what changed, what is live, what is open.
 The website has its own log in the `mindlap-therapy` repo (`docs/WORKLOG.md`).
 
+## 2026-11-20 · Claude Code · Merge joins two case histories when only one intake is written
+
+- The first real merge was refused: the duplicate's case history had a session note but no intake. clients.merge now
+  keeps the case history with the written intake and moves the other's session notes (renumbered after the kept
+  ones), follow-up suggestions and edit requests onto it, then deletes the empty one. Two written intakes still
+  refuse. Test extended.
+
 ## 2026-11-20 · Claude Code · Follow-ups for clients from before the app; merge duplicate client records
 
 - A psychologist couldn't pick an assigned client in New follow-up because the client had no booking in the app

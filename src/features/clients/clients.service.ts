@@ -94,7 +94,7 @@ export function createClientsService({ clientsRepo }: { clientsRepo: ClientsRepo
         actor, action: "merge", entity: "client", entityId: from.id, details: { from: from.number, into: into.number },
       });
       if (result === "two_case_histories") {
-        throw new DomainError("conflict", "Both records have a case history with notes. Ask the psychologist which one to keep, delete the other's notes, then merge");
+        throw new DomainError("conflict", "Both records have a written intake. Ask the psychologist which one to keep and clear the other intake, then merge");
       }
       return into;
     },

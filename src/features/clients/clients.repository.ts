@@ -246,15 +246,23 @@ export function createClientsRepository(db: Db) {
      */
     merge(fromId: string, intoId: string, by: string | null, at: Date, audit: AuditEntry): Promise<"ok" | "two_case_histories"> {
       return db.transaction(async (tx) => {
-        const one = async (q: ReturnType<typeof sql>) => (await tx.execute(q)).rows[0] as Record<string, unknown> | undefined;
-        const empty = (id: string) => sql`(select h.status = 'intake_pending' and coalesce(trim(h.presenting_complaints), '') = ''
-          and not exists (select 1 from session_note n where n.case_history_id = h.id) from case_history h where h.client_id = ${id})`;
-        const from = await one(sql`select id, ${empty(fromId)} as empty from case_history where client_id = ${fromId}`);
-        const into = await one(sql`select id, ${empty(intoId)} as empty from case_history where client_id = ${intoId}`);
+        const one = async (q: ReturnType<typeof sql>) => (await tx.execute(q)).rows[0] as { id: string; blank: boolean } | undefined;
+        // An intake nobody has written yet (session notes may still hang off it).
+        const caseOf = (id: string) => one(sql`select id, (status = 'intake_pending' and coalesce(trim(presenting_complaints), '') = '') as blank
+          from case_history where client_id = ${id}`);
+        const from = await caseOf(fromId);
+        const into = await caseOf(intoId);
         if (from && into) {
-          if (from.empty) await tx.execute(sql`delete from case_history where client_id = ${fromId}`);
-          else if (into.empty) await tx.execute(sql`delete from case_history where client_id = ${intoId}`);
-          else return "two_case_histories";
+          // Keep the case history whose intake is written; the other's session notes, follow-up suggestions and edit
+          // requests move onto it (notes numbered after the kept ones), then it goes. Two written intakes can't be joined.
+          const [keep, drop] = from.blank ? [into, from] : into.blank ? [from, into] : [null, null];
+          if (!keep || !drop) return "two_case_histories";
+          await tx.execute(sql`update session_note set case_history_id = ${keep.id},
+            number = number + (select coalesce(max(k.number), 0) from session_note k where k.case_history_id = ${keep.id})
+            where case_history_id = ${drop.id}`);
+          await tx.execute(sql`update follow_up set case_history_id = ${keep.id} where case_history_id = ${drop.id}`);
+          await tx.execute(sql`update case_edit_request set case_history_id = ${keep.id} where case_history_id = ${drop.id}`);
+          await tx.execute(sql`delete from case_history where id = ${drop.id}`);
         }
         await tx.execute(sql`update case_history set client_id = ${intoId} where client_id = ${fromId}`);
         // Only one current psychologist, one open lead and one open follow-up per client.

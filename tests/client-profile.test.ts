@@ -315,7 +315,13 @@ describe("merging two records of the same person", () => {
     const a = (await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: asha.id, start: new Date("2026-10-19T05:00:00Z"), client: { name: "Sujatha", phone: "98765 40000" } }, { now })).booking;
     const b = (await c.bookings.create({ mode: "staff" }, { serviceId: svc.id, staffId: asha.id, start: new Date("2026-10-20T05:00:00Z"), client: { name: "Sujatha", phone: "+44 7700 900123", email: "s@example.com" } }, { now })).booking;
     const kept = await c.clients.get(a.clientId);
+    // Both have a case history: the kept one with a written intake and a note, the other with only a session note.
+    const [keptCase] = await db.execute(sql`insert into case_history (client_id, status, presenting_complaints) values (${a.clientId}, 'in_treatment', 'Low mood') returning id`).then((r) => r.rows as { id: string }[]);
+    const [otherCase] = await db.execute(sql`insert into case_history (client_id) values (${b.clientId}) returning id`).then((r) => r.rows as { id: string }[]);
+    await db.execute(sql`insert into session_note (case_history_id, author_id, number, session_at, summary) values (${keptCase.id}, ${asha.id}, 1, now(), 'First'), (${otherCase.id}, ${asha.id}, 1, now(), 'Second')`);
     await c.clients.merge({}, b.clientId, `ML-CL-${String(kept.number).padStart(5, "0")}`);
+    const notes = await db.execute(sql`select number, summary from session_note where case_history_id = ${keptCase.id} order by number`);
+    expect(notes.rows).toEqual([{ number: 1, summary: "First" }, { number: 2, summary: "Second" }]);
     expect((await c.bookings.get(b.id)).clientId).toBe(a.clientId);
     expect((await c.clients.get(a.clientId)).email).toBe("s@example.com");
     await expect(c.clients.get(b.clientId)).rejects.toMatchObject({ code: "not_found" });
